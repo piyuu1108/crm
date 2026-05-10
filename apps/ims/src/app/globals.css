@@ -1,0 +1,483 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+@theme inline {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --color-primary: oklch(0.50 0.14 250);
+  --color-primary-light: oklch(0.92 0.04 250);
+  --color-background: #f5f5f5;
+  --color-surface: #ffffff;
+  --color-surface-alt: oklch(0.97 0.005 260);
+  --color-accent: oklch(0.50 0.14 250);
+  --color-accent-light: oklch(0.92 0.04 250);
+  --color-danger: oklch(0.58 0.18 25);
+  --color-danger-light: oklch(0.92 0.05 25);
+  --color-warning: oklch(0.72 0.15 80);
+  --color-warning-light: oklch(0.94 0.05 80);
+  --color-success: oklch(0.60 0.15 145);
+  --color-muted: oklch(0.55 0.02 260);
+  --color-border: #e5e5e5;
+  --color-sidebar-bg: #f5f5f5;
+  --color-sidebar-hover: oklch(0.94 0.01 250);
+  --color-sidebar-active: #ffffff;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+/* ─── Override HeroUI accent to match our primary blue ───── */
+:root {
+  --accent: oklch(0.50 0.14 250);
+  --accent-foreground: oklch(0.99 0 0);
+  --focus: oklch(0.50 0.14 250);
+}
+
+body {
+  background: var(--color-background);
+  color: oklch(0.20 0.02 260);
+  font-family: var(--font-sans);
+}
+
+/* ─── Remove Number Input Spinners Globally ──────────────── */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ─── Login Page Background ───────────────────────────────── */
+.login-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, oklch(0.92 0.06 250 / 0.5) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, oklch(0.94 0.04 160 / 0.4) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 100%, oklch(0.95 0.03 80 / 0.3) 0%, transparent 50%),
+    var(--color-surface);
+}
+
+/* ─── Assignment Matrix Cells ─────────────────────────────── */
+.matrix-cell {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.1s ease;
+}
+
+.matrix-cell:focus-within {
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+  outline: none;
+}
+
+.matrix-cell--blocked {
+  background: repeating-linear-gradient(
+    45deg,
+    oklch(0.96 0.005 260),
+    oklch(0.96 0.005 260) 4px,
+    oklch(0.98 0.005 260) 4px,
+    oklch(0.98 0.005 260) 8px
+  );
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ─── Workload Bar ────────────────────────────────────────── */
+.workload-bar {
+  height: 2px;
+  background: var(--color-border);
+  overflow: hidden;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.workload-bar__fill {
+  height: 100%;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.workload-bar__fill--low {
+  background: var(--color-success);
+}
+
+.workload-bar__fill--mid {
+  background: var(--color-warning);
+}
+
+.workload-bar__fill--high {
+  background: var(--color-danger);
+}
+
+/* ─── Compact Table Styles ────────────────────────────────── */
+.compact-table th,
+.compact-table td {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.compact-table th {
+  font-weight: 600;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 11px;
+}
+
+/* ─── Sidebar ─────────────────────────────────────────────── */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: oklch(0.35 0.02 260);
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.sidebar-link:hover {
+  background: var(--color-sidebar-hover);
+  color: oklch(0.20 0.02 260);
+}
+
+.sidebar-link--active {
+  background: var(--color-sidebar-active);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ─── Tooltips ────────────────────────────────────────────── */
+.info-tooltip {
+  max-width: 280px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ─── Global Overrides ────────────────────────────────────── */
+[data-slot="card"], 
+.heroui-modal, 
+.heroui-popover-content {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ─── Modal Spacing Improvements ──────────────────────────── */
+[data-slot="modal-body"] {
+  padding: 1.25rem 1.5rem;
+}
+
+[data-slot="modal-header"] {
+  padding: 1.25rem 1.5rem 0.75rem;
+}
+
+[data-slot="modal-footer"] {
+  padding: 0.75rem 1.5rem 1.25rem;
+  gap: 0.5rem;
+}
+
+/* ─── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.80 0.01 260);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.01 260);
+}
+
+/* ─── Timetable — Wrapper ────────────────────────────────── */
+.tt-wrapper {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.tt-header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-alt);
+}
+
+.tt-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: oklch(0.18 0.02 260);
+}
+
+.tt-scroll {
+  overflow-x: auto;
+}
+
+/* ─── Timetable — Table ──────────────────────────────────── */
+.tt-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  min-width: 660px;
+}
+
+/* ─── Column headers (Days) ──────────────────────────────── */
+.tt-corner {
+  width: 100px;
+  background: var(--color-surface-alt);
+  border-bottom: 2px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+}
+
+.tt-day-col {
+  padding: 12px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  color: oklch(0.30 0.02 260);
+  background: var(--color-surface-alt);
+  border-bottom: 2px solid var(--color-border);
+  border-right: 1px solid oklch(0.94 0.005 260);
+  letter-spacing: 0.01em;
+}
+
+.tt-day-col:last-child {
+  border-right: none;
+}
+
+.tt-day-short { display: none; }
+.tt-day-full  { display: inline; }
+
+@media (max-width: 800px) {
+  .tt-day-short { display: inline; }
+  .tt-day-full  { display: none; }
+}
+
+/* ─── Row headers (Lectures) ─────────────────────────────── */
+.tt-slot-label {
+  padding: 0 14px;
+  width: 100px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid oklch(0.95 0.005 260);
+  vertical-align: middle;
+}
+
+.tt-slot-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: oklch(0.45 0.02 260);
+  white-space: nowrap;
+}
+
+/* ─── Cells ──────────────────────────────────────────────── */
+.tt-cell {
+  padding: 5px;
+  border-bottom: 1px solid oklch(0.95 0.005 260);
+  border-right: 1px solid oklch(0.95 0.005 260);
+  height: 68px;
+  vertical-align: middle;
+  text-align: center;
+  transition: box-shadow 0.15s ease;
+}
+
+.tt-cell:last-child {
+  border-right: none;
+}
+
+.tt-cell--theory,
+.tt-cell--lab {
+  background: var(--cell-bg, #f0f4f8);
+}
+
+.tt-cell--lab {
+  position: relative;
+}
+
+.tt-cell--lab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--cell-accent, #4285f4);
+}
+
+.tt-cell--empty {
+  background: oklch(0.99 0 0);
+}
+
+.tt-cell:hover:not(.tt-cell--empty) {
+  box-shadow: inset 0 0 0 1.5px var(--cell-accent, oklch(0.65 0.08 250));
+}
+
+/* ─── Card inside cell ───────────────────────────────────── */
+.tt-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  padding: 2px 4px;
+}
+
+/* Subject badge (LAB-1, LAB-2, etc.) */
+.tt-badge {
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cell-accent, #4285f4);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--cell-accent, #4285f4);
+  line-height: 1.4;
+}
+
+.tt-subject {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cell-text, #1a1a2e);
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tt-faculty {
+  font-size: 11px;
+  font-weight: 500;
+  color: oklch(0.50 0.02 260);
+}
+
+.tt-duration {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--cell-accent, #4285f4);
+  margin-top: 1px;
+}
+
+.tt-empty {
+  color: oklch(0.85 0.01 260);
+  font-size: 14px;
+  user-select: none;
+}
+
+/* ─── Row hover ──────────────────────────────────────────── */
+.tt-table tbody tr:hover .tt-slot-label {
+  background: oklch(0.97 0.01 250);
+}
+
+.tt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ─── Manual Timetable Builder ───────────────────────────── */
+.mtt-cell--clickable {
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.mtt-cell--clickable:hover {
+  box-shadow: inset 0 0 0 1.5px var(--color-primary);
+}
+
+.mtt-cell--conflict {
+  box-shadow: inset 0 0 0 2px var(--color-danger) !important;
+  position: relative;
+}
+
+.mtt-add-hint {
+  color: oklch(0.75 0.01 260);
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.mtt-cell--clickable:hover .mtt-add-hint {
+  opacity: 1;
+}
+
+.mtt-conflict-icon {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  color: var(--color-danger);
+  line-height: 1;
+  cursor: default;
+}
+
+/* ─── Drag-and-Drop States ───────────────────────────────── */
+.mtt-cell--dragging {
+  opacity: 0.35;
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+}
+
+.mtt-cell--drop-target {
+  box-shadow: inset 0 0 0 2px var(--color-accent) !important;
+  background: oklch(0.95 0.04 250) !important;
+}
+
+.mtt-cell--drop-target .mtt-add-hint {
+  opacity: 1;
+  color: var(--color-accent);
+}
+
+.mtt-drag-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px 16px;
+  min-width: 80px;
+  background: var(--cell-bg, #e8f0fe);
+  border: 2px solid var(--cell-accent, #4285f4);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15), 0 2px 6px rgb(0 0 0 / 0.08);
+  cursor: grabbing;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.mtt-droppable-wrapper {
+  display: contents;
+}
+
+/* Grab cursor on filled cells */
+.mtt-cell--clickable:not(.tt-cell--empty) .tt-card {
+  cursor: grab;
+}
+
+.mtt-cell--clickable:not(.tt-cell--empty) .tt-card:active {
+  cursor: grabbing;
+}

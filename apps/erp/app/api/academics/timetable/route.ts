@@ -1,0 +1,163 @@
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/app/lib/auth";
+import { db } from "@/app/lib/db";
+import {
+  students,
+  timetableEntries,
+  divisions,
+  faculty,
+  counselorDivisionAssignments,
+  facultySubjectAssignments
+} from "@/app/lib/schema";
+import { eq, and, sql } from "drizzle-orm";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+function ok(data: unknown) {
+  return NextResponse.json({ success: true, data });
+}
+function err(message: string, status: number) {
+  return NextResponse.json({ success: false, error: message }, { status });
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) return err("Unauthorized", 401);
+
+    const payload = await verifyToken(token);
+    if (!payload) return err("Unauthorized: invalid session", 401);
+
+    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+    if (rolesArray.length === 0) return err("Forbidden", 403);
+
+    const requestedRole = req.headers.get("X-Active-Role") ?? req.nextUrl.searchParams.get("role") ?? null;
+    let activeRole: string;
+    const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"];
+    if (requestedRole) {
+      if (!rolesArray.includes(requestedRole)) return err("Forbidden: role not assigned", 403);
+      activeRole = requestedRole;
+    } else {
+      activeRole = ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    }
+
+    if (activeRole === "student") {
+      const [student] = await db
+        .select({
+          divisionId: students.currentDivisionId,
+          semesterId: divisions.semesterId,
+          publishStatus: divisions.publishStatus,
+          divisionName: students.currentDivisionName
+        })
+        .from(students)
+        .leftJoin(divisions, eq(divisions.id, students.currentDivisionId))
+        .where(eq(students.id, payload.userId))
+        .limit(1);
+
+      if (!student || !student.divisionId) {
+        return ok({ role: "student", isPublished: false, entries: [], divisionName: "" });
+      }
+
+      if (student.publishStatus !== "published") {
+        return ok({ role: "student", isPublished: false, entries: [], divisionName: student.divisionName });
+      }
+
+      const entries = await db
+        .select({
+          id: timetableEntries.id,
+          dayOfWeek: timetableEntries.dayOfWeek,
+          startTime: timetableEntries.startTime,
+          endTime: timetableEntries.endTime,
+          subjectName: timetableEntries.subjectName,
+          facultyName: timetableEntries.facultyName,
+          divisionName: timetableEntries.divisionName,
+          color: timetableEntries.color,
+          isLab: timetableEntries.isLab,
+          labId: timetableEntries.labId,
+        })
+        .from(timetableEntries)
+        .where(
+          and(
+            eq(timetableEntries.divisionId, student.divisionId),
+            eq(timetableEntries.semesterId, student.semesterId!),
+            eq(timetableEntries.isActive, true)
+          )
+        );
+
+      return ok({ role: "student", isPublished: true, entries, divisionName: student.divisionName });
+
+    } else if (activeRole === "faculty" || activeRole === "hod") {
+      const entries = await db
+        .select({
+          id: timetableEntries.id,
+          dayOfWeek: timetableEntries.dayOfWeek,
+          startTime: timetableEntries.startTime,
+          endTime: timetableEntries.endTime,
+          subjectName: timetableEntries.subjectName,
+          facultyName: timetableEntries.facultyName,
+          divisionName: timetableEntries.divisionName,
+          color: timetableEntries.color,
+          isLab: timetableEntries.isLab,
+          labId: timetableEntries.labId,
+        })
+        .from(timetableEntries)
+        .innerJoin(
+          facultySubjectAssignments,
+          eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+        )
+        .where(
+          and(
+            eq(facultySubjectAssignments.facultyId, payload.userId),
+            eq(timetableEntries.isActive, true)
+          )
+        );
+
+      return ok({ role: "faculty", entries });
+
+    } else if (activeRole === "counselor") {
+      const assignments = await db
+        .select({ divisionId: counselorDivisionAssignments.divisionId, semesterId: counselorDivisionAssignments.semesterId, divisionName: counselorDivisionAssignments.divisionName })
+        .from(counselorDivisionAssignments)
+        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+
+      if (assignments.length === 0) {
+        return ok({ role: "counselor", entries: [], divisionName: "" });
+      }
+
+      const divisionIds = assignments.map(a => a.divisionId);
+      const divisionNames = assignments.map(a => a.divisionName).join(", ");
+      
+      const entries = await db
+        .select({
+          id: timetableEntries.id,
+          dayOfWeek: timetableEntries.dayOfWeek,
+          startTime: timetableEntries.startTime,
+          endTime: timetableEntries.endTime,
+          subjectName: timetableEntries.subjectName,
+          facultyName: timetableEntries.facultyName,
+          divisionName: timetableEntries.divisionName,
+          color: timetableEntries.color,
+          isLab: timetableEntries.isLab,
+          labId: timetableEntries.labId,
+        })
+        .from(timetableEntries)
+        .where(
+          and(
+            sql`${timetableEntries.divisionId} IN (${sql.join(divisionIds.map(id => sql`${id}`), sql`, `)})`,
+            eq(timetableEntries.isActive, true)
+          )
+        );
+
+      return ok({ role: "counselor", entries, divisionName: divisionNames });
+
+    }
+
+    return err("Invalid role", 400);
+  } catch (error) {
+    console.error("[GET /api/academics/timetable]", error);
+    return err("Internal server error", 500);
+  }
+}

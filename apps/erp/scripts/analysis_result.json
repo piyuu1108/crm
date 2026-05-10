@@ -1,0 +1,122 @@
+{
+  "totalRoutes": 16,
+  "totalApis": 40,
+  "totalComponentsAnalyzed": 27,
+  "dbQueryCount": 11,
+  "nPlusOneCandidates": [
+    "app\\api\\admin\\assignments\\route.ts",
+    "app\\api\\dashboard\\route.ts",
+    "app\\api\\subjects\\route.ts"
+  ],
+  "overfetchingCandidates": [
+    "app\\api\\admin\\assignments\\route.ts",
+    "app\\api\\admin\\subject-assignments\\route.ts",
+    "app\\api\\subjects\\route.ts"
+  ],
+  "largeFiles": [
+    {
+      "file": "app\\app\\admin\\divisions\\[id]\\page.tsx",
+      "lines": 758
+    },
+    {
+      "file": "app\\app\\profile\\_components\\faculty-profile-stepper.tsx",
+      "lines": 716
+    },
+    {
+      "file": "app\\app\\admin\\timetable\\page.tsx",
+      "lines": 617
+    },
+    {
+      "file": "app\\app\\counselor\\divisions\\[id]\\page.tsx",
+      "lines": 590
+    },
+    {
+      "file": "app\\api\\dashboard\\route.ts",
+      "lines": 533
+    },
+    {
+      "file": "app\\app\\admin\\timetable\\slot-modal.tsx",
+      "lines": 455
+    },
+    {
+      "file": "app\\app\\admin\\subjects\\add\\page.tsx",
+      "lines": 444
+    },
+    {
+      "file": "app\\lib\\queries\\divisions.ts",
+      "lines": 429
+    },
+    {
+      "file": "app\\api\\faculty\\profile\\route.ts",
+      "lines": 427
+    },
+    {
+      "file": "app\\app\\admin\\faculty\\page.tsx",
+      "lines": 389
+    }
+  ],
+  "topHookIssues": [
+    {
+      "file": "components\\auth\\auth-hydrator.tsx",
+      "issue": "Multiple useEffects (>2) - possible re-render risk"
+    }
+  ],
+  "missingMemo": [
+    "app\\app\\academics\\timetable\\page.tsx",
+    "app\\app\\admin\\assignments\\page.tsx",
+    "app\\app\\admin\\divisions\\page.tsx",
+    "app\\app\\admin\\divisions\\[id]\\page.tsx",
+    "app\\app\\admin\\faculty\\page.tsx",
+    "app\\app\\admin\\subject-assignments\\page.tsx",
+    "app\\app\\admin\\subjects\\add\\page.tsx",
+    "app\\app\\admin\\timetable\\page.tsx",
+    "app\\app\\counselor\\divisions\\[id]\\page.tsx",
+    "app\\app\\dashboard\\page.tsx"
+  ],
+  "dbQueriesBreakdown": [
+    {
+      "file": "app\\api\\admin\\assignments\\route.ts",
+      "selects": 3,
+      "queries": 0
+    },
+    {
+      "file": "app\\api\\admin\\subject-assignments\\route.ts",
+      "selects": 3,
+      "queries": 0
+    },
+    {
+      "file": "app\\api\\subjects\\route.ts",
+      "selects": 3,
+      "queries": 0
+    },
+    {
+      "file": "app\\api\\dashboard\\route.ts",
+      "selects": 2,
+      "queries": 0
+    }
+  ],
+  "apiUsage": {
+    "useReadonlyTimetableQuery(": 1,
+    "useAssignmentsQuery(": 2,
+    "useDivisionListQuery(": 1,
+    "useDivisionDetailQuery(": 1,
+    "useNextStudentIdQuery(": 1,
+    "useAdminEmailJobProgressQuery(": 1,
+    "useAdminStudentDetailQuery(": 1,
+    "useFacultyListQuery(": 1,
+    "useSubjectAssignmentsQuery(": 2,
+    "useTimetableDivisionsQuery(": 1,
+    "useTimetableGridQuery(": 1,
+    "useCounselorDivisionsQuery(": 1,
+    "useCounselorDivisionDetailQuery(": 1,
+    "useCounselorNextStudentIdQuery(": 1,
+    "useCounselorEmailJobProgressQuery(": 1,
+    "useCounselorStudentDetailQuery(": 1,
+    "useDashboardQuery(": 1,
+    "useSubjectsListQuery(": 1,
+    "useSubjectDetailQuery(": 1,
+    "useFacultyProfileQuery(": 1,
+    "useProfileQuery(": 1,
+    "useAuthMeQuery(": 1
+  }
+}

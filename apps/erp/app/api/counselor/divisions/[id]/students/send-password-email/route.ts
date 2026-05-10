@@ -1,0 +1,96 @@
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { and, eq } from "drizzle-orm";
+import { verifyToken } from "@/app/lib/auth";
+import { db } from "@/app/lib/db";
+import { counselorDivisionAssignments, divisions, students } from "@/app/lib/schema";
+import { sendPasswordEmail } from "@/app/lib/email/service";
+
+function ok(data: unknown) {
+  return NextResponse.json({ success: true, data }, { status: 200 });
+}
+
+function err(message: string, status: number) {
+  return NextResponse.json({ success: false, error: message }, { status });
+}
+
+async function authorize(divisionId: number) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("auth_token")?.value;
+  if (!token) return { error: err("Unauthorized", 401) };
+
+  const payload = await verifyToken(token);
+  if (!payload) return { error: err("Unauthorized: invalid session", 401) };
+
+  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  if (!rolesArray.includes("counselor")) return { error: err("Forbidden", 403) };
+
+  // Verify assignment — scoped to the division's current semester
+  const [assignment] = await db
+    .select({ id: counselorDivisionAssignments.id })
+    .from(counselorDivisionAssignments)
+    .innerJoin(divisions, and(
+      eq(counselorDivisionAssignments.divisionId, divisions.id),
+      eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
+    ))
+    .where(
+      and(
+        eq(counselorDivisionAssignments.facultyId, payload.userId),
+        eq(counselorDivisionAssignments.divisionId, divisionId)
+      )
+    )
+    .limit(1);
+
+  if (!assignment) return { error: err("Forbidden", 403) };
+  return { payload };
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: idStr } = await params;
+    const divisionId = Number.parseInt(idStr, 10);
+    if (!Number.isFinite(divisionId)) return err("Invalid division ID", 400);
+
+    const auth = await authorize(divisionId);
+    if ("error" in auth && auth.error) return auth.error;
+
+    const body = (await req.json().catch(() => ({}))) as { studentDbId?: number };
+    const studentDbId = Number(body.studentDbId);
+    if (!Number.isFinite(studentDbId)) return err("studentDbId is required", 400);
+
+    const [student] = await db
+      .select({
+        id: students.id,
+        studentId: students.studentId,
+        fullName: students.fullName,
+        email: students.email,
+      })
+      .from(students)
+      .where(
+        and(eq(students.id, studentDbId), eq(students.currentDivisionId, divisionId))
+      )
+      .limit(1);
+
+    if (!student) return err("Student not found in this division", 404);
+    if (!student.studentId) return err("Student ID is not assigned", 400);
+
+    const result = await sendPasswordEmail({
+      studentDbId: student.id,
+      studentId: student.studentId,
+      fullName: student.fullName,
+      email: student.email,
+    });
+
+    if (!result.success) {
+      return err(result.error ?? "Failed to send password email", 500);
+    }
+
+    return ok({ sent: true });
+  } catch (error) {
+    console.error("[POST counselor single password email] Error:", error);
+    return err("Internal server error", 500);
+  }
+}

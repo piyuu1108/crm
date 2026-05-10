@@ -1,0 +1,197 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* Smooth transitions when theme changes */
+body {
+  font-family: var(--font-inter), Inter, Arial, Helvetica, sans-serif;
+  transition:
+    background-color 0.3s ease,
+    color 0.2s ease;
+}
+
+/* ── Hue slider (accent color picker) ── */
+.accent-hue-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.accent-hue-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+/* ── Base lightness slider ── */
+.base-lightness-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+.base-lightness-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  border: 3px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* GLASSMORPHISM THEME                                                       */
+/* Activated when --glass-active is set (preset === "glassmorphism")          */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Animated gradient background with floating color orbs ── */
+html:has([style*="--glass-active"]) body,
+html[style*="--glass-active"] body {
+  background:
+    radial-gradient(ellipse 600px 600px at 20% 30%, oklch(0.85 0.08 var(--accent-hue, 250) / 0.25), transparent),
+    radial-gradient(ellipse 500px 500px at 75% 20%, oklch(0.88 0.06 calc(var(--accent-hue, 250) + 60) / 0.2), transparent),
+    radial-gradient(ellipse 400px 400px at 50% 80%, oklch(0.82 0.07 calc(var(--accent-hue, 250) + 120) / 0.15), transparent),
+    var(--background, oklch(0.95 0 0)) !important;
+  background-attachment: fixed !important;
+  min-height: 100vh;
+}
+
+/* ── Global glass backdrop-filter for surface-like elements ── */
+html[style*="--glass-active"] .card,
+html[style*="--glass-active"] [class*="card"],
+html[style*="--glass-active"] [data-slot="base"],
+html[style*="--glass-active"] [data-slot="content"],
+html[style*="--glass-active"] .surface,
+html[style*="--glass-active"] [class*="surface"] {
+  -webkit-backdrop-filter: blur(var(--glass-blur, 20px)) saturate(var(--glass-saturation, 200%));
+  backdrop-filter: blur(var(--glass-blur, 20px)) saturate(var(--glass-saturation, 200%));
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--surface-shadow) !important;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease !important;
+}
+
+/* ── Hover lift effect on glass cards ── */
+html[style*="--glass-active"] .card:hover,
+html[style*="--glass-active"] [class*="card"]:hover,
+html[style*="--glass-active"] [data-slot="base"]:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    var(--surface-shadow),
+    0 12px 40px -8px oklch(0.5 0.06 var(--accent-hue, 250) / 0.18) !important;
+}
+
+/* ── Glass overlays (modals, popovers, dropdowns) ── */
+html[style*="--glass-active"] [data-slot="dialog"],
+html[style*="--glass-active"] [data-slot="popover"],
+html[style*="--glass-active"] [role="dialog"],
+html[style*="--glass-active"] [role="menu"] {
+  -webkit-backdrop-filter: blur(24px) saturate(220%);
+  backdrop-filter: blur(24px) saturate(220%);
+  background: var(--overlay) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--overlay-shadow) !important;
+}
+
+/* ── Glass inputs & fields ── */
+html[style*="--glass-active"] input,
+html[style*="--glass-active"] textarea,
+html[style*="--glass-active"] select,
+html[style*="--glass-active"] [data-slot="input"],
+html[style*="--glass-active"] [data-slot="textarea"],
+html[style*="--glass-active"] [class*="input-group"] {
+  -webkit-backdrop-filter: blur(12px) saturate(var(--glass-saturation, 200%));
+  backdrop-filter: blur(12px) saturate(var(--glass-saturation, 200%));
+  background: var(--field-background) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--field-shadow) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+}
+
+html[style*="--glass-active"] input:focus,
+html[style*="--glass-active"] textarea:focus,
+html[style*="--glass-active"] [data-slot="input"]:focus {
+  background: oklch(1 0 0 / 0.6) !important;
+  border-color: var(--accent) !important;
+  box-shadow:
+    var(--field-shadow),
+    0 0 0 3px oklch(from var(--accent) l c h / 0.15) !important;
+}
+
+/* ── Glass buttons (secondary / outlined variants) ── */
+html[style*="--glass-active"] button[class*="secondary"],
+html[style*="--glass-active"] button[class*="tertiary"],
+html[style*="--glass-active"] button[class*="outline"] {
+  -webkit-backdrop-filter: blur(8px) saturate(180%);
+  backdrop-filter: blur(8px) saturate(180%);
+  background: oklch(1 0 0 / 0.35) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.5) !important;
+  transition: all 0.2s ease !important;
+}
+
+html[style*="--glass-active"] button[class*="secondary"]:hover,
+html[style*="--glass-active"] button[class*="tertiary"]:hover,
+html[style*="--glass-active"] button[class*="outline"]:hover {
+  background: oklch(1 0 0 / 0.55) !important;
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 0.6),
+    0 4px 16px oklch(0 0 0 / 0.08) !important;
+}
+
+/* ── Noise texture overlay for realism ── */
+html[style*="--glass-active"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  mix-blend-mode: overlay;
+}
+
+/* ── Separator / Divider glassmorphism treatment ── */
+html[style*="--glass-active"] hr,
+html[style*="--glass-active"] [data-slot="separator"],
+html[style*="--glass-active"] [class*="separator"] {
+  border-color: var(--separator) !important;
+  background: linear-gradient(90deg, transparent, var(--separator), transparent) !important;
+  height: 1px;
+  border: none !important;
+}
+
+/* ── Chip / Badge glass treatment ── */
+html[style*="--glass-active"] [class*="chip"],
+html[style*="--glass-active"] [data-slot="chip"] {
+  -webkit-backdrop-filter: blur(6px) saturate(160%);
+  backdrop-filter: blur(6px) saturate(160%);
+  background: oklch(1 0 0 / 0.3) !important;
+  border: 1px solid oklch(1 0 0 / 0.4) !important;
+}
+
+/* ── Smooth transitions for theme switching ── */
+html[style*="--glass-active"] * {
+  transition-property: background-color, border-color, box-shadow, backdrop-filter;
+  transition-duration: 0.3s;
+  transition-timing-function: ease;
+}
+

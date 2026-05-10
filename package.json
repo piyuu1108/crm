@@ -1,0 +1,16 @@
+{
+  "name": "mono",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev:erp": "cd apps/erp && pnpm run dev",
+    "dev:ims": "cd apps/ims && pnpm run dev",
+    "dev": "concurrently \"pnpm run dev:erp\" \"pnpm run dev:ims\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.33.2"
+}

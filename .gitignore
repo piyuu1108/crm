@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+
+# package manager
+.pnpm-store/
+.npm/
+.yarn/
+bun.lockb
+
+# build outputs
+dist/
+build/
+.next/
+out/
+coverage/
+target/
+
+# env files
+.env
+.env.*
+!.env.example
+
+# logs
+logs/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# turbo / nx
+.turbo/
+nx-cache/
+
+# typescript
+*.tsbuildinfo

@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1777554997039,
+      "tag": "0000_medical_phantom_reporter",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777610167985,
+      "tag": "0001_ambiguous_wendigo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777619000000,
+      "tag": "0002_faculty_profile_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777625108674,
+      "tag": "0003_fancy_cerebro",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777903942819,
+      "tag": "0004_circulars",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777916505273,
+      "tag": "0005_foamy_hulk",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778393503239,
+      "tag": "0006_wakeful_marauders",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778394800979,
+      "tag": "0007_mysterious_lenny_balinger",
+      "breakpoints": true
+    }
+  ]
+}

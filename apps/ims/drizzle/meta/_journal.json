@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1778089059171,
+      "tag": "0000_fix_assignment_unique_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778158632225,
+      "tag": "0001_low_magdalene",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778160264162,
+      "tag": "0002_careful_toro",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778222559790,
+      "tag": "0003_brave_black_tom",
+      "breakpoints": true
+    }
+  ]
+}

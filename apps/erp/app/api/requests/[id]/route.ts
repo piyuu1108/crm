@@ -1,0 +1,181 @@
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { verifyToken } from "@/app/lib/auth";
+import { db } from "@/app/lib/db";
+import { studentRequests } from "@/app/lib/schema";
+import { eq, and } from "drizzle-orm";
+
+/**
+ * GET /api/requests/[id]
+ *
+ * Returns full request detail.
+ * Access: the student who created it OR the target faculty.
+ */
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: rawId } = await params;
+    const id = parseInt(rawId, 10);
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid request ID" },
+        { status: 400 }
+      );
+    }
+
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: invalid session" },
+        { status: 401 }
+      );
+    }
+
+    const [request] = await db
+      .select()
+      .from(studentRequests)
+      .where(eq(studentRequests.id, id));
+
+    if (!request) {
+      return NextResponse.json(
+        { success: false, error: "Request not found" },
+        { status: 404 }
+      );
+    }
+
+    // Access control: student who created OR target faculty
+    const roles = Array.isArray(payload.roles) ? payload.roles : [];
+    const isOwnerStudent = roles.includes("student") && request.studentId === payload.userId;
+    const isTargetFaculty =
+      (roles.includes("faculty") || roles.includes("hod") || roles.includes("counselor")) &&
+      request.targetFacultyId === payload.userId;
+
+    if (!isOwnerStudent && !isTargetFaculty) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: you don't have access to this request" },
+        { status: 403 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: request,
+    });
+  } catch (error) {
+    console.error("[GET /api/requests/[id]]", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch request" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/requests/[id]
+ *
+ * Updates request status (approve / reject).
+ * Only the target faculty can update status.
+ * Body: { status: "approved" | "rejected", remarks?: string }
+ */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: rawId } = await params;
+    const id = parseInt(rawId, 10);
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid request ID" },
+        { status: 400 }
+      );
+    }
+
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    if (!token) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: invalid session" },
+        { status: 401 }
+      );
+    }
+
+    const roles = Array.isArray(payload.roles) ? payload.roles : [];
+    if (!roles.includes("faculty") && !roles.includes("hod") && !roles.includes("counselor")) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: faculty role required" },
+        { status: 403 }
+      );
+    }
+
+    // Verify request exists and belongs to this faculty
+    const [request] = await db
+      .select()
+      .from(studentRequests)
+      .where(eq(studentRequests.id, id));
+
+    if (!request) {
+      return NextResponse.json(
+        { success: false, error: "Request not found" },
+        { status: 404 }
+      );
+    }
+
+    if (request.targetFacultyId !== payload.userId) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden: this request is not assigned to you" },
+        { status: 403 }
+      );
+    }
+
+    const body = await req.json();
+    const { status, remarks } = body;
+
+    if (!status || !["approved", "rejected"].includes(status)) {
+      return NextResponse.json(
+        { success: false, error: "Status must be 'approved' or 'rejected'" },
+        { status: 400 }
+      );
+    }
+
+    const [updated] = await db
+      .update(studentRequests)
+      .set({
+        status,
+        remarks: remarks || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(studentRequests.id, id))
+      .returning();
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+    });
+  } catch (error) {
+    console.error("[PATCH /api/requests/[id]]", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to update request" },
+      { status: 500 }
+    );
+  }
+}

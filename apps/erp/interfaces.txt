@@ -1,0 +1,1410 @@
+
+===== P:\02_projects\erp\apps\client\.next\dev\types\routes.d.ts =====
+
+--- Interface 1 ---
+interface ParamMap {
+  "/": {}
+
+--- Interface 2 ---
+interface LayoutSlotMap {
+  "/": never
+  "/app": never
+}
+
+--- Interface 3 ---
+interface PageProps<AppRoute extends AppRoutes> {
+    params: Promise<ParamMap[AppRoute]>
+    searchParams: Promise<Record<string, string | string[] | undefined>>
+  }
+
+--- Interface 4 ---
+interface RouteContext<AppRouteHandlerRoute extends AppRouteHandlerRoutes> {
+    params: Promise<ParamMap[AppRouteHandlerRoute]>
+  }
+
+
+===== P:\02_projects\erp\apps\client\.next\types\routes.d.ts =====
+
+--- Interface 1 ---
+interface ParamMap {
+  "/": {}
+
+--- Interface 2 ---
+interface LayoutSlotMap {
+  "/": never
+  "/app": never
+}
+
+--- Interface 3 ---
+interface PageProps<AppRoute extends AppRoutes> {
+    params: Promise<ParamMap[AppRoute]>
+    searchParams: Promise<Record<string, string | string[] | undefined>>
+  }
+
+--- Interface 4 ---
+interface RouteContext<AppRouteHandlerRoute extends AppRouteHandlerRoutes> {
+    params: Promise<ParamMap[AppRouteHandlerRoute]>
+  }
+
+
+===== P:\02_projects\erp\apps\client\app\api\health\route.ts =====
+
+--- Interface 1 ---
+interface ServiceStatus {
+  status: "ok" | "error";
+  latencyMs: number;
+  error?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\api\internal\email-jobs\process\route.ts =====
+
+--- Interface 1 ---
+interface Recipient {
+  studentDbId: number;
+  studentId: string;
+  fullName: string;
+  email: string;
+}
+
+--- Interface 2 ---
+interface ProcessBody {
+  jobId?: string;
+  recipients?: Recipient[];
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\assignments\assign-counselor-drawer.tsx =====
+
+--- Interface 1 ---
+interface AssignCounselorDrawerProps {
+  state: UseOverlayStateReturn;
+  preselectedDivisionId?: number | null;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\divisions\create-division-drawer.tsx =====
+
+--- Interface 1 ---
+interface CreateDivisionDrawerProps {
+  state: UseOverlayStateReturn;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\divisions\[id]\page.tsx =====
+
+--- Interface 1 ---
+interface CsvRow {
+  id: string;
+  name: string;
+  email: string;
+  status: "valid" | "error";
+  reason?: string;
+}
+
+--- Interface 2 ---
+interface MenuAction {
+  id: string;
+  label: string;
+  onPress: () => void;
+  isDisabled?: boolean;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\divisions\[id]\student-actions-menu.tsx =====
+
+--- Interface 1 ---
+interface StudentActionItem {
+  id: string;
+  label: string;
+  onAction: () => void;
+  isDisabled?: boolean;
+}
+
+--- Interface 2 ---
+interface StudentActionsMenuProps {
+  actions: StudentActionItem[];
+  ariaLabel: string;
+  variant?: "secondary" | "ghost";
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\faculty\add-faculty-drawer.tsx =====
+
+--- Interface 1 ---
+interface AddFacultyDrawerProps {
+  state: UseOverlayStateReturn;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\subject-assignments\assign-subject-drawer.tsx =====
+
+--- Interface 1 ---
+interface AssignSubjectDrawerProps {
+  state: UseOverlayStateReturn;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\timetable\slot-modal.tsx =====
+
+--- Interface 1 ---
+interface SlotModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  assignments: TimetableAssignment[];
+  /** Pre-fill when editing an existing slot */
+  editingSlot: TimetableSlot | null;
+  /** Pre-fill day/time when clicking an empty cell */
+  prefillDay?: string;
+  prefillStartTime?: string;
+  prefillEndTime?: string;
+  /** Conflict checker */
+  checkConflict: (
+    day: string,
+    startTime: string,
+    endTime: string,
+    assignmentId: number,
+    isLab: boolean,
+    labId: string | null,
+    excludeSlot?: TimetableSlot
+  ) => ConflictResult[];
+  /** Called when user confirms the slot */
+  onSubmit: (slots: TimetableSlot[]) => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\timetable\timetable-grid.tsx =====
+
+--- Interface 1 ---
+interface TimetableGridProps {
+  slots: TimetableSlot[];
+  onCellClick: (day: string, startTime: string, endTime: string) => void;
+  onEditSlot: (slot: TimetableSlot) => void;
+  onDeleteSlot: (slot: TimetableSlot) => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\admin\timetable\use-conflict-map.ts =====
+
+--- Interface 1 ---
+interface DivisionConflict {
+  type: "division";
+  message: string;
+  existingSlot: TimetableSlot;
+}
+
+--- Interface 2 ---
+interface FacultyConflict {
+  type: "faculty";
+  message: string;
+  facultyName: string;
+  existingSubject: string;
+  existingDivision: string;
+  existingTime: string;
+}
+
+--- Interface 3 ---
+interface LabConflict {
+  type: "lab";
+  message: string;
+  labId: string;
+  existingSubject: string;
+  existingDivision: string;
+  existingTime: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\counselor\divisions\[id]\page.tsx =====
+
+--- Interface 1 ---
+interface CsvRow {
+  id: string;
+  name: string;
+  email: string;
+  status: "valid" | "error";
+  reason?: string;
+}
+
+--- Interface 2 ---
+interface MenuAction {
+  id: string;
+  label: string;
+  onPress: () => void;
+  isDisabled?: boolean;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\counselor\divisions\[id]\student-actions-menu.tsx =====
+
+--- Interface 1 ---
+interface StudentActionItem {
+  id: string;
+  label: string;
+  onAction: () => void;
+  isDisabled?: boolean;
+}
+
+--- Interface 2 ---
+interface StudentActionsMenuProps {
+  actions: StudentActionItem[];
+  ariaLabel: string;
+  variant?: "secondary" | "ghost";
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\counselor-dashboard.tsx =====
+
+--- Interface 1 ---
+interface CounselorDashboardProps {
+  data: CounselorDashboardData;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\faculty-dashboard.tsx =====
+
+--- Interface 1 ---
+interface FacultyDashboardProps {
+  data: FacultyDashboardData;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\hod-dashboard.tsx =====
+
+--- Interface 1 ---
+interface HodDashboardProps {
+  data: HodDashboardData;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\kpi-card.tsx =====
+
+--- Interface 1 ---
+interface KpiCardProps {
+  label: string;
+  value: string | number;
+  icon: React.ReactNode;
+  /** Optional sub-label below the value */
+  sublabel?: string;
+  /** Color accent: accent | success | warning | danger | default */
+  color?: "accent" | "success" | "warning" | "danger" | "default";
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\profile-status-card.tsx =====
+
+--- Interface 1 ---
+interface ProfileStatusCardProps {
+  profileStatus: string | null | undefined;
+  profileStep: number | null | undefined;
+  verificationStatus: string | null | undefined;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\request-list.tsx =====
+
+--- Interface 1 ---
+interface RequestListProps {
+  requests: StudentRequest[];
+  emptyMessage?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\student-dashboard.tsx =====
+
+--- Interface 1 ---
+interface StudentDashboardProps {
+  data: StudentDashboardData;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\dashboard\components\timetable-today.tsx =====
+
+--- Interface 1 ---
+interface TimetableTodayProps {
+  entries: TimetableEntry[];
+  emptyMessage?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\profile\_components\step-academic.tsx =====
+
+--- Interface 1 ---
+interface StepAcademicProps {
+  profile: ProfileData;
+  onSaved: () => void;
+  onSaving: (saving: boolean) => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\profile\_components\step-contact.tsx =====
+
+--- Interface 1 ---
+interface StepContactProps {
+  profile: ProfileData;
+  onSaved: () => void;
+  onSaving: (saving: boolean) => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\profile\_components\step-documents.tsx =====
+
+--- Interface 1 ---
+interface DocConfig {
+  key: keyof DocumentsData;
+  dbKey: string;
+  label: string;
+  required: boolean;
+  conditionalRequired?: (profile: ProfileData) => boolean;
+  accept: string;
+  icon: typeof FileText;
+}
+
+--- Interface 2 ---
+interface StepDocumentsProps {
+  profile: ProfileData;
+  onSaved: () => void;
+  onSaving: (saving: boolean) => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\profile\_components\step-personal.tsx =====
+
+--- Interface 1 ---
+interface StepPersonalProps {
+  profile: ProfileData;
+  onSaved: () => void;
+  onSaving: (saving: boolean) => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\app\profile\_components\step-review.tsx =====
+
+--- Interface 1 ---
+interface StepReviewProps {
+  profile: ProfileData;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\health\page.tsx =====
+
+--- Interface 1 ---
+interface ServiceStatus {
+  status: "ok" | "error";
+  latencyMs: number;
+  error?: string;
+}
+
+--- Interface 2 ---
+interface HealthResponse {
+  success: boolean;
+  data: {
+    db: ServiceStatus;
+    redis: ServiceStatus;
+    s3: ServiceStatus;
+  }
+
+
+===== P:\02_projects\erp\apps\client\app\lib\auth.ts =====
+
+--- Interface 1 ---
+interface JWTPayload {
+  userId: number;
+  email: string;
+  roles: string[];
+  facultyCode?: string;
+  studentId?: string;
+  [key: string]: unknown;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\email\job-tracker.ts =====
+
+--- Interface 1 ---
+interface EmailJobState {
+  jobId: string;
+  total: number;
+  sent: number;
+  failed: number;
+  status: EmailJobStatus;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\email\service.ts =====
+
+--- Interface 1 ---
+interface PasswordEmailPayload {
+  studentDbId: number;
+  studentId: string;
+  fullName: string;
+  email: string;
+}
+
+--- Interface 2 ---
+interface EmailSendResult {
+  success: boolean;
+  error?: string;
+}
+
+--- Interface 3 ---
+interface EmailProvider {
+  sendPasswordEmail(payload: PasswordEmailPayload & { setupUrl: string }
+
+
+===== P:\02_projects\erp\apps\client\app\lib\http.ts =====
+
+--- Interface 1 ---
+interface FetchWithTimeoutInit extends RequestInit {
+  timeoutMs?: number;
+  timeoutMessage?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\qstash.ts =====
+
+--- Interface 1 ---
+interface PublishResponse {
+  messageId?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\assignments.ts =====
+
+--- Interface 1 ---
+interface AssignedCounselor {
+  facultyId: number;
+  facultyName: string;
+}
+
+--- Interface 2 ---
+interface AssignmentDivision {
+  id: number;
+  displayName: string;
+  specialization: string;
+  semesterNo: number;
+  batchYear: number;
+  counselors: AssignedCounselor[];
+}
+
+--- Interface 3 ---
+interface FacultyBasic {
+  id: number;
+  fullName: string;
+  designation: string | null;
+}
+
+--- Interface 4 ---
+interface DivisionBasic {
+  id: number;
+  displayName: string;
+  specialization: string;
+  semesterNo: number;
+  batchYear: number;
+}
+
+--- Interface 5 ---
+interface AssignmentsResponse {
+  divisions: AssignmentDivision[];
+  allFaculty: FacultyBasic[];
+  allDivisions: DivisionBasic[];
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\auth.ts =====
+
+--- Interface 1 ---
+interface MeResponse {
+  id: number;
+  name: string;
+  email: string;
+  roles: string[];
+  facultyCode?: string;
+  profilePhoto?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\counselor.ts =====
+
+--- Interface 1 ---
+interface EmailJobProgress {
+  jobId: string;
+  total: number;
+  sent: number;
+  failed: number;
+  status: "processing" | "completed";
+}
+
+--- Interface 2 ---
+interface CounselorStudentVerificationDetail {
+  id: number;
+  studentId: string | null;
+  fullName: string;
+  email: string;
+  mobile: string | null;
+  parentMobile: string | null;
+  status: string;
+  profileStatus: string;
+  profileStep: number;
+  currentDivisionId: number | null;
+  currentDivisionName: string | null;
+  currentSemesterNo: number | null;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\dashboard.ts =====
+
+--- Interface 1 ---
+interface DashboardUser {
+  id: number;
+  name: string;
+  email: string;
+  roles: string[];
+  activeRole: string;
+  facultyCode?: string;
+}
+
+--- Interface 2 ---
+interface StudentDashboardData {
+  profile: {
+    studentId: string | null;
+    divisionName: string | null;
+    currentSemesterNo: number | null;
+    status: string;
+    profileStatus: "incomplete" | "complete" | "completed";
+    profileStep: number;
+  }
+
+--- Interface 3 ---
+interface FacultyDashboardData {
+  assignedSubjectsCount: number;
+  assignedDivisionsCount: number;
+  pendingRequestsCount: number;
+  todayTimetable: TimetableEntry[];
+  assignments: SubjectAssignment[];
+  pendingRequests: StudentRequest[];
+}
+
+--- Interface 4 ---
+interface CounselorDashboardData {
+  assignedDivisions: DivisionSummary[];
+  pendingRequestsCount: number;
+  totalStudentsCount: number;
+  pendingRequests: StudentRequest[];
+}
+
+--- Interface 5 ---
+interface HodDashboardData {
+  totalStudents: number;
+  activeStudents: number;
+  totalFaculty: number;
+  pendingRequestsCount: number;
+  pendingRequests: StudentRequest[];
+}
+
+--- Interface 6 ---
+interface TimetableEntry {
+  id: number;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  subjectName: string;
+  facultyName: string;
+  divisionName: string;
+}
+
+--- Interface 7 ---
+interface SubjectAssignment {
+  id: number;
+  subjectName: string;
+  subjectType: string;
+  divisionName: string;
+  courseCode: string;
+}
+
+--- Interface 8 ---
+interface DivisionSummary {
+  id: number;
+  displayName: string;
+  semesterNo: number;
+  courseCode: string;
+}
+
+--- Interface 9 ---
+interface StudentRequest {
+  id: number;
+  requestType: string;
+  subject: string;
+  status: string;
+  studentName: string;
+  divisionName: string;
+  createdAt: string;
+}
+
+--- Interface 10 ---
+interface ActiveSemester {
+  id: number;
+  name: string;
+  startDate: string;
+  endDate: string;
+}
+
+--- Interface 11 ---
+interface DashboardResponse {
+  user: DashboardUser;
+  dashboard: DashboardData;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\divisions.ts =====
+
+--- Interface 1 ---
+interface DivisionListItem {
+  id: number;
+  displayName: string;
+  specialization: string;
+  batchYear: number;
+  semesterNo: number;
+  divisionNo: number;
+  courseCode: string;
+  courseName: string;
+  maxCapacity: number;
+  createdAt: string;
+  studentCount: number;
+  counselorName: string | null;
+}
+
+--- Interface 2 ---
+interface DivisionPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+--- Interface 3 ---
+interface DivisionListResponse {
+  divisions: DivisionListItem[];
+  pagination: DivisionPagination;
+}
+
+--- Interface 4 ---
+interface DivisionDetail extends DivisionListItem {
+  students: DivisionStudent[];
+}
+
+--- Interface 5 ---
+interface DivisionStudent {
+  id: number;
+  studentId: string | null;
+  fullName: string;
+  email: string;
+  status: string;
+}
+
+--- Interface 6 ---
+interface StudentVerificationDetail {
+  id: number;
+  studentId: string | null;
+  fullName: string;
+  email: string;
+  mobile: string | null;
+  parentMobile: string | null;
+  status: string;
+  profileStatus: string;
+  profileStep: number;
+  currentDivisionName: string | null;
+  currentSemesterNo: number | null;
+}
+
+--- Interface 7 ---
+interface CreateDivisionPayload {
+  batchYear: number;
+  semesterNo: number;
+  specialization: string;
+}
+
+--- Interface 8 ---
+interface DivisionListParams {
+  page: number;
+  limit?: number;
+}
+
+--- Interface 9 ---
+interface NextStudentIdResponse {
+  nextNumber: number;
+  nextFormatted: string;
+  yearPrefix: string;
+}
+
+--- Interface 10 ---
+interface CsvUploadResult {
+  total: number;
+  inserted: number;
+  errors: number;
+  results: Array<{
+    id: string;
+    name: string;
+    email: string;
+    status: string;
+    reason?: string;
+  }
+
+--- Interface 11 ---
+interface EmailJobProgress {
+  jobId: string;
+  total: number;
+  sent: number;
+  failed: number;
+  status: "processing" | "completed";
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\faculty-profile.ts =====
+
+--- Interface 1 ---
+interface FacultyProfileData {
+  id: number;
+  facultyCode: string;
+  email: string;
+  fullName: string;
+  dob: string | null;
+  gender: string | null;
+  mobile: string | null;
+  alternateMobile: string | null;
+  address: string | null;
+  qualification: string | null;
+  experienceYears: number | null;
+  specialization: string | null;
+  designation: string | null;
+  profilePhotoUrl: string | null;
+  profileStep: number;
+  profileCompletion: string;
+}
+
+--- Interface 2 ---
+interface StepSaveResult {
+  profileStep: number;
+}
+
+--- Interface 3 ---
+interface UploadUrlResult {
+  uploadUrl: string;
+  fileKey: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\faculty.ts =====
+
+--- Interface 1 ---
+interface FacultyListItem {
+  id: number;
+  facultyCode: string;
+  name: string;
+  email: string;
+  mobile: string;
+  gender: string | null;
+  designation: string | null;
+  qualification: string | null;
+  specialization: string | null;
+  experienceYears: number | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+--- Interface 2 ---
+interface FacultyPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+--- Interface 3 ---
+interface FacultyListResponse {
+  faculty: FacultyListItem[];
+  pagination: FacultyPagination;
+}
+
+--- Interface 4 ---
+interface CreateFacultyPayload {
+  name: string;
+  email: string;
+  mobile: string;
+  facultyCode: string;
+  designation?: string;
+}
+
+--- Interface 5 ---
+interface FacultyListParams {
+  page: number;
+  limit?: number;
+  search?: string;
+  status?: "" | "active" | "inactive";
+  sortBy?: "name" | "facultyCode" | "createdAt";
+  sortOrder?: "asc" | "desc";
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\profile.ts =====
+
+--- Interface 1 ---
+interface ProfileData {
+  id: number;
+  tempId: string | null;
+  studentId: string | null;
+  spid: string | null;
+  enrollmentId: string | null;
+  abcId: string | null;
+  fullName: string;
+  dob: string | null;
+  gender: string | null;
+  bloodGroup: string | null;
+  email: string;
+  mobile: string | null;
+  parentMobile: string | null;
+  optionalMobile: string | null;
+  address: string | null;
+  aadhaarStudent: string | null;
+  aadhaarParent: string | null;
+  courseId: number;
+  category: string | null;
+  board: string | null;
+  twelfthPercent: string | null;
+  twelfthStream: string | null;
+  schoolName: string | null;
+  udiseCode: string | null;
+  entryType: string;
+  entrySemesterNo: number;
+  currentSemesterNo: number | null;
+  currentDivisionName: string | null;
+  status: string;
+  profilePhoto: string | null;
+  profileStep: number;
+  profileStatus: string;
+  courseName: string;
+  courseCode: string;
+  documents: Record<string, string>;
+}
+
+--- Interface 2 ---
+interface StepSaveResult {
+  profileStep: number;
+}
+
+--- Interface 3 ---
+interface UploadUrlResult {
+  uploadUrl: string;
+  fileKey: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\subject-assignments.ts =====
+
+--- Interface 1 ---
+interface SubjectAssignmentRow {
+  id: number;
+  divisionId: number;
+  subjectId: number;
+  facultyId: number;
+  divisionName: string;
+  subjectName: string;
+  subjectType: string;
+  facultyName: string;
+  courseCode: string;
+}
+
+--- Interface 2 ---
+interface SubjectAssignmentDivision {
+  id: number;
+  displayName: string;
+  specialization: string;
+  semesterNo: number;
+  batchYear: number;
+}
+
+--- Interface 3 ---
+interface SubjectAssignmentFaculty {
+  id: number;
+  name: string;
+  designation: string | null;
+}
+
+--- Interface 4 ---
+interface SubjectAssignmentSubject {
+  id: number;
+  name: string;
+  code: string;
+  subjectType: string;
+}
+
+--- Interface 5 ---
+interface SubjectAssignmentsPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+--- Interface 6 ---
+interface SubjectAssignmentsResponse {
+  assignments: SubjectAssignmentRow[];
+  pagination: SubjectAssignmentsPagination;
+  allDivisions: SubjectAssignmentDivision[];
+  allFaculty: SubjectAssignmentFaculty[];
+  allSubjects: SubjectAssignmentSubject[];
+}
+
+--- Interface 7 ---
+interface SubjectAssignmentsParams {
+  page: number;
+  limit?: number;
+  divisionId?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\subjects.ts =====
+
+--- Interface 1 ---
+interface SubjectAssignment {
+  subjectId?: number;
+  facultyName: string;
+  divisionName: string;
+  courseCode: string;
+  divisionId?: number;
+  facultyId?: number;
+}
+
+--- Interface 2 ---
+interface SubjectListItem {
+  id: number;
+  code: string;
+  name: string;
+  subjectType: string;
+  // Student-specific flat fields
+  facultyName?: string;
+  divisionName?: string;
+  // Marking scheme
+  internalTheoryMax: number | null;
+  externalTheoryMax: number | null;
+  theoryPassingMarks: number | null;
+  internalPracticalMax: number | null;
+  externalPracticalMax: number | null;
+  practicalPassingMarks: number | null;
+  // Assignments (for non-student roles)
+  assignments?: SubjectAssignment[];
+}
+
+--- Interface 3 ---
+interface SubjectsListResponse {
+  role: string;
+  subjects: SubjectListItem[];
+  /** Explicit message when no data is available (e.g. counselor not assigned) */
+  emptyMessage?: string;
+}
+
+--- Interface 4 ---
+interface SubjectDetailAssignment {
+  id: number;
+  facultyName: string;
+  divisionName: string;
+  courseCode: string;
+}
+
+--- Interface 5 ---
+interface SubjectDetail {
+  id: number;
+  code: string;
+  name: string;
+  subjectType: string;
+  internalTheoryMax: number | null;
+  externalTheoryMax: number | null;
+  theoryPassingMarks: number | null;
+  internalPracticalMax: number | null;
+  externalPracticalMax: number | null;
+  practicalPassingMarks: number | null;
+}
+
+--- Interface 6 ---
+interface StudentMarks {
+  internalTheory: string | null;
+  externalTheory: string | null;
+  internalPractical: string | null;
+  externalPractical: string | null;
+  maxInternalTheory: string | null;
+  maxExternalTheory: string | null;
+  maxInternalPractical: string | null;
+  maxExternalPractical: string | null;
+}
+
+--- Interface 7 ---
+interface SubjectDetailResponse {
+  role: string;
+  subject: SubjectDetail;
+  assignments: SubjectDetailAssignment[];
+  marks?: StudentMarks | null;
+}
+
+--- Interface 8 ---
+interface CreatedSubject {
+  id: number;
+  code: string;
+  name: string;
+  subjectType: string;
+  createdAt: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\queries\timetable.ts =====
+
+--- Interface 1 ---
+interface TimetableEntry {
+  id: number;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  subjectName: string;
+  facultyName: string;
+  assignmentId: number;
+  color: string | null;
+  isLab: boolean;
+  labId: string | null;
+}
+
+--- Interface 2 ---
+interface TimetableAssignment {
+  id: number;
+  facultyId: number;
+  subjectId: number;
+  facultyName: string;
+  subjectName: string;
+  subjectType: string;
+}
+
+--- Interface 3 ---
+interface FacultyConflictEntry {
+  facultyId: number;
+  facultyName: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  divisionId: number;
+  divisionName: string;
+  subjectName: string;
+  assignmentId: number;
+}
+
+--- Interface 4 ---
+interface LabConflictEntry {
+  labId: string | null;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  divisionId: number;
+  divisionName: string;
+  subjectName: string;
+}
+
+--- Interface 5 ---
+interface ReadonlyTimetableResponse {
+  role: "student" | "faculty" | "counselor" | "hod";
+  isPublished?: boolean;
+  entries: TimetableSlot[];
+  divisionName?: string;
+}
+
+--- Interface 6 ---
+interface TimetableDivision {
+  id: number;
+  displayName: string;
+  specialization: string;
+  semesterNo: number;
+  batchYear: number;
+  semesterId: number;
+  publishStatus: "draft" | "published";
+}
+
+--- Interface 7 ---
+interface TimetableDivisionListItem {
+  id: number;
+  displayName: string;
+  specialization: string;
+  semesterNo: number;
+  batchYear: number;
+  publishStatus: "draft" | "published";
+}
+
+--- Interface 8 ---
+interface TimetableResponse {
+  division: TimetableDivision;
+  entries: TimetableEntry[];
+  assignments: TimetableAssignment[];
+  facultyConflicts: FacultyConflictEntry[];
+  labConflicts: LabConflictEntry[];
+  allDivisions: TimetableDivisionListItem[];
+}
+
+--- Interface 9 ---
+interface TimetableSlot {
+  /** Only set for pre-existing entries from the DB */
+  id?: number;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  assignmentId: number;
+  color: string;
+  isLab?: boolean;
+  labId?: string | null;
+  /** Derived from assignment — not sent to the server */
+  subjectName: string;
+  facultyName: string;
+  facultyId: number;
+  divisionName?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\store\use-auth-store.ts =====
+
+--- Interface 1 ---
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  roles: string[];
+  facultyCode?: string;
+  profilePhoto?: string;
+}
+
+--- Interface 2 ---
+interface AuthState {
+  /** Current user object (null until hydrated) */
+  user: User | null;
+  /** Currently active role selection */
+  activeRole: string | null;
+  /** Whether the store has been hydrated from persistence */
+  isHydrated: boolean;
+
+  /** Hydrate from server response. Preserves activeRole if valid. */
+  hydrateUser: (user: User) => void;
+  /** Set user and pick first role as active */
+  setUser: (user: User | null) => void;
+  /** Switch active role — persists to cookie + localStorage */
+  setActiveRole: (role: string) => void;
+  /** Clear all auth state + persistence */
+  logout: () => void;
+  /** Attempt to hydrate from localStorage (called once on mount) */
+  hydrateFromStorage: () => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\store\use-layout-store.ts =====
+
+--- Interface 1 ---
+interface LayoutState {
+  /** Desktop: sidebar is icon-only collapsed */
+  isCollapsed: boolean;
+  /** Mobile: sidebar overlay is visible */
+  isMobileSidebarOpen: boolean;
+  toggleCollapsed: () => void;
+  setCollapsed: (v: boolean) => void;
+  toggleMobileSidebar: () => void;
+  closeMobileSidebar: () => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\validations\faculty-profile.ts =====
+
+--- Interface 1 ---
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+--- Interface 2 ---
+interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
+--- Interface 3 ---
+interface FacultyPersonalInfoData {
+  fullName: string;
+  dob: string;
+  gender: string;
+}
+
+--- Interface 4 ---
+interface FacultyContactInfoData {
+  mobile: string;
+  alternateMobile?: string;
+  address?: string;
+}
+
+--- Interface 5 ---
+interface FacultyProfessionalInfoData {
+  qualification: string;
+  experienceYears: string | number;
+  specialization: string;
+  designation: string;
+}
+
+--- Interface 6 ---
+interface FacultyDocumentsData {
+  profilePhotoUrl?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\validations\profile.ts =====
+
+--- Interface 1 ---
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+--- Interface 2 ---
+interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
+--- Interface 3 ---
+interface PersonalInfoData {
+  fullName: string;
+  dob: string;
+  gender: string;
+  bloodGroup?: string;
+}
+
+--- Interface 4 ---
+interface ContactInfoData {
+  mobile: string;
+  parentMobile?: string;
+  optionalMobile?: string;
+  address: string;
+  aadhaarStudent?: string;
+  aadhaarParent?: string;
+}
+
+--- Interface 5 ---
+interface AcademicInfoData {
+  category: string;
+  board: string;
+  twelfthPercent: string | number;
+  twelfthStream: string;
+  schoolName: string;
+  udiseCode?: string;
+}
+
+--- Interface 6 ---
+interface DocumentsData {
+  profilePhoto?: string;
+  lcCertificate?: string;
+  marksheet10th?: string;
+  marksheet12th?: string;
+  casteCertificate?: string;
+  migrationCertificate?: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\lib\validations\subject.ts =====
+
+--- Interface 1 ---
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+--- Interface 2 ---
+interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
+--- Interface 3 ---
+interface SubjectFormData {
+  code: string;
+  name: string;
+  subjectType: string;
+  internalTheoryMax: string;
+  externalTheoryMax: string;
+  theoryPassingMarks: string;
+  internalPracticalMax: string;
+  externalPracticalMax: string;
+  practicalPassingMarks: string;
+}
+
+
+===== P:\02_projects\erp\apps\client\app\theme\theme-context.tsx =====
+
+--- Interface 1 ---
+interface ThemeConfig {
+  accentHue: number; // 0–360 oklch hue
+  baseLightness: number; // 0.12 (dark) → 0.97 (light)
+  fontFamily: FontFamily;
+  radius: RadiusSize;
+  fieldRadius: RadiusSize;
+  preset: ThemePreset;
+}
+
+--- Interface 2 ---
+interface PersistedTheme {
+  themeMode: ThemeMode;
+  themeConfig: ThemeConfig;
+}
+
+--- Interface 3 ---
+interface ThemeContextValue {
+  /** Current active mode — the single source of truth. */
+  themeMode: ThemeMode;
+  /** Switch between light / dark / custom. */
+  setThemeMode: (mode: ThemeMode) => void;
+  /** The currently-applied custom config. */
+  applied: ThemeConfig;
+  /** The draft config the user is editing in the customizer. */
+  draft: ThemeConfig;
+  /** True when draft differs from applied. */
+  hasChanges: boolean;
+  /** Update one or more draft fields. */
+  updateDraft: (partial: Partial<ThemeConfig>) => void;
+  /** Apply draft → applied, set mode to "custom", write CSS vars. */
+  applyTheme: () => void;
+  /** Apply + persist to localStorage. */
+  saveTheme: () => void;
+  /** Reset everything to factory defaults (mode → "light"). */
+  resetTheme: () => void;
+}
+
+
+===== P:\02_projects\erp\apps\client\components\error-boundary.tsx =====
+
+--- Interface 1 ---
+interface Props {
+  children: ReactNode;
+  /** Optional fallback UI. If not provided, a default recovery UI is shown. */
+  fallback?: ReactNode;
+}
+
+--- Interface 2 ---
+interface State {
+  hasError: boolean;
+  error: Error | null;
+}
+
+
+===== P:\02_projects\erp\apps\client\config\navigation.ts =====
+
+--- Interface 1 ---
+interface NavItem {
+  title: string;
+  href?: string;
+  icon?: React.FC<SVGProps<SVGSVGElement>>;
+  roles: Role[];
+  badge?: number; // E.g., for unread requests
+  children?: NavItem[];
+}
+
+--- Interface 2 ---
+interface NavSection {
+  section: string;
+  items: NavItem[];
+}
+

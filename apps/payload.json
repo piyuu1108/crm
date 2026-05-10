@@ -1,0 +1,2099 @@
+[
+  {
+    "classCode": "24BCADS1",
+    "facultyCode": "ARP",
+    "subjectCode": "DL",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "MONDAY",
+        "slot": 3,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 4,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1,
+        "lab": "LAB-3"
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS1",
+    "facultyCode": "KHETVI",
+    "subjectCode": "BIG DATA",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS1",
+    "facultyCode": "KB",
+    "subjectCode": "BA",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 5
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 5
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS1",
+    "facultyCode": "MAP",
+    "subjectCode": "TABLUE",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS1",
+    "facultyCode": "DK",
+    "subjectCode": "SEC",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS1",
+    "facultyCode": "KJP",
+    "subjectCode": "ML ALGO",
+    "lectures": [
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS2",
+    "facultyCode": "MAP",
+    "subjectCode": "TABLUE",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 2,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2,
+        "lab": "LAB-3"
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS2",
+    "facultyCode": "KHETVI",
+    "subjectCode": "BIG DATA",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS2",
+    "facultyCode": "ARP",
+    "subjectCode": "DL",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 5,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS2",
+    "facultyCode": "KJP",
+    "subjectCode": "ML ALGO",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS2",
+    "facultyCode": "BR",
+    "subjectCode": "BA",
+    "lectures": [
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 5,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4,
+        "lab": "LAB-3"
+      }
+    ]
+  },
+  {
+    "classCode": "24BCADS2",
+    "facultyCode": "DK",
+    "subjectCode": "SEC",
+    "lectures": [
+      {
+        "day": "WEDNESDAY",
+        "slot": 4
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG3",
+    "facultyCode": "NSP",
+    "subjectCode": "ASP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 5,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG3",
+    "facultyCode": "SFP",
+    "subjectCode": "SEC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG3",
+    "facultyCode": "DM",
+    "subjectCode": "NT",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG3",
+    "facultyCode": "RKP",
+    "subjectCode": "LOS",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2,
+        "lab": "LAB-3"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG3",
+    "facultyCode": "YHP",
+    "subjectCode": "AWD",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG3",
+    "facultyCode": "PP",
+    "subjectCode": "WFAS",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG4",
+    "facultyCode": "PP",
+    "subjectCode": "WFAS",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG4",
+    "facultyCode": "MAP",
+    "subjectCode": "ASP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 4,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 5,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG4",
+    "facultyCode": "DVM",
+    "subjectCode": "NT",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG4",
+    "facultyCode": "YHP",
+    "subjectCode": "AWD",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG4",
+    "facultyCode": "NVP",
+    "subjectCode": "LOS",
+    "lectures": [
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 5,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4,
+        "lab": "LAB-4"
+      }
+    ]
+  },
+  {
+    "classCode": "24BCAREG4",
+    "facultyCode": "SFP",
+    "subjectCode": "SEC",
+    "lectures": [
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAAI1",
+    "facultyCode": "SFP",
+    "subjectCode": "SUR",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAAI1",
+    "facultyCode": "NVP",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAAI1",
+    "facultyCode": "KJP",
+    "subjectCode": "FML",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "MONDAY",
+        "slot": 5,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAAI1",
+    "facultyCode": "PRS",
+    "subjectCode": "AI OPP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 4
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 5,
+        "lab": "LAB-2"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAAI1",
+    "facultyCode": "RKP",
+    "subjectCode": "WD1",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2,
+        "lab": "LAB-2"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAAI1",
+    "facultyCode": "RKP",
+    "subjectCode": "MIL",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 5
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCADS2",
+    "facultyCode": "DVM",
+    "subjectCode": "WD1",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 2,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "25BCADS2",
+    "facultyCode": "SFP",
+    "subjectCode": "SUR",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCADS2",
+    "facultyCode": "KJP",
+    "subjectCode": "MIL",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "25BCADS2",
+    "facultyCode": "DM",
+    "subjectCode": "ADW",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 5,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4,
+        "lab": "LAB-2"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCADS2",
+    "facultyCode": "KB",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "25BCADS2",
+    "facultyCode": "PRS",
+    "subjectCode": "EDA",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 5,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 4,
+        "lab": "LAB-2"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG3",
+    "facultyCode": "DK",
+    "subjectCode": "OOP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 1,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 5,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG3",
+    "facultyCode": "NSP",
+    "subjectCode": "DUP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "MONDAY",
+        "slot": 3,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 4,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG3",
+    "facultyCode": "PDC",
+    "subjectCode": "SM",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG3",
+    "facultyCode": "DVM",
+    "subjectCode": "WD1",
+    "lectures": [
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 5,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG3",
+    "facultyCode": "YHP",
+    "subjectCode": "MIL",
+    "lectures": [
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG3",
+    "facultyCode": "NSP",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG4",
+    "facultyCode": "DM",
+    "subjectCode": "DUP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 5,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG4",
+    "facultyCode": "BR",
+    "subjectCode": "MIL",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG4",
+    "facultyCode": "YHP",
+    "subjectCode": "WD1",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG4",
+    "facultyCode": "NVP",
+    "subjectCode": "SM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 4
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG4",
+    "facultyCode": "NSP",
+    "subjectCode": "OOP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 5,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG4",
+    "facultyCode": "PP",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG5",
+    "facultyCode": "YHP",
+    "subjectCode": "WD1",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 2,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 4
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 4,
+        "lab": "LAB-5"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG5",
+    "facultyCode": "KB",
+    "subjectCode": "SM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG5",
+    "facultyCode": "DK",
+    "subjectCode": "OOP",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 5,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4,
+        "lab": "LAB-5"
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG5",
+    "facultyCode": "NSP",
+    "subjectCode": "DUP",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 5,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG5",
+    "facultyCode": "PRS",
+    "subjectCode": "MIL",
+    "lectures": [
+      {
+        "day": "WEDNESDAY",
+        "slot": 4
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "25BCAREG5",
+    "facultyCode": "DK",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAAI1",
+    "facultyCode": "PRS",
+    "subjectCode": "CPPM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 2,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4,
+        "lab": "LAB-1"
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAAI1",
+    "facultyCode": "NVP",
+    "subjectCode": "MATHS",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAAI1",
+    "facultyCode": "KHETVI",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 4
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAAI1",
+    "facultyCode": "KB",
+    "subjectCode": "CS",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAAI1",
+    "facultyCode": "KJP",
+    "subjectCode": "DPAR",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2,
+        "lab": "LAB-1"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAAI1",
+    "facultyCode": "BR",
+    "subjectCode": "ITAI",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 5
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 5
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "26BCADS2",
+    "facultyCode": "RKP",
+    "subjectCode": "CPPM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 2,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "26BCADS2",
+    "facultyCode": "BR",
+    "subjectCode": "BDS",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2,
+        "lab": "LAB-4"
+      }
+    ]
+  },
+  {
+    "classCode": "26BCADS2",
+    "facultyCode": "DK",
+    "subjectCode": "FC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 4
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "26BCADS2",
+    "facultyCode": "PDC",
+    "subjectCode": "MATHS",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "26BCADS2",
+    "facultyCode": "SFP",
+    "subjectCode": "CS",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "26BCADS2",
+    "facultyCode": "PP",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 5
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG3",
+    "facultyCode": "NVP",
+    "subjectCode": "MATHS",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG3",
+    "facultyCode": "PP",
+    "subjectCode": "IC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG3",
+    "facultyCode": "PRS",
+    "subjectCode": "CPPM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 1,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2,
+        "lab": "LAB-5"
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG3",
+    "facultyCode": "KB",
+    "subjectCode": "DPAA",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 4
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2,
+        "lab": "LAB-5"
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG3",
+    "facultyCode": "DVM",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 5
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 5
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG3",
+    "facultyCode": "PDC",
+    "subjectCode": "CS",
+    "lectures": [
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG4",
+    "facultyCode": "PDC",
+    "subjectCode": "MATHS",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG4",
+    "facultyCode": "DM",
+    "subjectCode": "IC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 1
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG4",
+    "facultyCode": "RKP",
+    "subjectCode": "CPPM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 4,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 5
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 5
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG4",
+    "facultyCode": "KHETVI",
+    "subjectCode": "DPAA",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 5
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3,
+        "lab": "LAB-5"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4,
+        "lab": "LAB-5"
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG4",
+    "facultyCode": "PP",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG4",
+    "facultyCode": "SFP",
+    "subjectCode": "CS",
+    "lectures": [
+      {
+        "day": "FRIDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG5",
+    "facultyCode": "KHETVI",
+    "subjectCode": "DPAA",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 1,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 3,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 4,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 5
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 2
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG5",
+    "facultyCode": "PDC",
+    "subjectCode": "MATHS",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 4
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 4
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG5",
+    "facultyCode": "PP",
+    "subjectCode": "CPPM",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 3,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "MONDAY",
+        "slot": 4,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 1,
+        "lab": "LAB-2"
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 2,
+        "lab": "LAB-2"
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG5",
+    "facultyCode": "SFP",
+    "subjectCode": "VAC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 5
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG5",
+    "facultyCode": "DVM",
+    "subjectCode": "IC",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "26BCAREG5",
+    "facultyCode": "KB",
+    "subjectCode": "CS",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 5
+      },
+      {
+        "day": "FRIDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "23BCAREG1",
+    "facultyCode": "BR",
+    "subjectCode": "TABLU",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 1
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 2,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 2,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 3
+      }
+    ]
+  },
+  {
+    "classCode": "23BCAREG1",
+    "facultyCode": "ARP",
+    "subjectCode": "VC",
+    "lectures": [
+      {
+        "day": "MONDAY",
+        "slot": 2
+      },
+      {
+        "day": "WEDNESDAY",
+        "slot": 1
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 1
+      },
+      {
+        "day": "SATURDAY",
+        "slot": 1
+      }
+    ]
+  },
+  {
+    "classCode": "23BCAREG1",
+    "facultyCode": "YHP",
+    "subjectCode": "WD",
+    "lectures": [
+      {
+        "day": "TUESDAY",
+        "slot": 1,
+        "lab": "LAB-4"
+      },
+      {
+        "day": "TUESDAY",
+        "slot": 3
+      },
+      {
+        "day": "THURSDAY",
+        "slot": 2,
+        "lab": "LAB-4"
+      }
+    ]
+  }
+]

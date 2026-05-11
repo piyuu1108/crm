@@ -16,6 +16,14 @@ export interface FacultyListItem {
   experienceYears: number | null;
   isActive: boolean;
   createdAt: string;
+  assignments?: {
+    subjectName: string;
+    divisionName: string;
+    subjectShortCode: string;
+    subjectCode: string;
+    subjectType: string;
+    subjectCredit: number;
+  }[];
 }
 
 export interface FacultyPagination {

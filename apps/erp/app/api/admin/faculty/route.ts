@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { faculty, facultyRoles, roles } from "@/app/lib/schema";
-import { eq, and, like, count, asc, desc, or, sql } from "drizzle-orm";
+import { faculty, facultyRoles, roles, facultySubjectAssignments, divisions, subjects } from "@/app/lib/schema";
+import { eq, and, like, count, asc, desc, or, sql, inArray } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { redis } from "@/app/lib/redis";
 
@@ -128,8 +128,48 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .offset(offset);
 
+    const facultyIds = rows.map((r) => r.id);
+    const assignmentsMap: Record<number, any[]> = {};
+
+    if (facultyIds.length > 0) {
+      const facultyAssignments = await db
+        .select({
+          facultyId: facultySubjectAssignments.facultyId,
+          subjectName: facultySubjectAssignments.subjectName,
+          divisionName: divisions.displayName,
+          subjectShortCode: subjects.shortCode,
+          subjectCode: subjects.code,
+          subjectType: subjects.subjectType,
+          subjectCredit: subjects.credit,
+        })
+        .from(facultySubjectAssignments)
+        .leftJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+        .leftJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .where(inArray(facultySubjectAssignments.facultyId, facultyIds));
+
+      for (const a of facultyAssignments) {
+        if (!a.facultyId) continue;
+        if (!assignmentsMap[a.facultyId]) {
+          assignmentsMap[a.facultyId] = [];
+        }
+        assignmentsMap[a.facultyId].push({
+          subjectName: a.subjectName,
+          divisionName: a.divisionName,
+          subjectShortCode: a.subjectShortCode || a.subjectName?.substring(0, 3).toUpperCase(),
+          subjectCode: a.subjectCode,
+          subjectType: a.subjectType,
+          subjectCredit: a.subjectCredit,
+        });
+      }
+    }
+
+    const facultyWithAssignments = rows.map((r) => ({
+      ...r,
+      assignments: assignmentsMap[r.id] || [],
+    }));
+
     const payloadData = {
-      faculty: rows,
+      faculty: facultyWithAssignments,
       pagination: { page, limit, total, totalPages },
     };
 

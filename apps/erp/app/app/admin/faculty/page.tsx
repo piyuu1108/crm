@@ -16,9 +16,10 @@ import {
   useOverlayState,
   toast,
   Checkbox,
+  Tooltip,
   type Selection,
 } from "@heroui/react";
-import { Plus, Magnifier, Funnel, ChevronUp, FileArrowUp } from "@gravity-ui/icons";
+import { Plus, Magnifier, Funnel, ChevronUp, FileArrowUp, Gear, ChevronDown, ArrowDownToLine } from "@gravity-ui/icons";
 import {
   facultyListKey,
   useFacultyListQuery,
@@ -31,11 +32,22 @@ import { AddFacultyDrawer } from "./add-faculty-drawer";
 import { FacultyActionsMenu } from "./faculty-actions-menu";
 import type { SortDescriptor } from "@heroui/react";
 
-// ─── Status badge color map ───────────────────────────────────────────────────
 const STATUS_COLOR: Record<string, "success" | "danger"> = {
   true: "success",
   false: "danger",
 };
+
+const COLUMNS = [
+  { name: "Code", uid: "facultyCode" },
+  { name: "Member", uid: "name" },
+  { name: "Mobile", uid: "mobile" },
+  { name: "Designation", uid: "designation" },
+  { name: "Status", uid: "isActive" },
+  { name: "Assignments", uid: "assignments" },
+  { name: "Actions", uid: "actions" },
+];
+
+const INITIAL_VISIBLE_COLUMNS = ["facultyCode", "name", "mobile", "designation", "isActive", "assignments", "actions"];
 
 // ─── Debounce hook ────────────────────────────────────────────────────────────
 function useDebounce(value: string, delay: number) {
@@ -89,7 +101,6 @@ function SortableColumnHeader({
 export default function FacultyPage() {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"" | "active" | "inactive">("");
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
     column: "name",
     direction: "ascending",
@@ -100,14 +111,12 @@ export default function FacultyPage() {
   const router = useRouter();
   const debouncedSearch = useDebounce(searchInput, 300);
 
-  const [selectedFacultyIds, setSelectedFacultyIds] = useState<Selection>(new Set());
   const [emailJobId, setEmailJobId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("faculty-email-job:admin");
   });
 
   const singleEmailMutation = useFacultyPasswordEmailMutation();
-  const bulkEmailMutation = useBulkFacultyPasswordEmailMutation();
   const { data: emailJobProgress } = useFacultyEmailJobProgressQuery(emailJobId);
 
   useEffect(() => {
@@ -115,22 +124,72 @@ export default function FacultyPage() {
     localStorage.setItem("faculty-email-job:admin", emailJobId);
   }, [emailJobId]);
 
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set(INITIAL_VISIBLE_COLUMNS));
+  const rowsPerPage = 10;
+
+  useEffect(() => {
+    const saved = localStorage.getItem("faculty_table_columns");
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setVisibleColumns(new Set(parsed));
+        }
+      } catch (e) {}
+    }
+  }, []);
+
+  const handleColumnSelectionChange = (keys: any) => {
+    if (keys === "all") {
+      const allKeys = COLUMNS.map(c => c.uid);
+      setVisibleColumns(new Set(allKeys));
+      localStorage.setItem("faculty_table_columns", JSON.stringify(allKeys));
+      return;
+    }
+    const newKeys = Array.from(keys) as string[];
+    setVisibleColumns(new Set(newKeys));
+    localStorage.setItem("faculty_table_columns", JSON.stringify(newKeys));
+  };
+
   const params: FacultyListParams = useMemo(
     () => ({
-      page,
-      limit: 10,
-      search: debouncedSearch || undefined,
-      status: statusFilter || undefined,
-      sortBy:
-        (sortDescriptor.column as FacultyListParams["sortBy"]) ?? "name",
-      sortOrder:
-        sortDescriptor.direction === "descending" ? "desc" : "asc",
+      page: 1,
+      limit: 1000,
     }),
-    [page, debouncedSearch, statusFilter, sortDescriptor]
+    []
   );
 
   const { data, isLoading, isError, error, refetch } =
     useFacultyListQuery(params);
+
+  const filteredItems = useMemo(() => {
+    let filtered = [...(data?.faculty || [])];
+
+    if (debouncedSearch) {
+      const q = debouncedSearch.toLowerCase();
+      filtered = filtered.filter((f) =>
+        f.name.toLowerCase().includes(q) ||
+        f.facultyCode.toLowerCase().includes(q) ||
+        f.email.toLowerCase().includes(q)
+      );
+    }
+
+    return filtered.sort((a, b) => {
+      let first = a[sortDescriptor.column as keyof typeof a];
+      let second = b[sortDescriptor.column as keyof typeof b];
+      let cmp = (first || "") < (second || "") ? -1 : (first || "") > (second || "") ? 1 : 0;
+      return sortDescriptor.direction === "descending" ? -cmp : cmp;
+    });
+  }, [data?.faculty, debouncedSearch, sortDescriptor]);
+
+  const totalItems = filteredItems.length;
+  const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
+  const start = (page - 1) * rowsPerPage;
+  const end = Math.min(page * rowsPerPage, totalItems);
+
+  const items = useMemo(() => {
+    return filteredItems.slice(start, end);
+  }, [page, filteredItems, start, end]);
 
   const handleRecover = useCallback(() => {
     queryClient.removeQueries({ queryKey: facultyListKey(params) });
@@ -158,34 +217,6 @@ export default function FacultyPage() {
     },
     [singleEmailMutation]
   );
-
-  const handleBulkSend = useCallback(async () => {
-    const faculty = data?.faculty ?? [];
-    const selectedCount =
-      selectedFacultyIds === "all" ? faculty.length : selectedFacultyIds.size;
-    if (selectedCount === 0) return;
-
-    try {
-      const ids =
-        selectedFacultyIds === "all"
-          ? faculty.map((f) => f.id)
-          : Array.from(selectedFacultyIds).map((id) => Number(id));
-
-      const payload = await bulkEmailMutation.mutateAsync(ids);
-      setEmailJobId(payload.jobId);
-      toast.success("Emails are being sent in background");
-      setSelectedFacultyIds(new Set());
-    } catch (error) {
-      toast.danger("Failed to queue bulk send", {
-        description: error instanceof Error ? error.message : "Please try again",
-      });
-    }
-  }, [bulkEmailMutation, data?.faculty, selectedFacultyIds]);
-
-  const totalPages = data?.pagination.totalPages ?? 1;
-  const total = data?.pagination.total ?? 0;
-  const start = data ? (page - 1) * (data.pagination.limit) + 1 : 0;
-  const end = data ? Math.min(page * data.pagination.limit, total) : 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -222,76 +253,39 @@ export default function FacultyPage() {
             />
             <Magnifier className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           </div>
-
-          {/* Status filter */}
-          <Dropdown>
-            <Button variant="secondary" size="sm">
-              <Funnel className="size-4" />
-              {statusFilter
-                ? statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)
-                : "All Status"}
-            </Button>
-            <Dropdown.Popover className="min-w-[140px]">
-              <Dropdown.Menu
-                selectionMode="single"
-                selectedKeys={new Set([statusFilter])}
-                onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as string;
-                  setPage(1);
-                  setStatusFilter(
-                    (selected as "" | "active" | "inactive") ?? ""
-                  );
-                }}
-              >
-                <Dropdown.Item id="" textValue="All">
-                  <Dropdown.ItemIndicator />
-                  <Label>All</Label>
-                </Dropdown.Item>
-                <Dropdown.Item id="active" textValue="Active">
-                  <Dropdown.ItemIndicator />
-                  <Label>Active</Label>
-                </Dropdown.Item>
-                <Dropdown.Item id="inactive" textValue="Inactive">
-                  <Dropdown.ItemIndicator />
-                  <Label>Inactive</Label>
-                </Dropdown.Item>
-              </Dropdown.Menu>
-            </Dropdown.Popover>
-          </Dropdown>
         </div>
 
-        {/* Result count */}
-        {data && (
-          <div className="flex items-center gap-4">
-            {selectedFacultyIds === "all" || selectedFacultyIds.size > 0 ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-accent">
-                  {selectedFacultyIds === "all"
-                    ? data.faculty.length
-                    : selectedFacultyIds.size}{" "}
-                  selected
-                </span>
-                <FacultyActionsMenu
-                  variant="secondary"
-                  ariaLabel="Bulk faculty actions"
-                  actions={[
-                    {
-                      id: "send-bulk-email",
-                      label: "Send Password Emails",
-                      isDisabled: bulkEmailMutation.isPending,
-                      onAction: handleBulkSend,
-                    },
-                  ]}
-                />
-              </div>
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                {total} faculty member{total !== 1 ? "s" : ""}
-              </span>
-            )}
+        <div className="flex items-center gap-3">
+
+            <Dropdown>
+              <Button variant="outline" size="sm">
+                Columns <Gear className="size-4 ml-1" />
+                <ChevronDown className="size-4 ml-1" />
+              </Button>
+              <Dropdown.Popover>
+                <Dropdown.Menu
+                  disallowEmptySelection
+                  aria-label="Table Columns"
+                  selectedKeys={visibleColumns}
+                  selectionMode="multiple"
+                  onSelectionChange={handleColumnSelectionChange}
+                >
+                  {COLUMNS.map((column) => (
+                    <Dropdown.Item id={column.uid} key={column.uid} textValue={column.name} className="capitalize">
+                      <Dropdown.ItemIndicator />
+                      <Label>{column.name}</Label>
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
+            
+            <Button variant="outline" size="sm">
+              <ArrowDownToLine className="size-4 mr-1" />
+              Export
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
 
       {/* ── Email Job Progress ────────────────────────────────── */}
       {emailJobProgress && emailJobProgress.status !== "completed" && (
@@ -347,7 +341,7 @@ export default function FacultyPage() {
           <Card.Content className="flex flex-col items-center gap-3">
             <div className="text-4xl">👨‍🏫</div>
             <p className="text-sm text-muted-foreground">
-              {debouncedSearch || statusFilter
+              {debouncedSearch
                 ? "No faculty members match your filters"
                 : "No faculty members yet — click \"Add Faculty\" to get started"}
             </p>
@@ -361,121 +355,109 @@ export default function FacultyPage() {
               className="min-w-[700px]"
               sortDescriptor={sortDescriptor}
               onSortChange={handleSortChange}
-              selectionMode="multiple"
-              selectedKeys={selectedFacultyIds}
-              onSelectionChange={setSelectedFacultyIds}
             >
               <Table.Header>
-                <Table.Column className="w-[44px]">
-                  <Checkbox aria-label="Select all faculty" slot="selection">
-                    <Checkbox.Control>
-                      <Checkbox.Indicator />
-                    </Checkbox.Control>
-                  </Checkbox>
-                </Table.Column>
-                <Table.Column
-                  allowsSorting
-                  isRowHeader
-                  id="facultyCode"
-                  className="w-[120px]"
-                >
-                  {({ sortDirection }) => (
-                    <SortableColumnHeader sortDirection={sortDirection}>
-                      Code
-                    </SortableColumnHeader>
-                  )}
-                </Table.Column>
-                <Table.Column allowsSorting id="name">
-                  {({ sortDirection }) => (
-                    <SortableColumnHeader sortDirection={sortDirection}>
-                      Member
-                    </SortableColumnHeader>
-                  )}
-                </Table.Column>
-                <Table.Column className="w-[140px]">Mobile</Table.Column>
-                <Table.Column className="min-w-[160px]">
-                  Designation
-                </Table.Column>
-                <Table.Column className="w-[100px]">Status</Table.Column>
-                <Table.Column className="w-[56px]">Actions</Table.Column>
+                {visibleColumns.has("facultyCode") && (
+                  <Table.Column allowsSorting isRowHeader id="facultyCode" className="w-[120px]">
+                    {({ sortDirection }) => (
+                      <SortableColumnHeader sortDirection={sortDirection}>Code</SortableColumnHeader>
+                    )}
+                  </Table.Column>
+                )}
+                {visibleColumns.has("name") && (
+                  <Table.Column allowsSorting id="name">
+                    {({ sortDirection }) => (
+                      <SortableColumnHeader sortDirection={sortDirection}>Member</SortableColumnHeader>
+                    )}
+                  </Table.Column>
+                )}
+                {visibleColumns.has("mobile") && <Table.Column className="w-[140px]">Mobile</Table.Column>}
+                {visibleColumns.has("designation") && <Table.Column className="min-w-[160px]">Designation</Table.Column>}
+                {visibleColumns.has("isActive") && <Table.Column className="w-[100px]">Status</Table.Column>}
+                {visibleColumns.has("assignments") && <Table.Column>Assignments</Table.Column>}
+                {visibleColumns.has("actions") && <Table.Column className="w-[56px]">Actions</Table.Column>}
               </Table.Header>
 
               <Table.Body>
-                {data.faculty.map((f) => (
+                {items.map((f) => (
                   <Table.Row key={f.id} id={f.id}>
-                    <Table.Cell>
-                      <Checkbox
-                        aria-label={`Select ${f.name}`}
-                        slot="selection"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <Checkbox.Control>
-                          <Checkbox.Indicator />
-                        </Checkbox.Control>
-                      </Checkbox>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="font-mono text-xs font-medium text-accent">
-                        {f.facultyCode}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          size="sm"
-                          className="shrink-0 bg-accent/10 text-accent"
-                        >
-                          <Avatar.Fallback>
-                            {f.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .slice(0, 2)
-                              .toUpperCase()}
-                          </Avatar.Fallback>
-                        </Avatar>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate text-sm font-medium text-foreground">
-                            {f.name}
-                          </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {f.email}
-                          </span>
+                    {visibleColumns.has("facultyCode") && (
+                      <Table.Cell>
+                        <span className=" text-sm font-bold">{f.facultyCode}</span>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("name") && (
+                      <Table.Cell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex min-w-0 flex-col">
+                            <span className="truncate text-sm font-medium text-foreground">{f.name}</span>
+                            {/* <span className="truncate text-xs text-muted-foreground">{f.email}</span> */}
+                          </div>
                         </div>
-                      </div>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-sm text-foreground/80">
-                        {f.mobile}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <span className="text-sm text-foreground/80">
-                        {f.designation || "—"}
-                      </span>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <Chip
-                        color={STATUS_COLOR[String(f.isActive)]}
-                        size="sm"
-                        variant="soft"
-                      >
-                        {f.isActive ? "Active" : "Inactive"}
-                      </Chip>
-                    </Table.Cell>
-                    <Table.Cell>
-                      <FacultyActionsMenu
-                        ariaLabel={`Actions for ${f.name}`}
-                        actions={[
-                          {
-                            id: `send-password-${f.id}`,
-                            label: "Send Password Email",
-                            isDisabled: singleEmailMutation.isPending,
-                            onAction: () => handleSingleSend(f.id, f.name),
-                          },
-                        ]}
-                      />
-                    </Table.Cell>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("mobile") && (
+                      <Table.Cell>
+                        <span className="text-sm text-foreground/80">{f.mobile}</span>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("designation") && (
+                      <Table.Cell>
+                        <span className="text-sm text-foreground/80">{f.designation || "—"}</span>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("isActive") && (
+                      <Table.Cell>
+                        <Chip color={STATUS_COLOR[String(f.isActive)]} size="sm" variant="soft">
+                          {f.isActive ? "Active" : "Inactive"}
+                        </Chip>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("assignments") && (
+                      <Table.Cell>
+                        <div className="flex flex-wrap gap-1">
+                          {f.assignments && f.assignments.length > 0 ? (
+                            f.assignments.map((a, i) => (
+                              <Tooltip key={i}>
+                                <Tooltip.Trigger>
+                                  <Chip size="sm" variant="soft" className="cursor-default">
+                                    {a.subjectShortCode}/{a.divisionName}
+                                  </Chip>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content>
+                                  <div className="flex flex-col gap-1 px-1 py-1">
+                                    <div className="font-semibold text-small">{a.subjectName}</div>
+                                    <div className="text-tiny text-default-500">
+                                      {a.subjectCode} • {a.subjectType} • {a.subjectCredit} Credits
+                                    </div>
+                                    <div className="text-tiny text-default-500 mt-1">
+                                      Assigned to: {a.divisionName}
+                                    </div>
+                                  </div>
+                                </Tooltip.Content>
+                              </Tooltip>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("actions") && (
+                      <Table.Cell>
+                        <FacultyActionsMenu
+                          ariaLabel={`Actions for ${f.name}`}
+                          actions={[
+                            {
+                              id: `send-password-${f.id}`,
+                              label: "Send Password Email",
+                              isDisabled: singleEmailMutation.isPending,
+                              onAction: () => handleSingleSend(f.id, f.name),
+                            },
+                          ]}
+                        />
+                      </Table.Cell>
+                    )}
                   </Table.Row>
                 ))}
               </Table.Body>
@@ -487,7 +469,7 @@ export default function FacultyPage() {
             <Table.Footer>
               <Pagination size="sm">
                 <Pagination.Summary>
-                  {start} to {end} of {total} results
+                  {start + 1} to {end} of {totalItems} results
                 </Pagination.Summary>
                 <Pagination.Content>
                   <Pagination.Item>

@@ -9,7 +9,7 @@ import {
   faculty,
   facultySubjectAssignments,
 } from "@/app/lib/schema";
-import { desc, eq, and, or, inArray, count, sql } from "drizzle-orm";
+import { desc, eq, and, or, inArray, count } from "drizzle-orm";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -28,22 +28,16 @@ async function getCallerPayload() {
   return verifyToken(token);
 }
 
-// ─── GET /api/circulars — Server-authoritative visibility ─────────────────────
+// ─── GET /api/circulars — Server-authoritative visibility ──────────────────────
 //
-// Visibility rules (evaluated IN DATABASE — no frontend filtering):
+// Visibility rules:
 //
-//  Role        | Sees
-//  ------------|----------------------------------------------------------
-//  student     | ALL + YEAR(matching) + DIVISION(their division)
-//  faculty /   | ALL + FACULTY + DIVISION(divisions they teach in)
-//  counselor / |   + their own circulars regardless of type
-//  hod         |
-//
-// targetType values:
-//   "ALL"      — every authenticated user
-//   "FACULTY"  — only faculty/counselor/hod
-//   "YEAR"     — students in targetYear
-//   "DIVISION" — students in divisions listed in circular_recipients
+//  Role           | Sees
+//  ---------------|-----------------------------------------------------------
+//  student        | ALL + YEAR(their year) + DIVISION(their division)
+//  hod            | EVERYTHING (no filter) — they publish and oversee all
+//  faculty /      | ALL + FACULTY + YEAR + DIVISION(divisions they teach in)
+//  counselor      |   + ALWAYS their own published circulars (by facultyId)
 //
 export async function GET(req: NextRequest) {
   try {
@@ -57,16 +51,15 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
-    const isStudent = roles.includes("student");
-    const isFaculty =
-      roles.includes("faculty") ||
-      roles.includes("counselor") ||
-      roles.includes("hod");
+    const isHod     = roles.includes("hod");
+    const isFaculty = roles.includes("faculty") || roles.includes("counselor") || isHod;
+    // NOTE: check staff roles BEFORE student — admin accounts may carry all roles
+    const isStudent = roles.includes("student") && !isFaculty;
 
-    // ── Build the WHERE condition based on role ────────────────────────────────
+    console.log(`[GET /api/circulars] userId=${userId} roles=${JSON.stringify(roles)} isHod=${isHod} isFaculty=${isFaculty} isStudent=${isStudent}`);
 
+    // ── STUDENT ────────────────────────────────────────────────────────────────
     if (isStudent) {
-      // Fetch student profile
       const [studentData] = await db
         .select({
           currentSemesterNo: students.currentSemesterNo,
@@ -76,13 +69,11 @@ export async function GET(req: NextRequest) {
         .where(eq(students.id, userId))
         .limit(1);
 
-      // Determine which divisionIds this student belongs to for DIVISION circulars
-      const studentDivId = studentData?.currentDivisionId ?? null;
-      const studentYear = studentData?.currentSemesterNo
+      const studentDivId  = studentData?.currentDivisionId ?? null;
+      const studentYear   = studentData?.currentSemesterNo
         ? Math.ceil(studentData.currentSemesterNo / 2)
         : null;
 
-      // Get circular IDs for divisions the student is in
       let divisionCircularIds: number[] = [];
       if (studentDivId) {
         const divRows = await db
@@ -92,89 +83,47 @@ export async function GET(req: NextRequest) {
         divisionCircularIds = divRows.map((r) => r.circularId);
       }
 
-      // Build OR conditions — only include branches that have valid data
       const conditions = [
         eq(circulars.targetType, "ALL"),
         ...(studentYear !== null
-          ? [
-              and(
-                eq(circulars.targetType, "YEAR"),
-                eq(circulars.targetYear, studentYear)
-              ),
-            ]
+          ? [and(eq(circulars.targetType, "YEAR"), eq(circulars.targetYear, studentYear))]
           : []),
         ...(divisionCircularIds.length > 0
-          ? [
-              and(
-                eq(circulars.targetType, "DIVISION"),
-                inArray(circulars.id, divisionCircularIds)
-              ),
-            ]
+          ? [and(eq(circulars.targetType, "DIVISION"), inArray(circulars.id, divisionCircularIds))]
           : []),
       ];
 
       const whereClause = or(...conditions);
 
       const [rows, [{ total }]] = await Promise.all([
-        db
-          .select()
-          .from(circulars)
-          .where(whereClause)
-          .orderBy(desc(circulars.createdAt))
-          .limit(limit)
-          .offset(offset),
-        db
-          .select({ total: count(circulars.id) })
-          .from(circulars)
-          .where(whereClause),
+        db.select().from(circulars).where(whereClause).orderBy(desc(circulars.createdAt)).limit(limit).offset(offset),
+        db.select({ total: count(circulars.id) }).from(circulars).where(whereClause),
       ]);
 
-      return ok(await enrichWithDivisions(rows), {
-        total: Number(total),
-        limit,
-        offset,
-      });
+      console.log(`[GET /api/circulars] STUDENT year=${studentYear} divId=${studentDivId} → ${total} results`);
+      return ok(await enrichWithDivisions(rows), { total: Number(total), limit, offset });
     }
 
+    // ── HOD — sees everything, no filter ──────────────────────────────────────
+    if (isHod) {
+      const [rows, [{ total }]] = await Promise.all([
+        db.select().from(circulars).orderBy(desc(circulars.createdAt)).limit(limit).offset(offset),
+        db.select({ total: count(circulars.id) }).from(circulars),
+      ]);
+
+      console.log(`[GET /api/circulars] HOD userId=${userId} → ${total} total circulars`);
+      return ok(await enrichWithDivisions(rows), { total: Number(total), limit, offset });
+    }
+
+    // ── FACULTY / COUNSELOR ────────────────────────────────────────────────────
     if (isFaculty) {
-      const isHod = roles.includes("hod");
-
-      // HOD sees every circular — they oversee all students and staff.
-      // Faculty/counselor see: ALL + FACULTY + own + divisions they teach.
-      // Both always see their own circulars regardless of type.
-
-      let conditions: ReturnType<typeof eq>[] = [];
-
-      if (isHod) {
-        // HOD sees everything — no filter needed
-        const [rows, [{ total }]] = await Promise.all([
-          db
-            .select()
-            .from(circulars)
-            .orderBy(desc(circulars.createdAt))
-            .limit(limit)
-            .offset(offset),
-          db.select({ total: count(circulars.id) }).from(circulars),
-        ]);
-
-        console.log(`[GET /api/circulars] HOD userId=${userId} — found ${total} circulars`);
-
-        return ok(await enrichWithDivisions(rows), {
-          total: Number(total),
-          limit,
-          offset,
-        });
-      }
-
-      // Regular faculty / counselor
+      // Divisions this faculty teaches in (for DIVISION-targeted circulars)
       const assignmentRows = await db
         .select({ divisionId: facultySubjectAssignments.divisionId })
         .from(facultySubjectAssignments)
         .where(eq(facultySubjectAssignments.facultyId, userId));
 
-      const facultyDivisionIds = [
-        ...new Set(assignmentRows.map((r) => r.divisionId)),
-      ];
+      const facultyDivisionIds = [...new Set(assignmentRows.map((r) => r.divisionId))];
 
       let divisionCircularIds: number[] = [];
       if (facultyDivisionIds.length > 0) {
@@ -185,44 +134,32 @@ export async function GET(req: NextRequest) {
         divisionCircularIds = [...new Set(divRows.map((r) => r.circularId))];
       }
 
-      const facultyConditions = [
+      // Faculty see:
+      // 1. ALL circulars
+      // 2. FACULTY circulars
+      // 3. Any YEAR circular (faculty should see year-level announcements)
+      // 4. Their OWN circulars regardless of type (most important — they created them)
+      // 5. DIVISION circulars for divisions they teach
+      const whereClause = or(
         eq(circulars.targetType, "ALL"),
         eq(circulars.targetType, "FACULTY"),
-        eq(circulars.targetType, "YEAR"),   // Faculty can see year-based notices too
-        eq(circulars.facultyId, userId),    // Own circulars always visible
+        eq(circulars.targetType, "YEAR"),
+        eq(circulars.facultyId, userId),           // ← own circulars — always visible
         ...(divisionCircularIds.length > 0
-          ? [
-              and(
-                eq(circulars.targetType, "DIVISION"),
-                inArray(circulars.id, divisionCircularIds)
-              ),
-            ]
+          ? [and(
+              eq(circulars.targetType, "DIVISION"),
+              inArray(circulars.id, divisionCircularIds)
+            )]
           : []),
-      ];
-
-      const whereClause = or(...facultyConditions);
+      );
 
       const [rows, [{ total }]] = await Promise.all([
-        db
-          .select()
-          .from(circulars)
-          .where(whereClause)
-          .orderBy(desc(circulars.createdAt))
-          .limit(limit)
-          .offset(offset),
-        db
-          .select({ total: count(circulars.id) })
-          .from(circulars)
-          .where(whereClause),
+        db.select().from(circulars).where(whereClause).orderBy(desc(circulars.createdAt)).limit(limit).offset(offset),
+        db.select({ total: count(circulars.id) }).from(circulars).where(whereClause),
       ]);
 
-      console.log(`[GET /api/circulars] faculty userId=${userId} — found ${total} circulars`);
-
-      return ok(await enrichWithDivisions(rows), {
-        total: Number(total),
-        limit,
-        offset,
-      });
+      console.log(`[GET /api/circulars] FACULTY userId=${userId} divisions=[${facultyDivisionIds.join(",")}] → ${total} results`);
+      return ok(await enrichWithDivisions(rows), { total: Number(total), limit, offset });
     }
 
     return err("Forbidden: no recognized role", 403);
@@ -232,8 +169,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// ─── Attach division names for DIVISION-type circulars ───────────────────────
-async function enrichWithDivisions(rows: typeof circulars.$inferSelect[]) {
+// ─── Attach division IDs for DIVISION-type circulars ─────────────────────────
+async function enrichWithDivisions(rows: (typeof circulars.$inferSelect)[]) {
   const divisionCircularIds = rows
     .filter((r) => r.targetType === "DIVISION")
     .map((r) => r.id);
@@ -254,8 +191,5 @@ async function enrichWithDivisions(rows: typeof circulars.$inferSelect[]) {
     map[r.circularId].push(r.divisionId);
   }
 
-  return rows.map((c) => ({
-    ...c,
-    targetDivisionIds: map[c.id] ?? [],
-  }));
+  return rows.map((c) => ({ ...c, targetDivisionIds: map[c.id] ?? [] }));
 }

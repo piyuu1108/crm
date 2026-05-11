@@ -20,15 +20,16 @@ function err(error: string, status = 400, errors?: Record<string, string>) {
 
 async function authorize() {
   const cookieStore = await cookies();
-  const token = cookieStore.get("admin_token")?.value;
+  const token = cookieStore.get("auth_token")?.value;
 
-  if (!token) {
-    return { error: err("Unauthorized", 401) };
-  }
+  if (!token) return { error: err("Unauthorized", 401) };
 
   const payload = await verifyToken(token);
-  if (!payload || payload.role !== "admin") {
-    return { error: err("Forbidden: Admin access required", 403) };
+  if (!payload) return { error: err("Unauthorized: invalid or expired session", 401) };
+
+  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  if (!rolesArray.includes("hod")) {
+    return { error: err("Forbidden: HOD access required", 403) };
   }
 
   return { payload };

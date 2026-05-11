@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SubjectFormData } from "@/app/lib/validations/subject";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -187,3 +187,122 @@ export function useCreateSubjectMutation() {
     mutationFn: createSubject,
   });
 }
+
+// ─── Admin Subject List ──────────────────────────────────────────────────────
+
+export interface SubjectAdminListItem {
+  id: number;
+  code: string;
+  name: string;
+  shortCode: string | null;
+  subjectType: string;
+  credit: number | null;
+  semester: number | null;
+  internalTheoryMax: number | null;
+  externalTheoryMax: number | null;
+  theoryPassingMarks: number | null;
+  internalPracticalMax: number | null;
+  externalPracticalMax: number | null;
+  practicalPassingMarks: number | null;
+  createdAt: string;
+  assignments: { divisionName: string; facultyName: string }[];
+}
+
+async function fetchAdminSubjects(): Promise<SubjectAdminListItem[]> {
+  const res = await fetch("/api/admin/subjects", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error ?? "Failed to fetch subjects");
+  }
+  return json.data as SubjectAdminListItem[];
+}
+
+export const adminSubjectsListKey = ["admin", "subjects", "list"] as const;
+
+export function useAdminSubjectsListQuery() {
+  return useQuery({
+    queryKey: adminSubjectsListKey,
+    queryFn: fetchAdminSubjects,
+    staleTime: 2 * 60 * 1000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+    refetchOnMount: "always",
+  });
+}
+
+// ─── Update Subject ──────────────────────────────────────────────────────────
+
+export interface UpdateSubjectPayload {
+  id: number;
+  code: string;
+  name: string;
+  shortCode?: string;
+  subjectType: string;
+  credit?: number | null;
+  semester?: number | null;
+  internalTheoryMax?: number | null;
+  externalTheoryMax?: number | null;
+  theoryPassingMarks?: number | null;
+  internalPracticalMax?: number | null;
+  externalPracticalMax?: number | null;
+  practicalPassingMarks?: number | null;
+}
+
+async function updateSubject(
+  payload: UpdateSubjectPayload
+): Promise<{ subject: SubjectAdminListItem; affectedAssignments: number }> {
+  const { id, ...data } = payload;
+  const res = await fetch(`/api/admin/subjects/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    const error = new Error(json.error ?? `Request failed: ${res.status}`) as Error & {
+      errors?: Record<string, string>;
+    };
+    if (json.errors) error.errors = json.errors;
+    throw error;
+  }
+  return json.data;
+}
+
+export function useUpdateSubjectMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateSubject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminSubjectsListKey });
+    },
+  });
+}
+
+// ─── Delete Subject ──────────────────────────────────────────────────────────
+
+async function deleteSubject(id: number): Promise<{ id: number; code: string; name: string }> {
+  const res = await fetch(`/api/admin/subjects/${id}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error ?? `Delete failed: ${res.status}`);
+  }
+  return json.data;
+}
+
+export function useDeleteSubjectMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteSubject,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: adminSubjectsListKey });
+    },
+  });
+}
+

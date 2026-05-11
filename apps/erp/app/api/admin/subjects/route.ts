@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { subjects } from "@/app/lib/schema";
-import { eq } from "drizzle-orm";
+import { subjects, facultySubjectAssignments, divisions, faculty } from "@/app/lib/schema";
+import { eq, count, inArray } from "drizzle-orm";
 import { validateSubjectForm, type SubjectFormData } from "@/app/lib/validations/subject";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -36,7 +36,72 @@ async function authorize() {
   return { payload };
 }
 
+// ─── GET /api/admin/subjects — List all subjects with assignment info ──────────
+export async function GET(_req: NextRequest) {
+  try {
+    const auth = await authorize();
+    if ("error" in auth && auth.error) return auth.error;
+
+    // Fetch all subjects
+    const rows = await db
+      .select({
+        id: subjects.id,
+        code: subjects.code,
+        name: subjects.name,
+        shortCode: subjects.shortCode,
+        subjectType: subjects.subjectType,
+        credit: subjects.credit,
+        semester: subjects.semester,
+        internalTheoryMax: subjects.internalTheoryMax,
+        externalTheoryMax: subjects.externalTheoryMax,
+        theoryPassingMarks: subjects.theoryPassingMarks,
+        internalPracticalMax: subjects.internalPracticalMax,
+        externalPracticalMax: subjects.externalPracticalMax,
+        practicalPassingMarks: subjects.practicalPassingMarks,
+        createdAt: subjects.createdAt,
+      })
+      .from(subjects)
+      .orderBy(subjects.code);
+
+    const subjectIds = rows.map((r) => r.id);
+    const assignmentsMap: Record<number, { divisionName: string; facultyName: string }[]> = {};
+
+    if (subjectIds.length > 0) {
+      const assignmentRows = await db
+        .select({
+          subjectId: facultySubjectAssignments.subjectId,
+          divisionName: divisions.displayName,
+          facultyName: faculty.name,
+        })
+        .from(facultySubjectAssignments)
+        .leftJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+        .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .where(inArray(facultySubjectAssignments.subjectId, subjectIds));
+
+      for (const a of assignmentRows) {
+        if (!a.subjectId) continue;
+        if (!assignmentsMap[a.subjectId]) assignmentsMap[a.subjectId] = [];
+        assignmentsMap[a.subjectId].push({
+          divisionName: a.divisionName ?? "—",
+          facultyName: a.facultyName ?? "—",
+        });
+      }
+    }
+
+    const data = rows.map((r) => ({
+      ...r,
+      assignments: assignmentsMap[r.id] ?? [],
+    }));
+
+    return NextResponse.json({ success: true, data }, { status: 200 });
+  } catch (error) {
+    console.error("[GET /api/admin/subjects] Error:", error);
+    return err("Internal server error", 500);
+  }
+}
+
 // ─── POST /api/admin/subjects — Create a new subject ──────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const auth = await authorize();

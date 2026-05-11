@@ -119,7 +119,7 @@ export const navigationConfig: NavSection[] = [
       },
       {
         title: "Manage Subjects",
-        href: "/app/admin/subjects/add",
+        href: "/app/admin/subjects",
         icon: BookOpen,
         roles: ["hod", "admin"],
       },

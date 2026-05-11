@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
 import { redis } from "@/app/lib/redis";
+import { RequestProfiler } from "@/app/lib/profiler";
 
 // ─── Role priority order (used for default selection) ─────────────────────────
 const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
@@ -34,99 +35,173 @@ function err(message: string, status: number) {
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
+  // One profiler per request — created at the very top so `totalDuration` is
+  // measured from the true start of handler execution, not after any setup.
+  const profiler = new RequestProfiler();
+
   try {
-    // 1. Read auth_token from httpOnly cookie — never from Authorization header
+    // ── 1. Read auth_token from httpOnly cookie ───────────────────────────────
+    // This is a synchronous cookie-store lookup — counts as CPU.
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
 
     if (!token) {
+      profiler.finish();
       return err("Unauthorized", 401);
     }
 
-    // 2. Verify JWT (second verification after Edge middleware — prevents header spoofing)
-    const payload = await verifyToken(token);
+    // ── 2. Verify JWT ─────────────────────────────────────────────────────────
+    // verifyToken internally does crypto (CPU-bound) + possibly a DB/KV lookup.
+    // We wrap it as a tracked async wait. If your verifyToken is purely CPU
+    // (e.g. jsonwebtoken.verify with a local secret), swap to measureCpuSection.
+    const payload = await profiler.measureAsyncWait(
+      "auth:verifyToken",
+      "cpu", // JWT RS256 verification is CPU (crypto), no network
+      () => verifyToken(token)
+    );
+
     if (!payload) {
+      profiler.finish();
       return err("Unauthorized: invalid or expired session", 401);
     }
 
+    // ── 3. Role resolution (pure CPU logic) ───────────────────────────────────
     const { userId, roles: jwtRoles } = payload;
-    const rolesArray = Array.isArray(jwtRoles) ? jwtRoles : [];
+    const activeRole = profiler.measureCpuSection("auth:resolveRole", () => {
+      const rolesArray = Array.isArray(jwtRoles) ? jwtRoles : [];
+      if (rolesArray.length === 0) return null;
 
+      const requestedRole =
+        req.headers.get("X-Active-Role") ??
+        req.nextUrl.searchParams.get("role") ??
+        null;
+
+      if (requestedRole) {
+        if (!rolesArray.includes(requestedRole)) return `__forbidden:${requestedRole}`;
+        return requestedRole;
+      }
+
+      return ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    });
+
+    const rolesArray = Array.isArray(jwtRoles) ? jwtRoles : [];
     if (rolesArray.length === 0) {
+      profiler.finish();
       return err("Forbidden: no roles assigned", 403);
     }
-
-    // 3. Determine requested role — never trust blindly; must exist in JWT
-    const requestedRole =
-      req.headers.get("X-Active-Role") ??
-      req.nextUrl.searchParams.get("role") ??
-      null;
-
-    let activeRole: string;
-
-    if (requestedRole) {
-      if (!rolesArray.includes(requestedRole)) {
-        return err(
-          `Forbidden: role '${requestedRole}' is not assigned to this user`,
-          403
-        );
-      }
-      activeRole = requestedRole;
-    } else {
-      // Default: pick by priority order
-      activeRole =
-        ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    if (!activeRole) {
+      profiler.finish();
+      return err("Forbidden: no roles assigned", 403);
+    }
+    if (activeRole.startsWith("__forbidden:")) {
+      const role = activeRole.slice("__forbidden:".length);
+      profiler.finish();
+      return err(`Forbidden: role '${role}' is not assigned to this user`, 403);
     }
 
-    // 4. Try fetching from Cache (Graceful degradation)
+    // ── 4. Redis cache lookup ─────────────────────────────────────────────────
+    // measureAsyncWait records only the network RTT to Redis.
+    // The surrounding cache-key construction is pure CPU (negligible, not timed).
     const cacheKey = `dashboard:user:${userId}:role:${activeRole}`;
-    
-    try {
-      const cachedData = await redis.get(cacheKey);
-      if (cachedData) {
-        console.log(`[Dashboard Cache] HIT for key: ${cacheKey}`);
-        return ok(cachedData, "cache");
-      }
-    } catch (redisError) {
-      console.warn("[Redis GET Error] Falling back to DB:", redisError);
+
+    const cachedData = await profiler
+      .measureAsyncWait("cache:redisGet", "redis", async () => {
+        try {
+          return await redis.get(cacheKey);
+        } catch (redisError) {
+          console.warn("[Redis GET Error] Falling back to DB:", redisError);
+          return null;
+        }
+      });
+
+    if (cachedData) {
+      console.log(`[Dashboard Cache] HIT for key: ${cacheKey}`);
+      profiler.finish();
+      return ok(cachedData, "cache");
     }
 
     console.log(`[Dashboard Cache] MISS for key: ${cacheKey}. Fetching from DB...`);
 
-    // 5. Build user info + role-specific dashboard data
+    // ── 5. Parallel DB fetches ────────────────────────────────────────────────
+    // Promise.all here means both DB calls fly concurrently. We track them as
+    // two separate async waits. The wall time for the parallel block is
+    // max(userInfo, dashboard) — but we log each independently for visibility.
+    //
+    // Note: because they run concurrently, summing their individual durations
+    // would OVER-count total I/O. The profiler sums them for budget awareness,
+    // not for exact wall-time decomposition.
     const [userInfo, dashboard] = await Promise.all([
-      resolveUserInfo(userId, activeRole, rolesArray),
-      buildDashboard(activeRole as Role, userId),
+      profiler.measureAsyncWait(
+        "db:resolveUserInfo",
+        "db",
+        () => resolveUserInfo(userId, activeRole, rolesArray)
+      ),
+      profiler.measureAsyncWait(
+        `db:buildDashboard:${activeRole}`,
+        "db",
+        () => buildDashboard(activeRole as Role, userId)
+      ),
     ]);
 
     if (!userInfo) {
+      profiler.finish();
       return err("User record not found", 404);
     }
 
-    const payloadData = {
+    // ── 6. Payload assembly (CPU) ─────────────────────────────────────────────
+    const payloadData = profiler.measureCpuSection("cpu:assemblePayload", () => ({
       user: {
         ...userInfo,
         roles: rolesArray,
         activeRole,
       },
       dashboard,
-    };
+    }));
 
-    // Store in cache for 5 minutes (300 seconds) with fail-safe
-    try {
-      await redis.set(cacheKey, payloadData, { ex: 300 });
-    } catch (redisError) {
-      console.warn("[Redis SET Error] Failed to cache data:", redisError);
-    }
+    // ── 7. JSON serialization (CPU — often ignored but measurable) ────────────
+    // JSON.stringify on large dashboard payloads (arrays, nested objects) is
+    // a synchronous CPU operation. We time it separately to surface it.
+    // On Cloudflare, large serializations can consume a non-trivial CPU budget.
+    const serialized = profiler.measureCpuSection("serialization:payloadData", () =>
+      JSON.stringify(payloadData)
+    );
+    profiler.trackSection(
+      "serialization:payloadData",
+      // Re-track as serialization category so the report correctly groups it
+      0, // placeholder — actual timing captured inside measureCpuSection above
+      "serialization"
+    );
+
+    // ── 8. Cache write (fire-and-forget Redis write) ──────────────────────────
+    // We wrap this too. Even though it's non-blocking from the user's POV,
+    // tracking it tells us how much work happens before we can GC the payload.
+    await profiler.measureAsyncWait("cache:redisSet", "redis", async () => {
+      try {
+        await redis.set(cacheKey, payloadData, { ex: 300 });
+      } catch (redisError) {
+        console.warn("[Redis SET Error] Failed to cache data:", redisError);
+      }
+    });
+
+    // ── 9. Response serialization (final JSON.stringify by Next.js) ───────────
+    // NextResponse.json() runs its own JSON.stringify internally. We measure
+    // our explicit serialization above; Next's pass is not easily interceptable.
+    // In practice it's a second stringify of the same data — worth knowing.
+
+    // Emit profile before returning
+    profiler.finish();
 
     return ok(payloadData, "db");
   } catch (error) {
     console.error("[/api/dashboard] Unhandled error:", error);
+    profiler.finish();
     return err("An unexpected error occurred", 500);
   }
 }
 
 // ─── User info resolver ───────────────────────────────────────────────────────
+// These functions contain DB calls. The profiler wraps them at the call site
+// (above) rather than inside, keeping DB functions clean and single-purpose.
 async function resolveUserInfo(
   userId: number,
   activeRole: string,
@@ -146,7 +221,6 @@ async function resolveUserInfo(
     return { id: rows[0].id, name: rows[0].name, email: rows[0].email };
   }
 
-  // Faculty (covers faculty, counselor, hod)
   const rows = await db
     .select({
       id: faculty.id,
@@ -184,7 +258,6 @@ async function buildDashboard(role: Role, userId: number) {
 
 // ── Student ──────────────────────────────────────────────────────────────────
 async function buildStudentDashboard(studentId: number) {
-  // Profile
   const profileRows = await db
     .select({
       studentId: students.studentId,
@@ -200,7 +273,6 @@ async function buildStudentDashboard(studentId: number) {
     .limit(1);
   const profile = profileRows[0] ?? null;
 
-  // Derive semester from student's division
   let semesterId: number | null = null;
   if (profile?.currentDivisionId) {
     const [div] = await db
@@ -211,7 +283,6 @@ async function buildStudentDashboard(studentId: number) {
     semesterId = div?.semesterId ?? null;
   }
 
-  // Attendance aggregate (only non-cancelled sessions)
   const [attRows, totalRows] = await Promise.all([
     db
       .select({ count: count() })
@@ -225,9 +296,7 @@ async function buildStudentDashboard(studentId: number) {
           eq(attendance.studentId, studentId),
           eq(attendance.status, "present"),
           eq(attendanceSessions.isCancelled, false),
-          ...(semesterId
-            ? [eq(attendanceSessions.semesterId, semesterId)]
-            : [])
+          ...(semesterId ? [eq(attendanceSessions.semesterId, semesterId)] : [])
         )
       ),
     db
@@ -241,9 +310,7 @@ async function buildStudentDashboard(studentId: number) {
         and(
           eq(attendance.studentId, studentId),
           eq(attendanceSessions.isCancelled, false),
-          ...(semesterId
-            ? [eq(attendanceSessions.semesterId, semesterId)]
-            : [])
+          ...(semesterId ? [eq(attendanceSessions.semesterId, semesterId)] : [])
         )
       ),
   ]);
@@ -255,7 +322,6 @@ async function buildStudentDashboard(studentId: number) {
       ? Math.round((Number(presentCount) / Number(totalSessions)) * 100)
       : 0;
 
-  // Pending requests count
   const pendingRows = await db
     .select({ count: count() })
     .from(studentRequests)
@@ -267,15 +333,9 @@ async function buildStudentDashboard(studentId: number) {
     );
   const pendingRequestsCount = Number(pendingRows[0]?.count ?? 0);
 
-  // Today's timetable (from student's division)
   const divisionId = profile?.currentDivisionId ?? null;
+  const todayTimetable = await getTodayTimetableForDivision(divisionId, semesterId);
 
-  const todayTimetable = await getTodayTimetableForDivision(
-    divisionId,
-    semesterId
-  );
-
-  // Recent requests (last 5)
   const recentRequests = await db
     .select({
       id: studentRequests.id,
@@ -292,14 +352,16 @@ async function buildStudentDashboard(studentId: number) {
     .limit(5);
 
   return {
-    profile: profile ? {
-      studentId: profile.studentId,
-      divisionName: profile.divisionName,
-      currentSemesterNo: profile.currentSemesterNo,
-      status: profile.status,
-      profileStatus: profile.profileStatus,
-      profileStep: profile.profileStep,
-    } : null,
+    profile: profile
+      ? {
+          studentId: profile.studentId,
+          divisionName: profile.divisionName,
+          currentSemesterNo: profile.currentSemesterNo,
+          status: profile.status,
+          profileStatus: profile.profileStatus,
+          profileStep: profile.profileStep,
+        }
+      : null,
     attendance: {
       totalSessions: Number(totalSessions),
       presentCount: Number(presentCount),
@@ -312,7 +374,6 @@ async function buildStudentDashboard(studentId: number) {
 }
 
 async function buildFacultyDashboard(facultyId: number) {
-  // Get assignments scoped to each division's current semester
   const [assignmentsRows, pendingRows] = await Promise.all([
     db
       .select({
@@ -324,10 +385,13 @@ async function buildFacultyDashboard(facultyId: number) {
         divisionId: facultySubjectAssignments.divisionId,
       })
       .from(facultySubjectAssignments)
-      .innerJoin(divisions, and(
-        eq(facultySubjectAssignments.divisionId, divisions.id),
-        eq(facultySubjectAssignments.semesterId, divisions.semesterId)
-      ))
+      .innerJoin(
+        divisions,
+        and(
+          eq(facultySubjectAssignments.divisionId, divisions.id),
+          eq(facultySubjectAssignments.semesterId, divisions.semesterId)
+        )
+      )
       .where(eq(facultySubjectAssignments.facultyId, facultyId)),
     db
       .select({
@@ -351,8 +415,6 @@ async function buildFacultyDashboard(facultyId: number) {
   ]);
 
   const uniqueDivisions = new Set(assignmentsRows.map((a) => a.divisionId));
-
-  // Get today's timetable — from assignments scoped to current division semesters
   const assignmentIds = assignmentsRows.map((a) => a.id);
   const todayTimetable = await getTodayTimetableForAssignments(assignmentIds);
 
@@ -373,17 +435,19 @@ async function buildFacultyDashboard(facultyId: number) {
 }
 
 async function buildCounselorDashboard(facultyId: number) {
-  // Get divisions assigned to this counselor — scoped to each division's current semester
   const assignedDivisionRows = await db
     .select({
       id: counselorDivisionAssignments.divisionId,
       divisionName: counselorDivisionAssignments.divisionName,
     })
     .from(counselorDivisionAssignments)
-    .innerJoin(divisions, and(
-      eq(counselorDivisionAssignments.divisionId, divisions.id),
-      eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-    ))
+    .innerJoin(
+      divisions,
+      and(
+        eq(counselorDivisionAssignments.divisionId, divisions.id),
+        eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
+      )
+    )
     .where(eq(counselorDivisionAssignments.facultyId, facultyId));
 
   const divisionIds = assignedDivisionRows.map((d) => d.id);
@@ -406,7 +470,6 @@ async function buildCounselorDashboard(facultyId: number) {
           .limit(10)
       : [];
 
-  // Count students in assigned divisions
   const totalStudentsRow =
     divisionIds.length > 0
       ? await db
@@ -424,7 +487,7 @@ async function buildCounselorDashboard(facultyId: number) {
     assignedDivisions: assignedDivisionRows.map((d) => ({
       id: d.id,
       displayName: d.divisionName,
-      semesterNo: 0, // not needed for counselor KPI
+      semesterNo: 0,
       courseCode: "",
     })),
     pendingRequestsCount: pendingRows.length,
@@ -433,7 +496,6 @@ async function buildCounselorDashboard(facultyId: number) {
   };
 }
 
-// ── HOD ──────────────────────────────────────────────────────────────────────
 async function buildHodDashboard() {
   const [totalStudentsRow, activeStudentsRow, totalFacultyRow, pendingRows] =
     await Promise.all([

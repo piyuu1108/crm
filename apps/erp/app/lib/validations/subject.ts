@@ -10,7 +10,7 @@ export interface ValidationResult {
   errors: ValidationError[];
 }
 
-export const SUBJECT_TYPES = ["theory", "practical", "both"] as const;
+export const SUBJECT_TYPES = ["theory", "practical", "both", "project_minor", "project_major"] as const;
 export type SubjectType = (typeof SUBJECT_TYPES)[number];
 
 export interface SubjectFormData {

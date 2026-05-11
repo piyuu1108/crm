@@ -28,10 +28,15 @@ export async function POST(request: Request) {
     if (!confirmPassword) return err("Confirm password is required", 400);
     if (newPassword !== confirmPassword) return err("Passwords do not match", 400);
 
+    console.log(`[set-password] Token received, length=${token.length}`);
+
     const tokenLookup = await consumePasswordSetupToken(token);
     if (!tokenLookup.userId || !tokenLookup.userType) {
-      console.error("[set-password] Token lookup failed — token not found in Redis. Key:", tokenLookup.key);
-      return err("Invalid or expired token", 400);
+      const reason = tokenLookup.reason === "malformed"
+        ? "Invalid token format"
+        : "Token has expired or has already been used";
+      console.error(`[set-password] Token lookup failed — reason=${tokenLookup.reason ?? "not_found"} key=${tokenLookup.key}`);
+      return err(reason, 400);
     }
 
     const { userId, userType } = tokenLookup;

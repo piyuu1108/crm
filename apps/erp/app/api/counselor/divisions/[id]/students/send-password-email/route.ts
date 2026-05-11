@@ -76,18 +76,25 @@ export async function POST(
 
     if (!student) return err("Student not found in this division", 404);
     if (!student.studentId) return err("Student ID is not assigned", 400);
+    if (!student.email) return err("Student has no email address", 400);
 
+    console.log(`[counselor send-password-email] Sending to studentId=${student.studentId} dbId=${student.id}`);
+
+    // FIXED: pass the correct payload shape that matches PasswordEmailPayload
     const result = await sendPasswordEmail({
-      studentDbId: student.id,
-      studentId: student.studentId,
+      userId: student.id,
+      userCode: student.studentId,
       fullName: student.fullName,
       email: student.email,
+      userType: "student",
     });
 
     if (!result.success) {
+      console.error("[counselor send-password-email] Failed:", result.error);
       return err(result.error ?? "Failed to send password email", 500);
     }
 
+    console.log(`[counselor send-password-email] Sent successfully to ${student.email}`);
     return ok({ sent: true });
   } catch (error) {
     console.error("[POST counselor single password email] Error:", error);

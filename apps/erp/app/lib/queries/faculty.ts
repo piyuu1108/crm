@@ -54,6 +54,15 @@ export interface CreateFacultyPayload {
   designation?: string;
 }
 
+export interface UpdateFacultyPayload {
+  id: number;
+  name: string;
+  email: string;
+  mobile: string;
+  facultyCode: string;
+  designation?: string;
+}
+
 export interface FacultyListParams {
   page: number;
   limit?: number;
@@ -151,6 +160,43 @@ export function useCreateFacultyMutation() {
     mutationFn: createFaculty,
     onSuccess: () => {
       // Invalidate all faculty list queries so the table refreshes
+      queryClient.invalidateQueries({ queryKey: ["faculty"] });
+    },
+  });
+}
+
+// ─── Update Mutation ──────────────────────────────────────────────────────────
+
+export async function updateFaculty(
+  payload: UpdateFacultyPayload
+): Promise<FacultyListItem> {
+  const { id, ...data } = payload;
+  const res = await fetchWithTimeout(`/api/admin/faculty/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+    timeoutMs: 8000,
+    timeoutMessage: "Faculty update timed out. Please retry.",
+  });
+
+  const json = await res.json();
+
+  if (!res.ok || !json.success) {
+    const error = new Error(json.error ?? `Request failed: ${res.status}`);
+    (error as Error & { errors?: Record<string, string> }).errors = json.errors;
+    throw error;
+  }
+
+  return json.data as FacultyListItem;
+}
+
+export function useUpdateFacultyMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateFaculty,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["faculty"] });
     },
   });

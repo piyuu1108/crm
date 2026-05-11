@@ -30,6 +30,7 @@ import {
 } from "@/app/lib/queries/faculty";
 import { AddFacultyDrawer } from "./add-faculty-drawer";
 import { FacultyActionsMenu } from "./faculty-actions-menu";
+import { EditFacultyModal } from "./edit-faculty-modal";
 import type { SortDescriptor } from "@heroui/react";
 
 const STATUS_COLOR: Record<string, "success" | "danger"> = {
@@ -40,6 +41,7 @@ const STATUS_COLOR: Record<string, "success" | "danger"> = {
 const COLUMNS = [
   { name: "Code", uid: "facultyCode" },
   { name: "Member", uid: "name" },
+  { name: "Email", uid: "email" },
   { name: "Mobile", uid: "mobile" },
   { name: "Designation", uid: "designation" },
   { name: "Status", uid: "isActive" },
@@ -47,7 +49,7 @@ const COLUMNS = [
   { name: "Actions", uid: "actions" },
 ];
 
-const INITIAL_VISIBLE_COLUMNS = ["facultyCode", "name", "mobile", "designation", "isActive", "assignments", "actions"];
+const INITIAL_VISIBLE_COLUMNS = ["facultyCode", "name", "email", "mobile", "designation", "isActive", "assignments", "actions"];
 
 // ─── Debounce hook ────────────────────────────────────────────────────────────
 function useDebounce(value: string, delay: number) {
@@ -105,6 +107,9 @@ export default function FacultyPage() {
     column: "name",
     direction: "ascending",
   });
+
+  const [editingFaculty, setEditingFaculty] = useState<any | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const drawerState = useOverlayState();
   const queryClient = useQueryClient();
@@ -371,6 +376,7 @@ export default function FacultyPage() {
                     )}
                   </Table.Column>
                 )}
+                {visibleColumns.has("email") && <Table.Column className="min-w-[180px]">Email</Table.Column>}
                 {visibleColumns.has("mobile") && <Table.Column className="w-[140px]">Mobile</Table.Column>}
                 {visibleColumns.has("designation") && <Table.Column className="min-w-[160px]">Designation</Table.Column>}
                 {visibleColumns.has("isActive") && <Table.Column className="w-[100px]">Status</Table.Column>}
@@ -391,9 +397,13 @@ export default function FacultyPage() {
                         <div className="flex items-center gap-3">
                           <div className="flex min-w-0 flex-col">
                             <span className="truncate text-sm font-medium text-foreground">{f.name}</span>
-                            {/* <span className="truncate text-xs text-muted-foreground">{f.email}</span> */}
                           </div>
                         </div>
+                      </Table.Cell>
+                    )}
+                    {visibleColumns.has("email") && (
+                      <Table.Cell>
+                        <span className="text-sm text-muted-foreground">{f.email}</span>
                       </Table.Cell>
                     )}
                     {visibleColumns.has("mobile") && (
@@ -448,6 +458,14 @@ export default function FacultyPage() {
                         <FacultyActionsMenu
                           ariaLabel={`Actions for ${f.name}`}
                           actions={[
+                            {
+                              id: `edit-${f.id}`,
+                              label: "Edit",
+                              onAction: () => {
+                                setEditingFaculty(f);
+                                setIsEditModalOpen(true);
+                              },
+                            },
                             {
                               id: `send-password-${f.id}`,
                               label: "Send Password Email",
@@ -513,6 +531,16 @@ export default function FacultyPage() {
 
       {/* ── Add Faculty Drawer ────────────────────────────────── */}
       <AddFacultyDrawer state={drawerState} />
+
+      {/* ── Edit Faculty Modal ────────────────────────────────── */}
+      <EditFacultyModal 
+        faculty={editingFaculty} 
+        isOpen={isEditModalOpen} 
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingFaculty(null);
+        }} 
+      />
     </div>
   );
 }

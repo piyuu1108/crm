@@ -396,21 +396,37 @@ export const circulars = pgTable("circulars", {
   attachmentUrl: varchar("attachment_url", { length: 500 }),
   attachmentType: varchar("attachment_type", { length: 50 }),
   attachmentSize: integer("attachment_size"),
-  
-  targetType: varchar("target_type", { length: 20 }).notNull().default("ALL"), // "ALL" | "YEAR" | "DIVISION"
+
+  // targetType drives visibility:
+  //  "ALL"      — every authenticated user
+  //  "FACULTY"  — only faculty / counselor / hod accounts
+  //  "YEAR"     — students in a specific academic year (1-4)
+  //  "DIVISION" — specific divisions listed in circular_recipients
+  targetType: varchar("target_type", { length: 20 }).notNull().default("ALL"),
   targetYear: integer("target_year"),
-  targetDivisionId: integer("target_division_id").references(() => divisions.id),
-  
+
   facultyId: integer("faculty_id").notNull().references(() => faculty.id),
   facultyName: varchar("faculty_name", { length: 150 }).notNull(),
-  
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => [
-  index("circ_target_idx").on(t.targetType, t.targetYear, t.targetDivisionId),
+  index("circ_target_idx").on(t.targetType, t.targetYear),
   index("circ_faculty_idx").on(t.facultyId),
-  index("circ_created_idx").on(t.createdAt)
+  index("circ_created_idx").on(t.createdAt),
 ]);
+
+// Join table for division-targeted circulars (supports multiple divisions per circular)
+export const circularRecipients = pgTable("circular_recipients", {
+  id: serial("id").primaryKey(),
+  circularId: integer("circular_id").notNull().references(() => circulars.id, { onDelete: "cascade" }),
+  divisionId: integer("division_id").notNull().references(() => divisions.id, { onDelete: "cascade" }),
+}, (t) => [
+  uniqueIndex("circ_div_unique_idx").on(t.circularId, t.divisionId),
+  index("circ_div_circ_idx").on(t.circularId),
+  index("circ_div_div_idx").on(t.divisionId),
+]);
+
 
 // -- INTERNAL EXAMS --
 

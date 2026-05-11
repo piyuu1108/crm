@@ -1,56 +1,93 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Input, 
-  Button, 
+import {
+  Input,
+  Button,
   Select,
   ListBox,
   Label,
   Card,
   Alert,
-  Form
+  Form,
+  Checkbox,
+  CheckboxGroup,
+  Spinner,
 } from "@heroui/react";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { RichTextEditor } from "../components/rich-text-editor";
 import { ArrowLeft, ArrowUpToLine, File } from "@gravity-ui/icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
+const AUDIENCE_OPTIONS = [
+  {
+    id: "ALL",
+    label: "All Users",
+    description: "Every student, faculty, and staff member",
+    color: "success",
+  },
+  {
+    id: "FACULTY",
+    label: "Faculty Only",
+    description: "Only faculty, counselors, and HODs — not students",
+    color: "accent",
+  },
+  {
+    id: "YEAR",
+    label: "Specific Year",
+    description: "All students in a particular academic year",
+    color: "warning",
+  },
+  {
+    id: "DIVISION",
+    label: "Specific Division(s)",
+    description: "Only students in selected divisions",
+    color: "danger",
+  },
+] as const;
 
 export default function CreateCircularPage() {
   const router = useRouter();
   const { activeRole } = useAuthStore();
-  
+  const queryClient = useQueryClient();
+
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [targetType, setTargetType] = useState("ALL");
+  const [targetType, setTargetType] = useState<string>("ALL");
   const [targetYear, setTargetYear] = useState<string>("");
-  const [targetDivisionId, setTargetDivisionId] = useState<string>("");
-  
+  const [targetDivisionIds, setTargetDivisionIds] = useState<string[]>([]);
+
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const { data: divisionsData } = useQuery({
+  const canCreate =
+    activeRole === "faculty" || activeRole === "hod" || activeRole === "counselor";
+
+  const { data: divisionsData, isLoading: isDivisionsLoading } = useQuery({
     queryKey: ["divisions-all"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/divisions?limit=1000"); // Just to fetch all
-      if (!res.ok) return { data: [] };
+      const res = await fetch("/api/admin/divisions?limit=1000", {
+        credentials: "include",
+      });
+      if (!res.ok) return { data: { divisions: [] } };
       return res.json();
     },
-    enabled: targetType === "DIVISION"
+    enabled: targetType === "DIVISION",
+    staleTime: 5 * 60_000,
   });
 
-  const isFacultyOrHod = activeRole === "faculty" || activeRole === "hod";
+  const divisions: any[] = divisionsData?.data?.divisions ?? [];
 
-  if (!isFacultyOrHod) {
+  if (!canCreate) {
     return (
       <div className="p-6">
         <Alert status="danger">
           <Alert.Indicator />
           <Alert.Content>
             <Alert.Title>Unauthorized</Alert.Title>
-            <Alert.Description>You do not have permission to view this page.</Alert.Description>
+            <Alert.Description>You do not have permission to create circulars.</Alert.Description>
           </Alert.Content>
         </Alert>
       </div>
@@ -61,7 +98,7 @@ export default function CreateCircularPage() {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFile = e.target.files[0];
       if (selectedFile.size > 2 * 1024 * 1024) {
-        setError("File size exceeds 2MB limit.");
+        setError("File size exceeds 2 MB limit.");
         setFile(null);
         return;
       }
@@ -70,78 +107,77 @@ export default function CreateCircularPage() {
     }
   };
 
+  const validate = (): boolean => {
+    if (!title.trim()) {
+      setError("Title is required.");
+      return false;
+    }
+    if (targetType === "YEAR" && !targetYear) {
+      setError("Please select a target year.");
+      return false;
+    }
+    if (targetType === "DIVISION" && targetDivisionIds.length === 0) {
+      setError("Please select at least one division.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
-    if (!title.trim()) {
-      setError("Title is required.");
-      return;
-    }
-
-    if (targetType === "YEAR" && !targetYear) {
-      setError("Target Year is required when targeting by Year.");
-      return;
-    }
-
-    if (targetType === "DIVISION" && !targetDivisionId) {
-      setError("Target Division is required when targeting by Division.");
-      return;
-    }
+    if (!validate()) return;
 
     setIsSubmitting(true);
-
     try {
       let attachmentUrl = null;
       let attachmentType = null;
       let attachmentSize = null;
 
-      // Upload file if exists
       if (file) {
         const urlRes = await fetch("/api/faculty/upload-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({
             docType: "circular_attachment",
             contentType: file.type,
             fileSize: file.size,
           }),
         });
-
         if (!urlRes.ok) {
           const errData = await urlRes.json();
-          throw new Error(errData.error || "Failed to get upload URL");
+          throw new Error(errData.error ?? "Failed to get upload URL");
         }
-
-        const { data: { uploadUrl, fileKey } } = await urlRes.json();
+        const {
+          data: { uploadUrl, fileKey },
+        } = await urlRes.json();
 
         const uploadRes = await fetch(uploadUrl, {
           method: "PUT",
           headers: { "Content-Type": file.type },
           body: file,
         });
+        if (!uploadRes.ok) throw new Error("Failed to upload file");
 
-        if (!uploadRes.ok) {
-          throw new Error("Failed to upload file to S3");
-        }
-
-        // Just store the relative path or public URL (in real app, you would configure Cloudfront)
-        // Here we store fileKey to construct URL later, or full URL depending on S3 config.
         attachmentUrl = fileKey;
         attachmentType = file.type;
         attachmentSize = file.size;
       }
 
-      // Create Circular
       const res = await fetch("/api/faculty/circulars", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          title,
+          title: title.trim(),
           description,
           targetType,
-          targetYear: targetYear ? parseInt(targetYear, 10) : null,
-          targetDivisionId: targetDivisionId ? parseInt(targetDivisionId, 10) : null,
+          targetYear: targetType === "YEAR" ? parseInt(targetYear, 10) : null,
+          targetDivisionIds:
+            targetType === "DIVISION"
+              ? targetDivisionIds.map(Number)
+              : [],
           attachmentUrl,
           attachmentType,
           attachmentSize,
@@ -150,20 +186,31 @@ export default function CreateCircularPage() {
 
       if (!res.ok) {
         const errData = await res.json();
-        throw new Error(errData.error || "Failed to create circular");
+        throw new Error(errData.error ?? "Failed to create circular");
       }
 
+      // Invalidate list so it refreshes immediately
+      await queryClient.invalidateQueries({ queryKey: ["circulars"] });
       router.push("/app/circulars");
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "An error occurred during submission.");
+      setError(err.message ?? "An error occurred during submission.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleAudienceChange = (value: string) => {
+    setTargetType(value);
+    setTargetYear("");
+    setTargetDivisionIds([]);
+    setError("");
+  };
+
+  const selectedAudienceOption = AUDIENCE_OPTIONS.find((o) => o.id === targetType);
+
   return (
-    <div className="max-w-4xl mx-auto p-6 flex flex-col gap-6">
+    <div className="max-w-3xl mx-auto flex flex-col gap-6">
+      {/* Header */}
       <div className="flex items-center gap-4">
         <Button
           isIconOnly
@@ -175,7 +222,9 @@ export default function CreateCircularPage() {
         </Button>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Create Circular</h1>
-          <p className="text-sm text-muted-foreground">Publish a new notice or circular</p>
+          <p className="text-sm text-muted-foreground">
+            Publish a notice to your selected audience
+          </p>
         </div>
       </div>
 
@@ -189,155 +238,227 @@ export default function CreateCircularPage() {
         </Alert>
       )}
 
-      <Card className="p-6">
-        <Form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
-          <div className="flex flex-col gap-1">
-            <Label>Title</Label>
-            <Input
-              required
-              placeholder="Enter circular title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-foreground">Description</label>
-            <RichTextEditor
-              value={description}
-              onChange={setDescription}
-              placeholder="Write the details of the circular here..."
-            />
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <Select
-              isRequired
-              className="flex-1"
-              placeholder="Select audience type"
-              selectedKey={targetType}
-              onSelectionChange={(value) => setTargetType(value as string)}
-            >
-              <Label>Target Audience</Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  <ListBox.Item id="ALL" textValue="All Students">
-                    All Students
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                  <ListBox.Item id="YEAR" textValue="Specific Year">
-                    Specific Year
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                  <ListBox.Item id="DIVISION" textValue="Specific Division">
-                    Specific Division
-                    <ListBox.ItemIndicator />
-                  </ListBox.Item>
-                </ListBox>
-              </Select.Popover>
-            </Select>
-
-            {targetType === "YEAR" && (
-              <Select
-                isRequired
-                className="flex-1"
-                placeholder="Choose year"
-                selectedKey={targetYear}
-                onSelectionChange={(value) => setTargetYear(value as string)}
-              >
-                <Label>Select Year</Label>
-                <Select.Trigger>
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
-                    <ListBox.Item id="1" textValue="1st Year">
-                      1st Year
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                    <ListBox.Item id="2" textValue="2nd Year">
-                      2nd Year
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                    <ListBox.Item id="3" textValue="3rd Year">
-                      3rd Year
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                    <ListBox.Item id="4" textValue="4th Year">
-                      4th Year
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  </ListBox>
-                </Select.Popover>
-              </Select>
-            )}
-
-            {targetType === "DIVISION" && (
-              <Select
-                isRequired
-                className="flex-1"
-                placeholder="Choose division"
-                selectedKey={targetDivisionId}
-                onSelectionChange={(value) => setTargetDivisionId(value as string)}
-                isDisabled={!divisionsData}
-              >
-                <Label>Select Division</Label>
-                <Select.Trigger>
-                  <Select.Value />
-                  <Select.Indicator />
-                </Select.Trigger>
-                <Select.Popover>
-                  <ListBox>
-                    {(divisionsData?.data?.divisions || []).map((div: any) => (
-                      <ListBox.Item key={div.id.toString()} id={div.id.toString()} textValue={div.displayName}>
-                        {div.displayName}
-                        <ListBox.ItemIndicator />
-                      </ListBox.Item>
-                    ))}
-                  </ListBox>
-                </Select.Popover>
-              </Select>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-2 border-t border-divider pt-6">
-            <label className="text-sm font-medium text-foreground">Attachment (Optional, Max 2MB, PDF/Image)</label>
-            <div className="flex items-center gap-4">
-              <Button
-                variant="secondary"
-                onPress={() => document.getElementById('circular-file-upload')?.click()}
-              >
-                <ArrowUpToLine className="w-4 h-4" />
-                Choose File
-              </Button>
-              <input
-                id="circular-file-upload"
-                type="file"
-                className="hidden"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                onChange={handleFileChange}
+      <Card>
+        <Card.Content>
+          <Form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
+            {/* Title */}
+            <div className="flex flex-col gap-1.5">
+              <Label>
+                Title <span className="text-danger">*</span>
+              </Label>
+              <Input
+                required
+                placeholder="Enter circular title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
               />
-              {file && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <File className="w-4 h-4" />
-                  <span className="truncate max-w-[200px]">{file.name}</span>
-                  <span>({Math.round(file.size / 1024)} KB)</span>
-                  <Button size="sm" isIconOnly variant="tertiary" className="text-danger" onPress={() => setFile(null)}>×</Button>
+            </div>
+
+            {/* Description */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-foreground">
+                Description
+              </label>
+              <RichTextEditor
+                value={description}
+                onChange={setDescription}
+                placeholder="Write the details of the circular here..."
+              />
+            </div>
+
+            {/* Audience */}
+            <div className="flex flex-col gap-3">
+              <Label>
+                Target Audience <span className="text-danger">*</span>
+              </Label>
+
+              {/* Audience type cards */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {AUDIENCE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => handleAudienceChange(opt.id)}
+                    className={`flex flex-col gap-1 rounded-lg border p-3 text-left transition-colors duration-100 ${
+                      targetType === opt.id
+                        ? "border-accent bg-accent/5"
+                        : "border-divider hover:border-default-400 hover:bg-default/5"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-foreground">
+                        {opt.label}
+                      </span>
+                      {targetType === opt.id && (
+                        <span className="h-2 w-2 rounded-full bg-accent" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-tight">
+                      {opt.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+
+              {/* Year selector */}
+              {targetType === "YEAR" && (
+                <Select
+                  isRequired
+                  placeholder="Select academic year"
+                  selectedKey={targetYear}
+                  onSelectionChange={(v) => setTargetYear(v as string)}
+                >
+                  <Label>Academic Year</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      {["1", "2", "3", "4"].map((y) => (
+                        <ListBox.Item key={y} id={y} textValue={`${y}${["st","nd","rd","th"][+y-1]} Year`}>
+                          {y}{["st","nd","rd","th"][+y-1]} Year
+                          <ListBox.ItemIndicator />
+                        </ListBox.Item>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+              )}
+
+              {/* Division multi-select */}
+              {targetType === "DIVISION" && (
+                <div className="flex flex-col gap-2">
+                  <Label>Select Divisions</Label>
+                  {isDivisionsLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Spinner size="sm" />
+                      Loading divisions…
+                    </div>
+                  ) : divisions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No divisions found.
+                    </p>
+                  ) : (
+                    <CheckboxGroup
+                      value={targetDivisionIds}
+                      onChange={(vals) => setTargetDivisionIds(vals as string[])}
+                      className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+                    >
+                      {divisions.map((div: any) => (
+                        <Checkbox key={div.id} value={div.id.toString()}>
+                          {div.displayName}
+                        </Checkbox>
+                      ))}
+                    </CheckboxGroup>
+                  )}
+                  {targetDivisionIds.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {targetDivisionIds.map((id) => {
+                        const div = divisions.find(
+                          (d: any) => d.id.toString() === id
+                        );
+                        return (
+                          div && (
+                            <div
+                              key={id}
+                              className="inline-flex items-center gap-1 rounded-full bg-danger/10 text-danger px-2.5 py-0.5 text-xs font-medium"
+                            >
+                              {div.displayName}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setTargetDivisionIds((prev) =>
+                                    prev.filter((d) => d !== id)
+                                  )
+                                }
+                                className="ml-0.5 rounded-full hover:bg-danger/20 p-0.5 transition-colors"
+                                aria-label={`Remove ${div.displayName}`}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          )
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-divider w-full">
-            <Button variant="tertiary" onPress={() => router.back()}>Cancel</Button>
-            <Button variant="primary" type="submit" isPending={isSubmitting}>Publish Circular</Button>
-          </div>
-        </Form>
+            {/* Attachment */}
+            <div className="flex flex-col gap-2 border-t border-divider pt-5">
+              <label className="text-sm font-medium text-foreground">
+                Attachment{" "}
+                <span className="text-xs text-muted-foreground font-normal">
+                  (Optional · Max 2 MB · PDF or image)
+                </span>
+              </label>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onPress={() =>
+                    document.getElementById("circular-file-upload")?.click()
+                  }
+                >
+                  <ArrowUpToLine className="w-4 h-4" />
+                  Choose File
+                </Button>
+                <input
+                  id="circular-file-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={handleFileChange}
+                />
+                {file && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <File className="w-4 h-4 shrink-0" />
+                    <span className="truncate max-w-[180px]">{file.name}</span>
+                    <span className="text-xs">
+                      ({Math.round(file.size / 1024)} KB)
+                    </span>
+                    <Button
+                      size="sm"
+                      isIconOnly
+                      variant="tertiary"
+                      className="text-danger"
+                      onPress={() => setFile(null)}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-divider w-full">
+              <Button
+                variant="tertiary"
+                onPress={() => router.back()}
+                isDisabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                isPending={isSubmitting}
+                isDisabled={isSubmitting}
+              >
+                {({ isPending }) => (
+                  <>
+                    {isPending && <Spinner color="current" size="sm" />}
+                    {isPending ? "Publishing…" : "Publish Circular"}
+                  </>
+                )}
+              </Button>
+            </div>
+          </Form>
+        </Card.Content>
       </Card>
     </div>
   );

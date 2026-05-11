@@ -2,94 +2,128 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { circulars, faculty } from "@/app/lib/schema";
+import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
+
+const VALID_TARGET_TYPES = ["ALL", "FACULTY", "YEAR", "DIVISION"] as const;
+type TargetType = (typeof VALID_TARGET_TYPES)[number];
+
+function err(message: string, status = 400) {
+  return NextResponse.json({ success: false, error: message }, { status });
+}
 
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("auth_token")?.value;
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    if (!token) return err("Unauthorized", 401);
 
     const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: invalid session" },
-        { status: 401 }
-      );
-    }
+    if (!payload) return err("Unauthorized: invalid session", 401);
 
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.some((role) => role === "faculty" || role === "counselor" || role === "hod")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: faculty role required" },
-        { status: 403 }
-      );
+    if (!roles.some((r) => r === "faculty" || r === "counselor" || r === "hod")) {
+      return err("Forbidden: faculty role required", 403);
     }
 
     const body = await req.json();
-    const { 
-      title, 
-      description, 
-      attachmentUrl, 
-      attachmentType, 
-      attachmentSize, 
-      targetType, 
-      targetYear, 
-      targetDivisionId 
-    } = body;
-
-    if (!title || typeof title !== "string") {
-      return NextResponse.json({ success: false, error: "Title is required" }, { status: 400 });
-    }
-
-    if (!["ALL", "YEAR", "DIVISION"].includes(targetType)) {
-      return NextResponse.json({ success: false, error: "Invalid target type" }, { status: 400 });
-    }
-
-    // Get Faculty Name
-    const [facultyData] = await db
-      .select({ name: faculty.name })
-      .from(faculty)
-      .where(eq(faculty.id, payload.userId));
-
-    if (!facultyData) {
-      return NextResponse.json({ success: false, error: "Faculty not found" }, { status: 404 });
-    }
-
-    // Generate unique slug
-    const baseSlug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "");
-    const randomHash = Math.random().toString(36).substring(2, 8);
-    const slug = `${baseSlug}-${randomHash}`;
-
-    const [newCircular] = await db.insert(circulars).values({
-      slug,
+    const {
       title,
       description,
       attachmentUrl,
       attachmentType,
       attachmentSize,
       targetType,
-      targetYear: targetType === "YEAR" ? targetYear : null,
-      targetDivisionId: targetType === "DIVISION" ? targetDivisionId : null,
-      facultyId: payload.userId,
-      facultyName: facultyData.name,
-    }).returning();
+      targetYear,
+      targetDivisionIds, // number[] — for DIVISION type
+    } = body;
 
-    return NextResponse.json({ success: true, data: newCircular });
+    // ── Validation ─────────────────────────────────────────────────────────────
+    if (!title || typeof title !== "string" || title.trim().length === 0) {
+      return err("Title is required");
+    }
+    if (title.trim().length > 255) {
+      return err("Title must be 255 characters or less");
+    }
+    if (!VALID_TARGET_TYPES.includes(targetType as TargetType)) {
+      return err(`Invalid target type. Must be one of: ${VALID_TARGET_TYPES.join(", ")}`);
+    }
+    if (targetType === "YEAR") {
+      const year = Number(targetYear);
+      if (!year || year < 1 || year > 6) {
+        return err("Target year must be between 1 and 6");
+      }
+    }
+    if (targetType === "DIVISION") {
+      if (!Array.isArray(targetDivisionIds) || targetDivisionIds.length === 0) {
+        return err("At least one division must be selected for Division-targeted circulars");
+      }
+      const ids = targetDivisionIds.map(Number);
+      if (ids.some((id) => isNaN(id) || id <= 0)) {
+        return err("Invalid division ID(s)");
+      }
+    }
+
+    // ── Get Faculty Name ────────────────────────────────────────────────────────
+    const [facultyData] = await db
+      .select({ name: faculty.name })
+      .from(faculty)
+      .where(eq(faculty.id, payload.userId))
+      .limit(1);
+
+    if (!facultyData) return err("Faculty not found", 404);
+
+    // ── Generate slug ───────────────────────────────────────────────────────────
+    const baseSlug = title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)+/g, "")
+      .slice(0, 80);
+    const randomHash = Math.random().toString(36).substring(2, 8);
+    const slug = `${baseSlug}-${randomHash}`;
+
+    // ── Insert circular ─────────────────────────────────────────────────────────
+    const [newCircular] = await db
+      .insert(circulars)
+      .values({
+        slug,
+        title: title.trim(),
+        description,
+        attachmentUrl: attachmentUrl ?? null,
+        attachmentType: attachmentType ?? null,
+        attachmentSize: attachmentSize ?? null,
+        targetType,
+        targetYear: targetType === "YEAR" ? Number(targetYear) : null,
+        facultyId: payload.userId,
+        facultyName: facultyData.name,
+      })
+      .returning();
+
+    // ── Insert division recipients (for DIVISION type) ─────────────────────────
+    if (targetType === "DIVISION" && Array.isArray(targetDivisionIds) && targetDivisionIds.length > 0) {
+      const uniqueIds = [...new Set(targetDivisionIds.map(Number))];
+      await db.insert(circularRecipients).values(
+        uniqueIds.map((divisionId) => ({
+          circularId: newCircular.id,
+          divisionId,
+        }))
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          ...newCircular,
+          targetDivisionIds:
+            targetType === "DIVISION" ? targetDivisionIds.map(Number) : [],
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("[POST /api/faculty/circulars]", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to create circular" },
-      { status: 500 }
-    );
+    return err("Failed to create circular", 500);
   }
 }

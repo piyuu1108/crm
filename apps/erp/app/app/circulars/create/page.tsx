@@ -10,7 +10,6 @@ import {
   Label,
   Card,
   Alert,
-  Form,
   Checkbox,
   CheckboxGroup,
   Spinner,
@@ -240,14 +239,13 @@ export default function CreateCircularPage() {
 
       <Card>
         <Card.Content>
-          <Form onSubmit={handleSubmit} className="flex flex-col gap-6 w-full">
+          <form id="create-circular-form" onSubmit={handleSubmit} noValidate className="flex flex-col gap-6 w-full">
             {/* Title */}
             <div className="flex flex-col gap-1.5">
               <Label>
                 Title <span className="text-danger">*</span>
               </Label>
               <Input
-                required
                 placeholder="Enter circular title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -446,18 +444,20 @@ export default function CreateCircularPage() {
               <Button
                 variant="primary"
                 type="submit"
-                isPending={isSubmitting}
+                form="create-circular-form"
                 isDisabled={isSubmitting}
               >
-                {({ isPending }) => (
+                {isSubmitting ? (
                   <>
-                    {isPending && <Spinner color="current" size="sm" />}
-                    {isPending ? "Publishing…" : "Publish Circular"}
+                    <Spinner color="current" size="sm" />
+                    Publishing…
                   </>
+                ) : (
+                  "Publish Circular"
                 )}
               </Button>
             </div>
-          </Form>
+          </form>
         </Card.Content>
       </Card>
     </div>

@@ -137,13 +137,36 @@ export async function GET(req: NextRequest) {
     }
 
     if (isFaculty) {
-      // Faculty/counselor/HOD see:
-      // 1. ALL circulars
-      // 2. FACULTY circulars
-      // 3. DIVISION circulars for divisions they teach (via facultySubjectAssignments)
-      // 4. Their own circulars regardless of type (so they can always see what they published)
+      const isHod = roles.includes("hod");
 
-      // Get divisions this faculty member teaches
+      // HOD sees every circular — they oversee all students and staff.
+      // Faculty/counselor see: ALL + FACULTY + own + divisions they teach.
+      // Both always see their own circulars regardless of type.
+
+      let conditions: ReturnType<typeof eq>[] = [];
+
+      if (isHod) {
+        // HOD sees everything — no filter needed
+        const [rows, [{ total }]] = await Promise.all([
+          db
+            .select()
+            .from(circulars)
+            .orderBy(desc(circulars.createdAt))
+            .limit(limit)
+            .offset(offset),
+          db.select({ total: count(circulars.id) }).from(circulars),
+        ]);
+
+        console.log(`[GET /api/circulars] HOD userId=${userId} — found ${total} circulars`);
+
+        return ok(await enrichWithDivisions(rows), {
+          total: Number(total),
+          limit,
+          offset,
+        });
+      }
+
+      // Regular faculty / counselor
       const assignmentRows = await db
         .select({ divisionId: facultySubjectAssignments.divisionId })
         .from(facultySubjectAssignments)
@@ -162,10 +185,11 @@ export async function GET(req: NextRequest) {
         divisionCircularIds = [...new Set(divRows.map((r) => r.circularId))];
       }
 
-      const conditions = [
+      const facultyConditions = [
         eq(circulars.targetType, "ALL"),
         eq(circulars.targetType, "FACULTY"),
-        eq(circulars.facultyId, userId), // Own circulars always visible
+        eq(circulars.targetType, "YEAR"),   // Faculty can see year-based notices too
+        eq(circulars.facultyId, userId),    // Own circulars always visible
         ...(divisionCircularIds.length > 0
           ? [
               and(
@@ -176,7 +200,7 @@ export async function GET(req: NextRequest) {
           : []),
       ];
 
-      const whereClause = or(...conditions);
+      const whereClause = or(...facultyConditions);
 
       const [rows, [{ total }]] = await Promise.all([
         db
@@ -191,6 +215,8 @@ export async function GET(req: NextRequest) {
           .from(circulars)
           .where(whereClause),
       ]);
+
+      console.log(`[GET /api/circulars] faculty userId=${userId} — found ${total} circulars`);
 
       return ok(await enrichWithDivisions(rows), {
         total: Number(total),

@@ -109,6 +109,9 @@ export async function POST(req: NextRequest) {
           divisionId,
         }))
       );
+      console.log(`[POST /api/faculty/circulars] Created circular id=${newCircular.id} slug=${newCircular.slug} type=${targetType} divisionIds=${uniqueIds.join(",")}`);
+    } else {
+      console.log(`[POST /api/faculty/circulars] Created circular id=${newCircular.id} slug=${newCircular.slug} type=${targetType} year=${newCircular.targetYear ?? "n/a"}`);
     }
 
     return NextResponse.json(

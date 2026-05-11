@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { divisions, courses, semesters, students, counselorDivisionAssignments } from "@/app/lib/schema";
-import { eq, and, count, asc, desc, sql, max } from "drizzle-orm";
+import { divisions, courses, semesters, students, counselorDivisionAssignments, facultySubjectAssignments, faculty, subjects } from "@/app/lib/schema";
+import { eq, and, count, asc, desc, sql, max, inArray } from "drizzle-orm";
 import { redis } from "@/app/lib/redis";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -96,6 +96,7 @@ export async function GET(req: NextRequest) {
     // Fetch counselor assignments for these divisions
     const divisionIds = rows.map((r) => r.id);
     let counselorMap: Record<number, string> = {};
+    let assignmentsMap: Record<number, any[]> = {};
 
     if (divisionIds.length > 0) {
       const counselors = await db
@@ -104,12 +105,7 @@ export async function GET(req: NextRequest) {
           facultyName: counselorDivisionAssignments.facultyName,
         })
         .from(counselorDivisionAssignments)
-        .where(
-          sql`${counselorDivisionAssignments.divisionId} IN (${sql.join(
-            divisionIds.map((id) => sql`${id}`),
-            sql`, `
-          )})`
-        );
+        .where(inArray(counselorDivisionAssignments.divisionId, divisionIds));
 
       for (const c of counselors) {
         // First counselor found for each division
@@ -117,11 +113,43 @@ export async function GET(req: NextRequest) {
           counselorMap[c.divisionId] = c.facultyName;
         }
       }
+
+      const divisionAssignments = await db
+        .select({
+          divisionId: facultySubjectAssignments.divisionId,
+          facultyName: facultySubjectAssignments.facultyName,
+          subjectName: facultySubjectAssignments.subjectName,
+          facultyCode: faculty.facultyCode,
+          subjectShortCode: subjects.shortCode,
+          subjectCode: subjects.code,
+          subjectType: subjects.subjectType,
+          subjectCredit: subjects.credit,
+        })
+        .from(facultySubjectAssignments)
+        .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .leftJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
+
+      for (const a of divisionAssignments) {
+        if (!assignmentsMap[a.divisionId]) {
+          assignmentsMap[a.divisionId] = [];
+        }
+        assignmentsMap[a.divisionId].push({
+          subjectName: a.subjectName,
+          facultyName: a.facultyName,
+          subjectShortCode: a.subjectShortCode || a.subjectName.substring(0, 3).toUpperCase(),
+          facultyCode: a.facultyCode || a.facultyName.split(' ').map(n => n[0]).join(''),
+          subjectCode: a.subjectCode,
+          subjectType: a.subjectType,
+          subjectCredit: a.subjectCredit,
+        });
+      }
     }
 
     const divisionsWithCounselors = rows.map((r) => ({
       ...r,
       counselorName: counselorMap[r.id] || null,
+      assignments: assignmentsMap[r.id] || [],
     }));
 
     const payloadData = {

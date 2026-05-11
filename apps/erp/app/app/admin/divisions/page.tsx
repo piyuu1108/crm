@@ -8,16 +8,17 @@ import {
   Card,
   Chip,
   Pagination,
+  Table,
+  Tooltip,
   useOverlayState,
 } from "@heroui/react";
-import { Plus } from "@gravity-ui/icons";
+import { Plus, ChevronRight } from "@gravity-ui/icons";
 import {
   divisionListKey,
   useDivisionListQuery,
   type DivisionListParams,
 } from "@/app/lib/queries/divisions";
 import { CreateDivisionDrawer } from "./create-division-drawer";
-import { sortDivisions } from "@/app/lib/utils/sort-utils";
 
 // ─── Specialization badge colors ──────────────────────────────────────────────
 const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
@@ -27,25 +28,20 @@ const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
 };
 
 // ─── Loading skeleton ─────────────────────────────────────────────────────────
-function DivisionCardSkeleton() {
+function DivisionTableSkeleton() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="flex flex-col gap-4">
       {[...Array(6)].map((_, i) => (
         <div
           key={i}
-          className="h-48 rounded-2xl border border-divider bg-default/10 animate-pulse"
+          className="h-16 rounded-xl border border-divider bg-default/10 animate-pulse"
         />
       ))}
     </div>
   );
 }
 
-// ─── Semester display helper ──────────────────────────────────────────────────
-function semesterLabel(semNo: number): string {
-  if (semNo <= 2) return "FY";
-  if (semNo <= 4) return "SY";
-  return "TY";
-}
+
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DivisionsPage() {
@@ -88,7 +84,7 @@ export default function DivisionsPage() {
 
       {/* ── Content ────────────────────────────────────────────── */}
       {isLoading ? (
-        <DivisionCardSkeleton />
+        <DivisionTableSkeleton />
       ) : isError ? (
         <Card className="border border-danger/30 bg-danger/5 p-8 text-center">
           <Card.Content className="flex flex-col items-center gap-4">
@@ -127,85 +123,96 @@ export default function DivisionsPage() {
       ) : data ? (
         <>
           {/* Result count */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm text-muted-foreground">
               {total} division{total !== 1 ? "s" : ""}
             </span>
           </div>
 
-          {/* Division Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sortDivisions(data.divisions, (d) => d.displayName).map((div) => (
-              <div
-                key={div.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => router.push(`/app/admin/divisions/${div.id}`)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    router.push(`/app/admin/divisions/${div.id}`);
-                  }
-                }}
-                className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-2xl"
-              >
-                <Card className="border border-divider transition-all duration-200 group-hover:border-accent/40 group-hover:shadow-lg group-hover:shadow-accent/5">
-                <Card.Content className="p-5">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h3 className="text-lg font-bold font-mono text-foreground group-hover:text-accent transition-colors">
-                        {div.displayName}
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {semesterLabel(div.semesterNo)} · Sem {div.semesterNo}
-                      </p>
-                    </div>
-                    <Chip
-                      color={SPEC_COLOR[div.specialization] || "accent"}
-                      size="sm"
-                      variant="soft"
-                    >
-                      {div.specialization}
-                    </Chip>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    <div className="rounded-lg bg-default/10 p-3">
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Batch Year
-                      </p>
-                      <p className="text-lg font-bold text-foreground">
-                        {div.batchYear}
-                      </p>
-                    </div>
-                    <div className="rounded-lg bg-default/10 p-3">
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                        Students
-                      </p>
-                      <p className="text-lg font-bold text-foreground">
-                        {div.studentCount}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Counselor */}
-                  <div className="mt-3 pt-3 border-t border-divider">
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium">Counselor:</span>{" "}
-                      {div.counselorName || (
-                        <span className="italic text-muted-foreground/60">
-                          Not assigned
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </Card.Content>
-              </Card>
-              </div>
-            ))}
-          </div>
+          <Table>
+            <Table.ScrollContainer>
+              <Table.Content aria-label="Divisions list" className="min-w-[800px]">
+                <Table.Header>
+                  <Table.Column isRowHeader>Division Name</Table.Column>
+                  <Table.Column className="text-center">Semester</Table.Column>
+                  <Table.Column>Specialization</Table.Column>
+                  <Table.Column className="text-center">Batch</Table.Column>
+                  <Table.Column className="text-center">Students</Table.Column>
+                  <Table.Column>Counselor</Table.Column>
+                  <Table.Column>Assignments</Table.Column>
+                  <Table.Column className="text-end w-16">Actions</Table.Column>
+                </Table.Header>
+                <Table.Body
+                  renderEmptyState={() => (
+                    <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">No divisions found.</div>
+                  )}
+                >
+                  {[...data.divisions].sort((a, b) => {
+                    if (a.semesterNo !== b.semesterNo) return a.semesterNo - b.semesterNo;
+                    return a.divisionNo - b.divisionNo;
+                  }).map((div) => (
+                    <Table.Row key={div.id} id={div.id}>
+                      <Table.Cell className="font-mono font-semibold">{div.displayName}</Table.Cell>
+                      <Table.Cell className="text-center text-muted-foreground">{div.semesterNo}</Table.Cell>
+                      <Table.Cell>
+                        <Chip
+                          color={SPEC_COLOR[div.specialization] || "accent"}
+                          size="sm"
+                          variant="soft"
+                        >
+                          {div.specialization}
+                        </Chip>
+                      </Table.Cell>
+                      <Table.Cell className="text-center font-mono">{div.batchYear}</Table.Cell>
+                      <Table.Cell className="text-center">{div.studentCount}</Table.Cell>
+                      <Table.Cell>
+                        {div.counselorName || (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </Table.Cell>
+                      <Table.Cell>
+                        <div className="flex flex-wrap gap-1">
+                          {div.assignments && div.assignments.length > 0 ? (
+                            div.assignments.map((a, i) => (
+                              <Tooltip key={i}>
+                                <Tooltip.Trigger>
+                                  <Chip className="text-xs cursor-default" size="sm" variant="soft">
+                                    {a.subjectShortCode}/{a.facultyCode}
+                                  </Chip>
+                                </Tooltip.Trigger>
+                                <Tooltip.Content>
+                                  <div className="px-1 py-1.5 flex flex-col gap-0.5">
+                                    <p className="text-xs font-semibold">Subject: <span className="font-normal">{a.subjectName}</span></p>
+                                    <p className="text-xs font-semibold">Code: <span className="font-normal">{a.subjectCode}</span></p>
+                                    <p className="text-xs font-semibold">Type: <span className="font-normal capitalize">{a.subjectType}</span></p>
+                                    <p className="text-xs font-semibold">Credits: <span className="font-normal">{a.subjectCredit}</span></p>
+                                    <p className="text-xs font-semibold mt-1 pt-1 border-t border-divider">Faculty: <span className="font-normal">{a.facultyName}</span></p>
+                                  </div>
+                                </Tooltip.Content>
+                              </Tooltip>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </Table.Cell>
+                      <Table.Cell className="text-end">
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          variant="ghost"
+                          onPress={() => router.push(`/app/admin/divisions/${div.id}`)}
+                          aria-label="View division"
+                        >
+                          <ChevronRight className="size-4" />
+                        </Button>
+                      </Table.Cell>
+                    </Table.Row>
+                  ))}
+                </Table.Body>
+              </Table.Content>
+            </Table.ScrollContainer>
+          </Table>
 
           {/* Pagination */}
           {totalPages > 1 && (

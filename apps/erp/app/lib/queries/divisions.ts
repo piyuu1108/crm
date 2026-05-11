@@ -16,6 +16,15 @@ export interface DivisionListItem {
   createdAt: string;
   studentCount: number;
   counselorName: string | null;
+  assignments: {
+    subjectName: string;
+    facultyName: string;
+    subjectShortCode: string;
+    facultyCode: string;
+    subjectCode: string;
+    subjectType: string;
+    subjectCredit: number;
+  }[];
 }
 
 export interface DivisionPagination {

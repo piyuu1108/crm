@@ -3,6 +3,7 @@
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
 	import type { Component } from "svelte";
+	import { page } from "$app/stores";
 
 	let {
 		items,
@@ -20,16 +21,27 @@
 			}[];
 		}[];
 	} = $props();
+
+	// Function to check if a main item or any of its children are active
+	const isItemActive = (item: (typeof items)[0]) => {
+		const currentPath = $page.url.pathname;
+		if (currentPath === item.url) return true;
+		if (item.items?.some((sub) => currentPath === sub.url)) return true;
+		// Special case for students to match any subpath
+		if (item.url !== "/app" && currentPath.startsWith(item.url)) return true;
+		return false;
+	};
 </script>
 
 <Sidebar.Group>
 	<Sidebar.GroupLabel>{label}</Sidebar.GroupLabel>
 	<Sidebar.Menu>
 		{#each items as mainItem (mainItem.title)}
-			<Collapsible.Root open={mainItem.isActive}>
+			{@const active = isItemActive(mainItem)}
+			<Collapsible.Root open={active}>
 				{#snippet child({ props })}
 					<Sidebar.MenuItem {...props}>
-						<Sidebar.MenuButton tooltipContent={mainItem.title}>
+						<Sidebar.MenuButton tooltipContent={mainItem.title} isActive={active}>
 							{#snippet child({ props })}
 								<a href={mainItem.url} {...props}>
 									<mainItem.icon />
@@ -53,7 +65,10 @@
 								<Sidebar.MenuSub>
 									{#each mainItem.items as subItem (subItem.title)}
 										<Sidebar.MenuSubItem>
-											<Sidebar.MenuSubButton href={subItem.url}>
+											<Sidebar.MenuSubButton 
+												href={subItem.url} 
+												isActive={$page.url.pathname === subItem.url}
+											>
 												<span>{subItem.title}</span>
 											</Sidebar.MenuSubButton>
 										</Sidebar.MenuSubItem>

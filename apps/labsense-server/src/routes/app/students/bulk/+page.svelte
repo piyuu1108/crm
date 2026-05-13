@@ -58,7 +58,7 @@
 	<title>Bulk Import Students | LabSense</title>
 </svelte:head>
 
-<div class="mx-auto max-w-96 space-y-6">
+<div class="mx-auto w-full max-w-4xl space-y-6">
 	<!-- Header -->
 	<div class="flex items-center gap-3">
 		<Button variant="outline" size="icon" href="/app/students" class="size-9">
@@ -72,106 +72,108 @@
 
 	<!-- ───── UPLOAD STEP ───── -->
 	{#if step === 'upload' || step === undefined}
-		<Card.Root>
-			<Card.Header>
-				<Card.Title>Upload CSV</Card.Title>
-				<Card.Description>
-					Expected format: <code class="bg-muted rounded px-1.5 py-0.5 text-xs">collegeId,name,password</code>
-				</Card.Description>
-			</Card.Header>
-			<Card.Content>
-				<form
-					method="POST"
-					action="?/preview"
-					enctype="multipart/form-data"
-					use:enhance={() => {
-						loading = true;
-						return async ({ update }) => {
-							loading = false;
-							await update();
-						};
-					}}
-					class="space-y-5"
-				>
-					<!-- Drop Zone -->
-					<div
-						class="group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-12 transition-all {dragActive
-							? 'border-primary bg-primary/5 scale-[1.01]'
-							: 'border-border hover:border-primary/40 hover:bg-muted/30'}"
-						role="button"
-						tabindex="0"
-						ondragover={handleDragOver}
-						ondragleave={handleDragLeave}
-						ondrop={handleDrop}
-						onclick={() => fileInput.click()}
-						onkeydown={(e) => { if (e.key === 'Enter') fileInput.click(); }}
+		<div class="grid grid-cols-1 gap-6 md:grid-cols-4 items-start">
+			<Card.Root class="lg:col-span-2">
+				<Card.Header>
+					<Card.Title>Upload CSV</Card.Title>
+					<Card.Description>
+						Expected format: <code class="bg-muted rounded px-1.5 py-0.5 text-xs">collegeId,name,password</code>
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					<form
+						method="POST"
+						action="?/preview"
+						enctype="multipart/form-data"
+						use:enhance={() => {
+							loading = true;
+							return async ({ update }) => {
+								loading = false;
+								await update();
+							};
+						}}
+						class="space-y-5"
 					>
-						{#if selectedFile}
-							<div class="bg-primary/10 flex size-12 items-center justify-center rounded-full">
-								<FileSpreadsheetIcon class="text-primary size-6" />
-							</div>
-							<div class="text-center">
-								<p class="font-semibold text-sm">{selectedFile.name}</p>
-								<p class="text-muted-foreground text-xs">{(selectedFile.size / 1024).toFixed(1)} KB — Ready to upload</p>
-							</div>
-						{:else}
-							<div class="bg-muted flex size-12 items-center justify-center rounded-full transition-colors group-hover:bg-primary/10">
-								<UploadIcon class="text-muted-foreground size-6 transition-colors group-hover:text-primary" />
-							</div>
-							<div class="text-center">
-								<p class="font-semibold text-sm">Drop CSV file here</p>
-								<p class="text-muted-foreground text-xs">or click to browse your files</p>
-							</div>
-						{/if}
-						<input
-							bind:this={fileInput}
-							type="file"
-							name="file"
-							accept=".csv"
-							class="hidden"
-							onchange={handleFileChange}
-						/>
-					</div>
-
-					{#if form?.error}
-						<div class="bg-destructive/10 text-destructive flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium">
-							<AlertCircleIcon class="size-4 shrink-0" />
-							{form.error}
+						<!-- Drop Zone -->
+						<div
+							class="group relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-12 transition-all {dragActive
+								? 'border-primary bg-primary/5 scale-[1.01]'
+								: 'border-border hover:border-primary/40 hover:bg-muted/30'}"
+							role="button"
+							tabindex="0"
+							ondragover={handleDragOver}
+							ondragleave={handleDragLeave}
+							ondrop={handleDrop}
+							onclick={() => fileInput.click()}
+							onkeydown={(e) => { if (e.key === 'Enter') fileInput.click(); }}
+						>
+							{#if selectedFile}
+								<div class="bg-primary/10 flex size-12 items-center justify-center rounded-full">
+									<FileSpreadsheetIcon class="text-primary size-6" />
+								</div>
+								<div class="text-center">
+									<p class="font-semibold text-sm">{selectedFile.name}</p>
+									<p class="text-muted-foreground text-xs">{(selectedFile.size / 1024).toFixed(1)} KB — Ready to upload</p>
+								</div>
+							{:else}
+								<div class="bg-muted flex size-12 items-center justify-center rounded-full transition-colors group-hover:bg-primary/10">
+									<UploadIcon class="text-muted-foreground size-6 transition-colors group-hover:text-primary" />
+								</div>
+								<div class="text-center">
+									<p class="font-semibold text-sm">Drop CSV file here</p>
+									<p class="text-muted-foreground text-xs">or click to browse your files</p>
+								</div>
+							{/if}
+							<input
+								bind:this={fileInput}
+								type="file"
+								name="file"
+								accept=".csv"
+								class="hidden"
+								onchange={handleFileChange}
+							/>
 						</div>
-					{/if}
 
-					<Button type="submit" disabled={!selectedFile || loading} class="w-full">
-						{#if loading}
-							<LoaderCircleIcon class="size-4 animate-spin" />
-							Parsing CSV...
-						{:else}
-							<UploadIcon class="size-4" />
-							Upload & Preview
+						{#if form?.error}
+							<div class="bg-destructive/10 text-destructive flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium">
+								<AlertCircleIcon class="size-4 shrink-0" />
+								{form.error}
+							</div>
 						{/if}
-					</Button>
-				</form>
-			</Card.Content>
-		</Card.Root>
 
-		<!-- Info -->
-		<Card.Root>
-			<Card.Header>
-				<Card.Title class="text-sm">CSV Format</Card.Title>
-			</Card.Header>
-			<Card.Content class="space-y-3">
-				<p class="text-muted-foreground text-sm">Your CSV must include a header row:</p>
-				<div class="bg-muted rounded-lg px-4 py-3">
-					<code class="text-xs">collegeId,name,password</code>
-				</div>
-				<Separator />
-				<p class="text-muted-foreground text-sm font-medium">Example:</p>
-				<div class="bg-muted space-y-0.5 rounded-lg px-4 py-3 font-mono text-xs">
-					<p>collegeId,name,password</p>
-					<p class="text-muted-foreground">2024001,Rahul Sharma,pass123</p>
-					<p class="text-muted-foreground">2024002,Priya Patel,pass456</p>
-				</div>
-			</Card.Content>
-		</Card.Root>
+						<Button type="submit" disabled={!selectedFile || loading} class="w-full">
+							{#if loading}
+								<LoaderCircleIcon class="size-4 animate-spin" />
+								Parsing CSV...
+							{:else}
+								<UploadIcon class="size-4" />
+								Upload & Preview
+							{/if}
+						</Button>
+					</form>
+				</Card.Content>
+			</Card.Root>
+
+			<!-- Info -->
+			<Card.Root class="lg:col-span-2">
+				<Card.Header>
+					<Card.Title class="text-sm">CSV Format</Card.Title>
+				</Card.Header>
+				<Card.Content class="space-y-3">
+					<p class="text-muted-foreground text-sm">Your CSV must include a header row:</p>
+					<div class="bg-muted rounded-lg px-4 py-3">
+						<code class="text-xs">collegeId,name,password</code>
+					</div>
+					<Separator />
+					<p class="text-muted-foreground text-sm font-medium">Example:</p>
+					<div class="bg-muted space-y-0.5 rounded-lg px-4 py-3 font-mono text-xs">
+						<p>collegeId,name,password</p>
+						<p class="text-muted-foreground">2024001,Rahul Sharma,pass123</p>
+						<p class="text-muted-foreground">2024002,Priya Patel,pass456</p>
+					</div>
+				</Card.Content>
+			</Card.Root>
+		</div>
 	{/if}
 
 	<!-- ───── PREVIEW STEP ───── -->

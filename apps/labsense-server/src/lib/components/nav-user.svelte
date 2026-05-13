@@ -10,6 +10,7 @@
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 	import * as Sidebar from "$lib/components/ui/sidebar/index.js";
 	import { useSidebar } from "$lib/components/ui/sidebar/index.js";
+	import { enhance } from "$app/forms";
 
 	let {
 		user,
@@ -87,9 +88,13 @@
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 				<DropdownMenu.Separator />
-				<DropdownMenu.Item>
-					<LogOutIcon />
-					Log out
+				<DropdownMenu.Item class="p-0">
+					<form method="POST" action="/app?/logout" use:enhance class="flex w-full">
+						<button type="submit" class="flex w-full items-center gap-2 px-2 py-1.5 text-sm">
+							<LogOutIcon class="size-4" />
+							Log out
+						</button>
+					</form>
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>

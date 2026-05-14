@@ -128,7 +128,10 @@
 				</Table.Header>
 				<Table.Body>
 					{#each data.students as student (student.id)}
-						<Table.Row>
+						<Table.Row 
+							class="cursor-pointer hover:bg-muted/50 transition-colors"
+							onclick={() => goto(`/app/students/${student.id}`)}
+						>
 							<Table.Cell class="font-mono text-sm">{student.id}</Table.Cell>
 							<Table.Cell class="font-medium">{student.name}</Table.Cell>
 							<Table.Cell>{formatDuration(student.totalLabSeconds)}</Table.Cell>

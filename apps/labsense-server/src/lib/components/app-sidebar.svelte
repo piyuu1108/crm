@@ -26,17 +26,17 @@
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
-				<Sidebar.MenuButton size="lg">
+				<Sidebar.MenuButton size="lg" class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
 					{#snippet child({ props })}
-						<a href="##" {...props}>
+						<a href="/app" {...props}>
 							<div
-								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+								class="flex aspect-square size-8 items-center justify-center rounded-lg overflow-hidden"
 							>
-								<CommandIcon class="size-4" />
+								<img src="/favicon.png" alt="LabSense Logo" class="size-7 object-contain" />
 							</div>
 							<div class="grid flex-1 text-start text-sm leading-tight">
-								<span class="truncate font-medium">Acme Inc</span>
-								<span class="truncate text-xs">Enterprise</span>
+								<span class="truncate font-semibold">Lab Sense</span>
+								<span class="truncate text-xs text-muted-foreground">VTCBCSR</span>
 							</div>
 						</a>
 					{/snippet}

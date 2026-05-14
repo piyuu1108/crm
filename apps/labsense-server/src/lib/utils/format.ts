@@ -15,9 +15,12 @@ export function formatDuration(totalSeconds: number): string {
  * Format a Date into a locale-friendly string.
  * Example: "13 May 2026, 10:42 AM"
  */
-export function formatDateTime(date: Date | null): string {
+export function formatDateTime(date: Date | string | number | null): string {
 	if (!date) return '—';
-	return date.toLocaleDateString('en-IN', {
+	const d = new Date(date);
+	if (isNaN(d.getTime())) return '—';
+
+	return d.toLocaleDateString('en-IN', {
 		day: 'numeric',
 		month: 'short',
 		year: 'numeric',

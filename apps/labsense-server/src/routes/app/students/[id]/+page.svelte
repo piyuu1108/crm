@@ -215,7 +215,7 @@
 						</Table.Row>
 					{:else}
 						{#each data.sessions as session (session.id)}
-							<Table.Row>
+							<Table.Row class="group cursor-pointer hover:bg-muted/50" onclick={() => window.location.href = `/app/students/${data.student.id}/${session.id}`}>
 								<Table.Cell>
 									<div class="flex flex-col">
 										<span class="font-medium">{new Date(session.loginAt).toLocaleDateString()}</span>
@@ -244,9 +244,15 @@
 									</div>
 								</Table.Cell>
 								<Table.Cell>
-									<Badge variant={session.status === 'active' ? 'default' : 'outline'} class="capitalize">
-										{session.status}
-									</Badge>
+									<div class="flex items-center justify-between gap-2">
+										<Badge variant={session.status === 'active' ? 'default' : 'outline'} class="capitalize">
+											{session.status}
+										</Badge>
+										<Button variant="ghost" size="sm" class="opacity-0 group-hover:opacity-100 h-8 px-2 transition-opacity">
+											<Zap class="h-3.5 w-3.5 mr-1" />
+											View Report
+										</Button>
+									</div>
 								</Table.Cell>
 							</Table.Row>
 						{/each}

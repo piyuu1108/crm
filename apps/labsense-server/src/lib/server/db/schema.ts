@@ -47,7 +47,7 @@ export const students = pgTable('students', {
 export const machines = pgTable('machines', {
 	id: uuid('id').defaultRandom().primaryKey(),
 	hardwareId: text('hardware_id').notNull().unique(),
-	pcName: text('pc_name').notNull(),
+	pcName: text('pc_name').notNull().unique(),
 	labName: text('lab_name'),
 	lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),
 	createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()

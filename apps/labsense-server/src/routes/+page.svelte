@@ -16,15 +16,15 @@
 		class="border-border bg-card text-card-foreground w-full max-w-sm space-y-8 rounded-2xl border p-8 shadow-2xl backdrop-blur-xl"
 	>
 		<div class="space-y-2 text-center">
-			<h1 class="text-3xl font-bold tracking-tight">Welcome back</h1>
-			<p class="text-muted-foreground text-sm">Enter your credentials to access your account</p>
+			<h1 class="text-3xl font-bold tracking-tight">Lab Admin</h1>
+			<!-- <p class="text-muted-foreground text-sm">Enter your credentials to access your account</p> -->
 		</div>
 
 		<form method="POST" action="?/login" use:enhance class="space-y-6">
 			<div class="space-y-4">
 				<div class="space-y-2">
 					<Label for="username">Username</Label>
-					<Input id="username" name="username" placeholder="admin" required class="bg-muted/50" />
+					<Input id="username" name="username" placeholder="" required class="bg-muted/50" />
 				</div>
 				<div class="space-y-2">
 					<div class="flex items-center justify-between">

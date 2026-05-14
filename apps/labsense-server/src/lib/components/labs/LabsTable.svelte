@@ -2,6 +2,7 @@
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { cn } from '$lib/utils';
+	import { goto } from '$app/navigation';
 	import type { LabMachine } from '$lib/types/labs';
 
 	let { machines } = $props<{
@@ -30,7 +31,10 @@
 		<Table.Body>
 			{#each machines as machine (machine.id)}
 				{@const status = getStatus(machine.lastSeenAt)}
-				<Table.Row>
+				<Table.Row 
+					class="cursor-pointer hover:bg-muted/50 transition-colors"
+					onclick={() => goto(`/app/labs/${machine.id}`)}
+				>
 					<Table.Cell>
 						<div class="font-medium">{machine.pcName}</div>
 					</Table.Cell>

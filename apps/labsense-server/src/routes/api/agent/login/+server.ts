@@ -33,10 +33,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		return errorResponse(validation.error, 400);
 	}
 
-	const { studentId, password, hardwareId, pcName, labName } = validation.data;
+	const { collegeId, password, hardwareId, pcName, labName } = validation.data;
 
 	// Authenticate student
-	const authResult = await authenticateStudent(studentId, password);
+	const authResult = await authenticateStudent(collegeId, password);
 	if (!authResult.ok) {
 		return errorResponse(authResult.error, authResult.status);
 	}
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const machineId = await upsertMachine(hardwareId, pcName, labName);
 
 	// Create new lab session
-	const sessionId = await createLabSession(studentId, machineId);
+	const sessionId = await createLabSession(collegeId, machineId);
 
 	// Read runtime-configurable settings
 	const settings = await getSystemSettings();

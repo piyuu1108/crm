@@ -1,7 +1,7 @@
 // ── Agent API Types ──────────────────────────────────────────
 
 export interface LoginPayload {
-	studentId: string;
+	collegeId: string;
 	password: string;
 	hardwareId: string;
 	pcName: string;

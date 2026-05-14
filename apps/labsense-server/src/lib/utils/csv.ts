@@ -59,7 +59,7 @@ export function parseCsv(content: string): ParseResult {
 			continue;
 		}
 
-		valid.push({ collegeId, name, password });
+		valid.push({ collegeId: collegeId.toUpperCase(), name, password });
 	}
 
 	return { valid, invalid };

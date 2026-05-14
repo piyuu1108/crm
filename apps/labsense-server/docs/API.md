@@ -19,7 +19,7 @@ Content-Type: application/json
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `studentId` | `string` | ✅ | Student college ID |
+| `collegeId` | `string` | ✅ | Student college ID |
 | `password` | `string` | ✅ | Plaintext password (verified via Argon2) |
 | `hardwareId` | `string` | ✅ | Unique hardware fingerprint of the machine |
 | `pcName` | `string` | ✅ | Windows computer name |
@@ -27,7 +27,7 @@ Content-Type: application/json
 
 ```json
 {
-  "studentId": "STU001",
+  "collegeId": "STU001",
   "password": "secret123",
   "hardwareId": "HW-ABC-DEF-123",
   "pcName": "LAB1-PC05",
@@ -57,7 +57,7 @@ Content-Type: application/json
 
 | Status | Condition | Body |
 |--------|-----------|------|
-| `400` | Missing/malformed fields | `{ "error": "studentId is required and must be a non-empty string" }` |
+| `400` | Missing/malformed fields | `{ "error": "collegeId is required and must be a non-empty string" }` |
 | `401` | Wrong student ID or password | `{ "error": "Invalid student ID or password" }` |
 | `403` | Account deactivated | `{ "error": "Account is inactive" }` |
 
@@ -67,7 +67,7 @@ Content-Type: application/json
 curl -X POST http://localhost:5173/api/agent/login \
   -H "Content-Type: application/json" \
   -d '{
-    "studentId": "STU001",
+    "collegeId": "STU001",
     "password": "secret123",
     "hardwareId": "HW-ABC-DEF-123",
     "pcName": "LAB1-PC05",
@@ -79,8 +79,8 @@ curl -X POST http://localhost:5173/api/agent/login \
 
 ```powershell
 $body = @{
-    studentId  = "STU001"
-    password   = "secret123"
+    collegeId  = "24bcads135"
+    password   = "pass@123"
     hardwareId = "HW-ABC-DEF-123"
     pcName     = "LAB1-PC05"
     labName    = "Lab A"

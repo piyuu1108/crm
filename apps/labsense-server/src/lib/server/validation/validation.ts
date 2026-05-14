@@ -25,8 +25,8 @@ export function validateLoginPayload(body: unknown): ValidationResult<LoginPaylo
 
 	const b = body as Record<string, unknown>;
 
-	if (!isNonEmptyString(b.studentId)) {
-		return { ok: false, error: 'studentId is required and must be a non-empty string' };
+	if (!isNonEmptyString(b.collegeId)) {
+		return { ok: false, error: 'collegeId is required and must be a non-empty string' };
 	}
 	if (!isNonEmptyString(b.password)) {
 		return { ok: false, error: 'password is required and must be a non-empty string' };
@@ -44,7 +44,7 @@ export function validateLoginPayload(body: unknown): ValidationResult<LoginPaylo
 	return {
 		ok: true,
 		data: {
-			studentId: b.studentId.trim(),
+			collegeId: b.collegeId.trim().toUpperCase(),
 			password: b.password,
 			hardwareId: b.hardwareId.trim(),
 			pcName: b.pcName.trim(),

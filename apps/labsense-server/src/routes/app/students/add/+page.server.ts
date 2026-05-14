@@ -12,7 +12,7 @@ export const load: PageServerLoad = async () => {
 export const actions: Actions = {
 	default: async ({ request }) => {
 		const formData = await request.formData();
-		const collegeId = formData.get('collegeId')?.toString()?.trim();
+		const collegeId = formData.get('collegeId')?.toString()?.trim()?.toUpperCase();
 		const name = formData.get('name')?.toString()?.trim();
 		const password = formData.get('password')?.toString();
 

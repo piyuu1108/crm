@@ -8,7 +8,7 @@ import argon2 from 'argon2';
  * Returns the student record (without password_hash) on success, or an error string.
  */
 export async function authenticateStudent(
-	studentId: string,
+	collegeId: string,
 	password: string
 ): Promise<{ ok: true; student: { id: string; name: string } } | { ok: false; error: string; status: number }> {
 	const [student] = await db
@@ -19,7 +19,7 @@ export async function authenticateStudent(
 			isActive: students.isActive
 		})
 		.from(students)
-		.where(eq(students.id, studentId));
+		.where(eq(students.id, collegeId.toUpperCase()));
 
 	if (!student) {
 		return { ok: false, error: 'Invalid student ID or password', status: 401 };
@@ -74,7 +74,7 @@ export async function upsertMachine(
  * Uses server-side timestamps only.
  */
 export async function createLabSession(
-	studentId: string,
+	collegeId: string,
 	machineId: string
 ): Promise<string> {
 	const now = new Date();
@@ -82,7 +82,7 @@ export async function createLabSession(
 	const [session] = await db
 		.insert(labSessions)
 		.values({
-			studentId,
+			studentId: collegeId.toUpperCase(),
 			machineId,
 			loginAt: now,
 			lastSyncAt: now,

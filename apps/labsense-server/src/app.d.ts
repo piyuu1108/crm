@@ -5,7 +5,7 @@ declare global {
 		// interface Error {}
 		interface Locals {
 			user: import('./lib/server/db/schema').masterUsers.$inferSelect | null;
-			session: import('./lib/server/db/schema').sessions.$inferSelect | null;
+			session: import('./lib/server/db/schema').adminSessions.$inferSelect | null;
 		}
 		// interface PageData {}
 		// interface PageState {}

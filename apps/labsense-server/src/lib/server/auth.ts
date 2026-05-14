@@ -1,6 +1,6 @@
 import argon2 from 'argon2';
 import { db } from '$lib/server/db';
-import { sessions, masterUsers } from '$lib/server/db/schema';
+import { adminSessions, masterUsers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 
@@ -30,7 +30,7 @@ export async function createSession(userId: string): Promise<string> {
 	const sessionId = generateSessionId();
 	const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 
-	await db.insert(sessions).values({
+	await db.insert(adminSessions).values({
 		id: sessionId,
 		userId,
 		expiresAt
@@ -42,19 +42,19 @@ export async function createSession(userId: string): Promise<string> {
 export async function validateSession(sessionId: string) {
 	const [result] = await db
 		.select({
-			session: sessions,
+			session: adminSessions,
 			user: masterUsers
 		})
-		.from(sessions)
-		.innerJoin(masterUsers, eq(sessions.userId, masterUsers.id))
-		.where(eq(sessions.id, sessionId));
+		.from(adminSessions)
+		.innerJoin(masterUsers, eq(adminSessions.userId, masterUsers.id))
+		.where(eq(adminSessions.id, sessionId));
 
 	if (!result) return null;
 
 	const { session, user } = result;
 
 	if (Date.now() >= session.expiresAt.getTime()) {
-		await db.delete(sessions).where(eq(sessions.id, sessionId));
+		await db.delete(adminSessions).where(eq(adminSessions.id, sessionId));
 		return null;
 	}
 
@@ -65,7 +65,7 @@ export async function validateSession(sessionId: string) {
 }
 
 export async function invalidateSession(sessionId: string) {
-	await db.delete(sessions).where(eq(sessions.id, sessionId));
+	await db.delete(adminSessions).where(eq(adminSessions.id, sessionId));
 }
 
 export function setSessionCookie(cookies: Cookies, sessionId: string) {

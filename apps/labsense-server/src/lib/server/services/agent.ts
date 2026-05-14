@@ -1,0 +1,116 @@
+import { db } from '$lib/server/db';
+import { students, machines, labSessions, systemSettings } from '$lib/server/db/schema';
+import { eq } from 'drizzle-orm';
+import argon2 from 'argon2';
+
+/**
+ * Authenticates a student by ID and password.
+ * Returns the student record (without password_hash) on success, or an error string.
+ */
+export async function authenticateStudent(
+	studentId: string,
+	password: string
+): Promise<{ ok: true; student: { id: string; name: string } } | { ok: false; error: string; status: number }> {
+	const [student] = await db
+		.select({
+			id: students.id,
+			name: students.name,
+			passwordHash: students.passwordHash,
+			isActive: students.isActive
+		})
+		.from(students)
+		.where(eq(students.id, studentId));
+
+	if (!student) {
+		return { ok: false, error: 'Invalid student ID or password', status: 401 };
+	}
+
+	if (!student.isActive) {
+		return { ok: false, error: 'Account is inactive', status: 403 };
+	}
+
+	const valid = await argon2.verify(student.passwordHash, password);
+	if (!valid) {
+		return { ok: false, error: 'Invalid student ID or password', status: 401 };
+	}
+
+	return { ok: true, student: { id: student.id, name: student.name } };
+}
+
+/**
+ * Creates a machine if it doesn't exist (by hardware_id), otherwise updates pc_name/lab_name.
+ * Always updates last_seen_at. Returns the machine ID.
+ */
+export async function upsertMachine(
+	hardwareId: string,
+	pcName: string,
+	labName?: string
+): Promise<string> {
+	const now = new Date();
+
+	const [result] = await db
+		.insert(machines)
+		.values({
+			hardwareId,
+			pcName,
+			labName: labName ?? null,
+			lastSeenAt: now
+		})
+		.onConflictDoUpdate({
+			target: machines.hardwareId,
+			set: {
+				pcName,
+				labName: labName ?? null,
+				lastSeenAt: now
+			}
+		})
+		.returning({ id: machines.id });
+
+	return result.id;
+}
+
+/**
+ * Creates a new active lab session for a student on a machine.
+ * Uses server-side timestamps only.
+ */
+export async function createLabSession(
+	studentId: string,
+	machineId: string
+): Promise<string> {
+	const now = new Date();
+
+	const [session] = await db
+		.insert(labSessions)
+		.values({
+			studentId,
+			machineId,
+			loginAt: now,
+			lastSyncAt: now,
+			status: 'active'
+		})
+		.returning({ id: labSessions.id });
+
+	return session.id;
+}
+
+/**
+ * Reads the singleton system_settings row.
+ * Returns defaults if no row exists (shouldn't happen after seeding).
+ */
+export async function getSystemSettings(): Promise<{
+	syncIntervalSeconds: number;
+	syncJitterSeconds: number;
+	timeoutSeconds: number;
+}> {
+	const [settings] = await db.select().from(systemSettings).limit(1);
+
+	if (!settings) {
+		return { syncIntervalSeconds: 30, syncJitterSeconds: 30, timeoutSeconds: 120 };
+	}
+
+	return {
+		syncIntervalSeconds: settings.syncIntervalSeconds,
+		syncJitterSeconds: settings.syncJitterSeconds,
+		timeoutSeconds: settings.timeoutSeconds
+	};
+}

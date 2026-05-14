@@ -1,7 +1,21 @@
 import { validateSession, SESSION_COOKIE_NAME, deleteSessionCookie } from '$lib/server/auth';
+import { startTimeoutSweeper } from '$lib/server/services/timeout';
 import { redirect, type Handle } from '@sveltejs/kit';
 
+// Start the timeout sweeper on server boot
+startTimeoutSweeper();
+
 export const handle: Handle = async ({ event, resolve }) => {
+	const path = event.url.pathname;
+
+	// Agent API routes do not use cookie auth — skip session validation
+	if (path.startsWith('/api/')) {
+		event.locals.user = null;
+		event.locals.session = null;
+		return resolve(event);
+	}
+
+	// Admin cookie-based session validation
 	const sessionId = event.cookies.get(SESSION_COOKIE_NAME);
 
 	if (!sessionId) {
@@ -18,8 +32,6 @@ export const handle: Handle = async ({ event, resolve }) => {
 			event.locals.session = null;
 		}
 	}
-
-	const path = event.url.pathname;
 
 	// Protect /app/*
 	if (path.startsWith('/app')) {

@@ -11,6 +11,7 @@
 	let { data, form } = $props();
 
 	let isConfirmOpen = $state(false);
+	let isSubmitting = $state(false);
 	let values = $state({
 		syncIntervalSeconds: 30,
 		syncJitterSeconds: 30,
@@ -29,8 +30,10 @@
 		if (form?.success) {
 			toast.success(form.message);
 			isConfirmOpen = false;
+			isSubmitting = false;
 		} else if (form?.message) {
 			toast.error(form.message);
+			isSubmitting = false;
 		}
 	});
 </script>
@@ -101,7 +104,7 @@
 					<p class="text-muted-foreground text-xs">Time without sync before a session is marked timed out.</p>
 				</div>
 			</Card.Content>
-			<Card.Footer class="border-t bg-muted/20 px-6 py-4">
+			<Card.Footer class=" bg-muted/20 px-6 py-4">
 				<Button class="ml-auto" onclick={() => (isConfirmOpen = true)}>
 					<Save class="mr-2 h-4 w-4" />
 					Save Changes
@@ -122,19 +125,51 @@
 				Updating system settings requires an additional security password. This is different from your admin password.
 			</Dialog.Description>
 		</Dialog.Header>
-		<form method="POST" action="?/updateSettings" use:enhance class="space-y-4 py-4">
+		<form
+			method="POST"
+			action="?/updateSettings"
+			use:enhance={() => {
+				isSubmitting = true;
+				return async ({ update }) => {
+					await update();
+				};
+			}}
+			class="space-y-4 py-4"
+		>
 			<input type="hidden" name="syncIntervalSeconds" value={values.syncIntervalSeconds} />
 			<input type="hidden" name="syncJitterSeconds" value={values.syncJitterSeconds} />
 			<input type="hidden" name="timeoutSeconds" value={values.timeoutSeconds} />
-			
+
 			<div class="space-y-2">
 				<Label for="confirmationPassword">Security Password (PASSWD)</Label>
-				<Input type="password" id="confirmationPassword" name="confirmationPassword" required />
+				<Input
+					type="password"
+					id="confirmationPassword"
+					name="confirmationPassword"
+					disabled={isSubmitting}
+					class={form?.message && !form?.success ? 'border-destructive' : ''}
+					required
+				/>
+				{#if form?.message && !form?.success}
+					<p class="text-destructive text-sm font-medium">{form.message}</p>
+				{/if}
 			</div>
-			
+
 			<Dialog.Footer>
-				<Button type="button" variant="ghost" onclick={() => (isConfirmOpen = false)}>Cancel</Button>
-				<Button type="submit" variant="default">Confirm & Save</Button>
+				<Button
+					type="button"
+					variant="ghost"
+					onclick={() => (isConfirmOpen = false)}
+					disabled={isSubmitting}>Cancel</Button
+				>
+				<Button type="submit" variant="default" disabled={isSubmitting}>
+					{#if isSubmitting}
+						<RefreshCw class="mr-2 h-4 w-4 animate-spin" />
+						Saving...
+					{:else}
+						Confirm & Save
+					{/if}
+				</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

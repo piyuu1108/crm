@@ -40,43 +40,13 @@ export const sidebarConfig: SidebarConfig = {
 			title: "Labs",
 			url: "/app/labs",
 			icon: FlaskConicalIcon,
-			items: [
-				{
-					title: "LAB-1",
-					url: "/app/labs/lab-1",
-				},
-				{
-					title: "LAB-2",
-					url: "/app/labs/lab-2",
-				},
-				{
-					title: "LAB-3",
-					url: "/app/labs/lab-3",
-				},
-				{
-					title: "LAB-4",
-					url: "/app/labs/lab-4",
-				},
-				{
-					title: "LAB-5",
-					url: "/app/labs/lab-5",
-				},
-			],
+			
 		},
 		{
 			title: "Admins",
 			url: "/app/admins",
 			icon: ShieldIcon,
-			items: [
-				{
-					title: "Admins",
-					url: "/app/admins",
-				},
-				{
-					title: "Create Admin",
-					url: "/app/admins/create",
-				},
-			],
+			
 		},
 
 		{

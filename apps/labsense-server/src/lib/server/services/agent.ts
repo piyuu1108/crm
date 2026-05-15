@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { students, machines, labSessions, systemSettings } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { verify } from '@node-rs/argon2';
+import { verifyPassword } from '$lib/server/auth';
 
 /**
  * Authenticates a student by ID and password.
@@ -29,7 +29,7 @@ export async function authenticateStudent(
 		return { ok: false, error: 'Account is inactive', status: 403 };
 	}
 
-	const valid = await verify(student.passwordHash, password);
+	const valid = await verifyPassword(student.passwordHash, password);
 	if (!valid) {
 		return { ok: false, error: 'Invalid student ID or password', status: 401 };
 	}

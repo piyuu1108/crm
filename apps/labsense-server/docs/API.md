@@ -25,13 +25,14 @@ Content-Type: application/json
 | `pcName` | `string` | ✅ | Windows computer name |
 | `labName` | `string` | ❌ | Optional lab grouping label |
 
+### YSe Same collegeid and password, its already inside server db
 ```json
 {
-  "collegeId": "STU001",
-  "password": "secret123",
+  "collegeId": "24BCADS135",
+  "password": "pass@123",
   "hardwareId": "HW-ABC-DEF-123",
-  "pcName": "LAB1-PC05",
-  "labName": "Lab A"
+  "pcName": "LAB3-168",
+  "labName": "LAB3"
 }
 ```
 
@@ -51,7 +52,7 @@ Content-Type: application/json
   "syncIntervalSeconds": 30,
   "syncJitterSeconds": 30,
   "timeoutSeconds": 120,
-  "idleThreshold": 300
+  "idleThreshold": 30
 }
 ```
 

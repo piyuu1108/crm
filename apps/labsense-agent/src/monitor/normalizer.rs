@@ -1,3 +1,4 @@
+use crate::analytics::AppIdentity;
 use super::foreground::ForegroundApp;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -15,6 +16,7 @@ static BROWSER_PROCESSES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
         "chromium.exe",
     ]
 });
+
 
 /// Static mapping of process names to friendly display names.
 /// Keys must be lowercase.
@@ -107,35 +109,116 @@ static APP_NAMES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(
     m
 });
 
-/// Normalize a foreground application into a clean, human-friendly name.
+/// Normalize a foreground application into a clean, human-friendly name and context.
 ///
-/// For browsers: extracts the page/site title from the window title.
-/// For known apps: maps to a friendly name.
+/// For browsers: uses UIA domain if available, else extracts from title.
+/// For known apps: maps to a friendly name, using window title as context.
 /// Fallback: strips `.exe` and title-cases the process name.
-pub fn normalize(app: &ForegroundApp) -> String {
+pub fn normalize(app: &ForegroundApp, domain_from_uia: Option<&str>) -> AppIdentity {
     let process_lower = app.process_name.to_lowercase();
 
-    // 1. Browser title parsing
+    // 1. Browser domain/title parsing
     if BROWSER_PROCESSES.iter().any(|b| *b == process_lower) {
+        if let Some(domain) = domain_from_uia {
+            return normalize_by_domain(domain, &app.window_title);
+        }
         return normalize_browser_title(&app.window_title, &process_lower);
+    }
+
+    let mut context_title = app.window_title.trim().to_string();
+    if context_title.is_empty() {
+        context_title = "Active".to_string();
     }
 
     // 2. Known application lookup
     if let Some(friendly) = APP_NAMES.get(process_lower.as_str()) {
-        return friendly.to_string();
+        return AppIdentity {
+            app_name: friendly.to_string(),
+            context_title: Some(context_title),
+        };
     }
 
     // 3. Fallback: strip .exe, title-case
-    strip_and_titlecase(&app.process_name)
+    AppIdentity {
+        app_name: strip_and_titlecase(&app.process_name),
+        context_title: Some(context_title),
+    }
 }
 
-/// Parse browser window title to extract the meaningful page/site name.
-///
-/// Browser titles typically follow: "Page Title - BrowserName"
-/// We extract everything before the last " - " separator (the browser name suffix).
-fn normalize_browser_title(title: &str, _process: &str) -> String {
+/// Helper to normalize using an explicitly extracted URL/domain.
+fn normalize_by_domain(url: &str, title: &str) -> AppIdentity {
+    let mut cleaned_url = url.trim();
+    if let Some(stripped) = cleaned_url.strip_prefix("https://") {
+        cleaned_url = stripped;
+    } else if let Some(stripped) = cleaned_url.strip_prefix("http://") {
+        cleaned_url = stripped;
+    }
+    if let Some(pos) = cleaned_url.find(|c| c == '?' || c == '#' || c == '/') {
+        cleaned_url = &cleaned_url[..pos];
+    }
+    
+    let domain_lower = cleaned_url.to_lowercase();
+    
+    // Extract app name from title and check if the URL contains it
+    let title_extracted = normalize_browser_title(title, "");
+    let title_app_name_lower = title_extracted.app_name.to_lowercase().replace(" ", "");
+
+    let app_name = if title_extracted.app_name != "Browser" && domain_lower.contains(&title_app_name_lower) {
+        title_extracted.app_name
+    } else {
+        // Fallback: Extract from domain using split
+        let mut domain = domain_lower.as_str();
+        if let Some(stripped) = domain.strip_prefix("www.") {
+            domain = stripped;
+        }
+
+        let parts: Vec<&str> = domain.split('.').collect();
+        let main_part = if parts.len() >= 2 {
+            let second_last = parts[parts.len() - 2];
+            // Handle common two-part TLDs like co.uk, com.au
+            if (second_last == "co" || second_last == "com" || second_last == "ac") && parts.len() >= 3 {
+                parts[parts.len() - 3]
+            } else {
+                second_last
+            }
+        } else {
+            parts[0]
+        };
+
+        // Title-case the extracted part
+        let mut chars = main_part.chars();
+        match chars.next() {
+            None => "Browser".to_string(),
+            Some(first) => {
+                let mut result = first.to_uppercase().to_string();
+                result.extend(chars);
+                result
+            }
+        }
+    };
+
+    let mut page_title = title;
+    if let Some(pos) = title.rfind(" - ").or_else(|| title.rfind(" — ")) {
+        page_title = title[..pos].trim();
+    }
+
+    if page_title.is_empty() {
+        page_title = "Active";
+    }
+
+    AppIdentity {
+        app_name,
+        context_title: Some(page_title.to_string()),
+    }
+}
+
+/// Parse browser window title to extract the meaningful page/site name and context.
+fn normalize_browser_title(title: &str, _process: &str) -> AppIdentity {
     if title.is_empty() {
-        return "Browser".to_string();
+        return AppIdentity {
+            app_name: "Browser".to_string(),
+            context_title: None,
+        };
     }
 
     let mut page_title = title;
@@ -155,24 +238,42 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
         || lower.contains("sign in - google")
         || lower.contains("sign in – google")
     {
-        return "Google Authentication".to_string();
+        return AppIdentity {
+            app_name: "Google Authentication".to_string(),
+            context_title: None,
+        };
     }
     if lower.contains("login.microsoftonline.com") || lower.contains("sign in to your account") {
-        return "Microsoft Authentication".to_string();
+        return AppIdentity {
+            app_name: "Microsoft Authentication".to_string(),
+            context_title: None,
+        };
     }
     if lower.contains("github.com/login") || lower.contains("sign in to github") {
-        return "GitHub Authentication".to_string();
+        return AppIdentity {
+            app_name: "GitHub Authentication".to_string(),
+            context_title: None,
+        };
     }
 
     // 2.5 Explicit User Examples (Static overrides for requested apps)
     if lower.contains("labsense") || lower.contains("lab sense") {
-        return "LabSense".to_string();
+        return AppIdentity {
+            app_name: "LabSense".to_string(),
+            context_title: Some(page_title.to_string()),
+        };
     }
     if lower.contains("whatsapp") {
-        return "WhatsApp".to_string();
+        return AppIdentity {
+            app_name: "WhatsApp".to_string(),
+            context_title: Some("Active".to_string()),
+        };
     }
     if lower.contains("chatgpt") || lower.contains("chat.openai.com") {
-        return "ChatGPT".to_string();
+        return AppIdentity {
+            app_name: "ChatGPT".to_string(),
+            context_title: Some(page_title.to_string()),
+        };
     }
 
     let mut cleaned = page_title;
@@ -226,13 +327,21 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
     }
 
     if cleaned.is_empty() {
-        return "Browser".to_string();
+        return AppIdentity {
+            app_name: "Browser".to_string(),
+            context_title: None,
+        };
     }
 
-    if cleaned.len() > 60 {
+    let final_app_name = if cleaned.len() > 60 {
         format!("{}…", &cleaned[..57])
     } else {
         cleaned.to_string()
+    };
+
+    AppIdentity {
+        app_name: final_app_name,
+        context_title: Some(page_title.to_string()),
     }
 }
 
@@ -269,87 +378,113 @@ mod tests {
             process_name: process.to_string(),
             window_title: title.to_string(),
             pid: 0,
+            hwnd: 0,
         }
     }
 
     #[test]
     fn test_browser_youtube() {
         let app = make_app("chrome.exe", "YouTube - Google Chrome");
-        assert_eq!(normalize(&app), "YouTube");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "YouTube");
     }
 
     #[test]
     fn test_browser_chatgpt() {
         let app = make_app("msedge.exe", "ChatGPT - Microsoft Edge");
-        assert_eq!(normalize(&app), "ChatGPT");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "ChatGPT");
     }
 
     #[test]
     fn test_browser_complex_title() {
         let app = make_app("chrome.exe", "React docs - Getting Started - Google Chrome");
-        assert_eq!(normalize(&app), "React docs");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "React docs");
     }
 
     #[test]
     fn test_known_app_vscode() {
         let app = make_app("Code.exe", "main.rs - labsense-agent");
-        assert_eq!(normalize(&app), "VS Code");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "VS Code");
+        assert_eq!(id.context_title, Some("main.rs - labsense-agent".to_string()));
     }
 
     #[test]
     fn test_known_app_powerpoint() {
         let app = make_app("POWERPNT.EXE", "Presentation1 - PowerPoint");
-        assert_eq!(normalize(&app), "PowerPoint");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "PowerPoint");
     }
 
     #[test]
     fn test_known_app_word() {
         let app = make_app("WINWORD.EXE", "Document1 - Word");
-        assert_eq!(normalize(&app), "Word");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "Word");
     }
 
     #[test]
     fn test_unknown_app_fallback() {
         let app = make_app("myapp.exe", "Some Window");
-        assert_eq!(normalize(&app), "Myapp");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "Myapp");
     }
 
     #[test]
     fn test_browser_empty_title() {
         let app = make_app("chrome.exe", "");
-        assert_eq!(normalize(&app), "Browser");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "Browser");
     }
 
     #[test]
     fn test_browser_google_auth() {
         let app = make_app("chrome.exe", "accounts.google.com/signin/oauth/id?authuser=2&part=AJi8h - Google Chrome");
-        assert_eq!(normalize(&app), "Google Authentication");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "Google Authentication");
 
         let app2 = make_app("msedge.exe", "Sign in - Google Accounts - Microsoft Edge");
-        assert_eq!(normalize(&app2), "Google Authentication");
+        let id2 = normalize(&app2, None);
+        assert_eq!(id2.app_name, "Google Authentication");
     }
 
     #[test]
     fn test_browser_url_stripping() {
         let app = make_app("brave.exe", "https://github.com/mohit-rajput-py/my-project - Brave");
-        assert_eq!(normalize(&app), "github.com");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "github.com");
 
         let app2 = make_app("chrome.exe", "localhost:3000/dashboard?token=123#hash - Google Chrome");
-        assert_eq!(normalize(&app2), "localhost:3000");
+        let id2 = normalize(&app2, None);
+        assert_eq!(id2.app_name, "localhost:3000");
     }
 
     #[test]
     fn test_browser_domain_based_normalization() {
         let app = make_app("chrome.exe", "LabSense | VTCBCSR - Google Chrome");
-        assert_eq!(normalize(&app), "LabSense");
+        let id = normalize(&app, None);
+        assert_eq!(id.app_name, "LabSense");
 
         let app2 = make_app("msedge.exe", "Students | LabSense - Microsoft Edge");
-        assert_eq!(normalize(&app2), "LabSense");
+        let id2 = normalize(&app2, None);
+        assert_eq!(id2.app_name, "LabSense");
 
         let app3 = make_app("chrome.exe", "WhatsApp (2) - Google Chrome");
-        assert_eq!(normalize(&app3), "WhatsApp");
+        let id3 = normalize(&app3, None);
+        assert_eq!(id3.app_name, "WhatsApp");
 
         let app4 = make_app("brave.exe", "ChatGPT - New Chat - Brave");
-        assert_eq!(normalize(&app4), "ChatGPT");
+        let id4 = normalize(&app4, None);
+        assert_eq!(id4.app_name, "ChatGPT");
+    }
+
+    #[test]
+    fn test_domain_from_uia() {
+        let app = make_app("chrome.exe", "Runtime Config Architecture - ChatGPT - Google Chrome");
+        let id = normalize(&app, Some("https://chatgpt.com/c/12345"));
+        assert_eq!(id.app_name, "ChatGPT");
+        assert_eq!(id.context_title.unwrap(), "Runtime Config Architecture - ChatGPT");
     }
 }

@@ -10,6 +10,7 @@ pub struct ForegroundApp {
     pub process_name: String,
     pub window_title: String,
     pub pid: u32,
+    pub hwnd: isize,
 }
 
 /// Gets the currently focused foreground application.
@@ -45,6 +46,7 @@ pub fn get_foreground_app(sys: &mut System) -> Option<ForegroundApp> {
             process_name,
             window_title,
             pid,
+            hwnd: hwnd.0 as isize,
         })
     }
 }

@@ -1,5 +1,5 @@
-use crate::analytics::SharedAnalytics;
-use crate::monitor::{foreground, idle, normalizer};
+use crate::analytics::{SharedAnalytics, AppIdentity};
+use crate::monitor::{foreground, idle, normalizer, uia};
 use crate::session::{SharedSession, StopSignal};
 use std::time::Duration;
 use sysinfo::System;
@@ -13,7 +13,25 @@ pub fn start(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         log::info!("Monitor loop started");
+        
+        // Initialize COM for UIAutomation on this thread
+        unsafe {
+            let _ = windows::Win32::System::Com::CoInitializeEx(
+                None,
+                windows::Win32::System::Com::COINIT_MULTITHREADED,
+            );
+        }
+
         let mut sys = System::new();
+
+        struct WindowCache {
+            hwnd: isize,
+            title: String,
+            domain: Option<String>,
+            identity: AppIdentity,
+        }
+
+        let mut cache: Option<WindowCache> = None;
 
         loop {
             // Wait ~1 second or stop signal
@@ -46,16 +64,57 @@ pub fn start(
 
             // Update analytics
             if let Some(app) = app {
-                let normalized_name = normalizer::normalize(&app);
+                let identity = if let Some(ref c) = cache {
+                    if c.hwnd == app.hwnd && c.title == app.window_title {
+                        // Window hasn't changed, reuse cached identity
+                        Some(c.identity.clone())
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                let identity = if let Some(id) = identity {
+                    id
+                } else {
+                    // Cache miss or window changed
+                    let _is_browser = normalizer::normalize(&app, None).app_name != app.process_name
+                        && !app.process_name.is_empty(); 
+                    
+                    // A better check for browser is just passing domain, the normalizer handles it.
+                    // But we only want to extract URL if it's a browser.
+                    let process_lower = app.process_name.to_lowercase();
+                    let is_browser = ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe", "iexplore.exe", "chromium.exe"]
+                        .contains(&process_lower.as_str());
+
+                    let domain = if is_browser {
+                        uia::extract_browser_url(app.hwnd)
+                    } else {
+                        None
+                    };
+
+                    let new_identity = normalizer::normalize(&app, domain.as_deref());
+
+                    cache = Some(WindowCache {
+                        hwnd: app.hwnd,
+                        title: app.window_title.clone(),
+                        domain,
+                        identity: new_identity.clone(),
+                    });
+
+                    new_identity
+                };
+
                 let mut guard = analytics.lock();
                 if let Some(ref mut a) = *guard {
-                    a.tick(&normalized_name, user_is_idle);
+                    a.tick(identity, user_is_idle);
                 }
             } else {
                 // No foreground window — still count time
                 let mut guard = analytics.lock();
                 if let Some(ref mut a) = *guard {
-                    a.tick("Desktop", user_is_idle);
+                    a.tick(AppIdentity { app_name: "Desktop".to_string(), context_title: None }, user_is_idle);
                 }
             }
         }

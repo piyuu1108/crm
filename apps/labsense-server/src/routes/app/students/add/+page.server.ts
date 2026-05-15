@@ -50,7 +50,7 @@ export const actions: Actions = {
 
 			console.log(`[student-add] Successfully created student: ${collegeId}`);
 			throw redirect(303, '/app/students');
-		} catch (err: any) {
+		} catch (err: unknown) {
 			if (err && typeof err === 'object' && 'status' in err && 'location' in err) {
 				throw err; // Re-throw SvelteKit redirect
 			}

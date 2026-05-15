@@ -1,4 +1,4 @@
-import { json } from '@sveltejs/kit';
+
 import type { RequestHandler } from './$types';
 import { corsPreflightResponse, jsonResponse, errorResponse } from '$lib/server/cors';
 import { parseJsonBody, validateLoginPayload } from '$lib/server/validation/validation';
@@ -54,6 +54,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		sessionId,
 		syncIntervalSeconds: settings.syncIntervalSeconds,
 		syncJitterSeconds: settings.syncJitterSeconds,
-		timeoutSeconds: settings.timeoutSeconds
+		timeoutSeconds: settings.timeoutSeconds,
+		idleThreshold: settings.idleThresholdSeconds
 	});
 };

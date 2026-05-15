@@ -91,9 +91,7 @@ export const sessionApps = pgTable(
 		totalSeconds: integer('total_seconds').notNull().default(0),
 		activeSeconds: integer('active_seconds').notNull().default(0),
 		idleSeconds: integer('idle_seconds').notNull().default(0),
-		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
-			.defaultNow()
-			.notNull()
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 	},
 	(t) => [unique('uq_session_app').on(t.sessionId, t.appName)]
 );
@@ -105,5 +103,6 @@ export const systemSettings = pgTable('system_settings', {
 	syncIntervalSeconds: integer('sync_interval_seconds').notNull().default(30),
 	syncJitterSeconds: integer('sync_jitter_seconds').notNull().default(30),
 	timeoutSeconds: integer('timeout_seconds').notNull().default(120),
+	idleThresholdSeconds: integer('idle_threshold_seconds').notNull().default(300),
 	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 });

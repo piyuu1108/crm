@@ -43,13 +43,15 @@ Content-Type: application/json
 | `syncIntervalSeconds` | `number` | How often the agent should sync (seconds) |
 | `syncJitterSeconds` | `number` | Max random jitter to add to sync interval (seconds) |
 | `timeoutSeconds` | `number` | Server will auto-timeout session after this many seconds of no sync |
+| `idleThreshold` | `number` | Time after which the agent is considered idle (seconds) |
 
 ```json
 {
   "sessionId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "syncIntervalSeconds": 30,
   "syncJitterSeconds": 30,
-  "timeoutSeconds": 120
+  "timeoutSeconds": 120,
+  "idleThreshold": 300
 }
 ```
 

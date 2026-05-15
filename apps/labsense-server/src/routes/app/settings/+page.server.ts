@@ -13,7 +13,8 @@ export const load: PageServerLoad = async () => {
 		settings: settings || {
 			syncIntervalSeconds: 30,
 			syncJitterSeconds: 30,
-			timeoutSeconds: 120
+			timeoutSeconds: 120,
+			idleThresholdSeconds: 300
 		}
 	};
 };
@@ -24,9 +25,10 @@ export const actions: Actions = {
 		const syncIntervalSeconds = parseInt(formData.get('syncIntervalSeconds') as string);
 		const syncJitterSeconds = parseInt(formData.get('syncJitterSeconds') as string);
 		const timeoutSeconds = parseInt(formData.get('timeoutSeconds') as string);
+		const idleThresholdSeconds = parseInt(formData.get('idleThresholdSeconds') as string);
 		const confirmationPassword = formData.get('confirmationPassword') as string;
 
-		if (isNaN(syncIntervalSeconds) || isNaN(syncJitterSeconds) || isNaN(timeoutSeconds)) {
+		if (isNaN(syncIntervalSeconds) || isNaN(syncJitterSeconds) || isNaN(timeoutSeconds) || isNaN(idleThresholdSeconds)) {
 			return fail(400, { message: 'Invalid values' });
 		}
 
@@ -41,6 +43,7 @@ export const actions: Actions = {
 				syncIntervalSeconds,
 				syncJitterSeconds,
 				timeoutSeconds,
+				idleThresholdSeconds,
 				updatedAt: new Date()
 			})
 			.onConflictDoUpdate({
@@ -49,6 +52,7 @@ export const actions: Actions = {
 					syncIntervalSeconds,
 					syncJitterSeconds,
 					timeoutSeconds,
+					idleThresholdSeconds,
 					updatedAt: new Date()
 				}
 			});

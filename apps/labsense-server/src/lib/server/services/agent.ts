@@ -101,16 +101,18 @@ export async function getSystemSettings(): Promise<{
 	syncIntervalSeconds: number;
 	syncJitterSeconds: number;
 	timeoutSeconds: number;
+	idleThresholdSeconds: number;
 }> {
 	const [settings] = await db.select().from(systemSettings).limit(1);
 
 	if (!settings) {
-		return { syncIntervalSeconds: 30, syncJitterSeconds: 30, timeoutSeconds: 120 };
+		return { syncIntervalSeconds: 30, syncJitterSeconds: 30, timeoutSeconds: 120, idleThresholdSeconds: 300 };
 	}
 
 	return {
 		syncIntervalSeconds: settings.syncIntervalSeconds,
 		syncJitterSeconds: settings.syncJitterSeconds,
-		timeoutSeconds: settings.timeoutSeconds
+		timeoutSeconds: settings.timeoutSeconds,
+		idleThresholdSeconds: settings.idleThresholdSeconds
 	};
 }

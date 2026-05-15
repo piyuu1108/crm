@@ -7,24 +7,18 @@
 	import { enhance } from '$app/forms';
 	import { toast } from 'svelte-sonner';
 	import { Settings2, Save, AlertTriangle, RefreshCw, Zap, Clock } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 
 	let { data, form } = $props();
 
 	let isConfirmOpen = $state(false);
 	let isSubmitting = $state(false);
-	let values = $state({
-		syncIntervalSeconds: 30,
-		syncJitterSeconds: 30,
-		timeoutSeconds: 120
-	});
-
-	$effect(() => {
-		values = {
-			syncIntervalSeconds: data.settings.syncIntervalSeconds,
-			syncJitterSeconds: data.settings.syncJitterSeconds,
-			timeoutSeconds: data.settings.timeoutSeconds
-		};
-	});
+	let values = $state(untrack(() => ({
+		syncIntervalSeconds: data.settings.syncIntervalSeconds,
+		syncJitterSeconds: data.settings.syncJitterSeconds,
+		timeoutSeconds: data.settings.timeoutSeconds,
+		idleThresholdSeconds: data.settings.idleThresholdSeconds || 300
+	})));
 
 	$effect(() => {
 		if (form?.success) {
@@ -89,19 +83,36 @@
 					</div>
 				</div>
 
-				<div class="space-y-2">
-					<Label for="timeout" class="flex items-center gap-2">
-						<Clock class="h-4 w-4" />
-						Session Timeout (seconds)
-					</Label>
-					<Input
-						type="number"
-						id="timeout"
-						bind:value={values.timeoutSeconds}
-						min="30"
-						max="36000"
-					/>
-					<p class="text-muted-foreground text-xs">Time without sync before a session is marked timed out.</p>
+				<div class="grid gap-4 md:grid-cols-2">
+					<div class="space-y-2">
+						<Label for="timeout" class="flex items-center gap-2">
+							<Clock class="h-4 w-4" />
+							Session Timeout (seconds)
+						</Label>
+						<Input
+							type="number"
+							id="timeout"
+							bind:value={values.timeoutSeconds}
+							min="30"
+							max="36000"
+						/>
+						<p class="text-muted-foreground text-xs">Time without sync before a session is marked timed out.</p>
+					</div>
+
+					<div class="space-y-2">
+						<Label for="idleThreshold" class="flex items-center gap-2">
+							<Clock class="h-4 w-4" />
+							Idle Threshold (seconds)
+						</Label>
+						<Input
+							type="number"
+							id="idleThreshold"
+							bind:value={values.idleThresholdSeconds}
+							min="30"
+							max="36000"
+						/>
+						<p class="text-muted-foreground text-xs">Time after which the agent is considered idle.</p>
+					</div>
 				</div>
 			</Card.Content>
 			<Card.Footer class=" bg-muted/20 px-6 py-4">
@@ -139,6 +150,7 @@
 			<input type="hidden" name="syncIntervalSeconds" value={values.syncIntervalSeconds} />
 			<input type="hidden" name="syncJitterSeconds" value={values.syncJitterSeconds} />
 			<input type="hidden" name="timeoutSeconds" value={values.timeoutSeconds} />
+			<input type="hidden" name="idleThresholdSeconds" value={values.idleThresholdSeconds} />
 
 			<div class="space-y-2">
 				<Label for="confirmationPassword">Security Password (PASSWD)</Label>

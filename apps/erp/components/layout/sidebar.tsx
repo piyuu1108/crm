@@ -9,26 +9,12 @@ import {
   CaretRight,
   Xmark,
   ChevronDown,
+  Gear,
 } from "@gravity-ui/icons";
 import { navigationConfig, Role, type NavItem } from "@/config/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { useLayoutStore } from "@/app/lib/store/use-layout-store";
 
-const ROLE_LABEL: Record<string, string> = {
-  hod: "HOD",
-  faculty: "Faculty",
-  counselor: "Counselor",
-  student: "Student",
-};
-
-function resolveProfilePhotoSrc(profilePhoto?: string): string | undefined {
-  if (!profilePhoto) return undefined;
-  if (profilePhoto.startsWith("/api/")) return profilePhoto;
-  if (profilePhoto.startsWith("students/")) {
-    return `/api/student/profile-photo?key=${encodeURIComponent(profilePhoto)}`;
-  }
-  return profilePhoto;
-}
 
 // ─── Active-state helpers ─────────────────────────────────────────────────────
 // Determines whether a nav item is the "active" match for the current pathname.
@@ -196,8 +182,6 @@ function CollapsibleNavItem({
   );
 }
 
-// ─── Shared Nav Content ───────────────────────────────────────────────────────
-// Extracted so both desktop sidebar and mobile drawer render the same nav items.
 function SidebarNavContent({
   collapsed,
   onNavigate,
@@ -353,47 +337,31 @@ function SidebarNavContent({
         </nav>
       </ScrollShadow>
 
-      {/* ── Bottom User Card ───────────────────────────────────── */}
+      {/* ── Bottom Settings ────────────────────────────────────── */}
       <div className="shrink-0 border-t border-divider p-3">
-        {collapsed ? (
-          <div className="flex justify-center py-1">
-            <Avatar
-              size="sm"
-              className="bg-accent text-accent-foreground ring-2 ring-accent/20"
-            >
-              <Avatar.Image
-                src={resolveProfilePhotoSrc(user?.profilePhoto)}
-                alt={user?.name || "User profile"}
-              />
-              <Avatar.Fallback>
-                {user?.name?.[0]?.toUpperCase() || "U"}
-              </Avatar.Fallback>
-            </Avatar>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 rounded-xl px-3 py-2">
-            <Avatar
-              size="sm"
-              className="bg-accent text-accent-foreground ring-2 ring-accent/20"
-            >
-              <Avatar.Image
-                src={resolveProfilePhotoSrc(user?.profilePhoto)}
-                alt={user?.name || "User profile"}
-              />
-              <Avatar.Fallback>
-                {user?.name?.[0]?.toUpperCase() || "U"}
-              </Avatar.Fallback>
-            </Avatar>
-            <div className="flex min-w-0 flex-col">
-              <span className="truncate text-sm font-semibold text-foreground">
-                {user?.name || "User"}
-              </span>
-              <span className="truncate text-xs text-muted-foreground capitalize">
-                {ROLE_LABEL[activeRole ?? ""] ?? activeRole ?? "—"}
-              </span>
-            </div>
-          </div>
-        )}
+        <button
+          onClick={() => {
+            router.push("/settings/customize");
+            onNavigate?.();
+          }}
+          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+            collapsed ? "justify-center" : ""
+          } ${
+            pathname.startsWith("/app/settings")
+              ? "bg-accent/10 text-accent"
+              : "text-foreground/70 hover:bg-default/60 hover:text-foreground"
+          }`}
+          aria-label="Settings"
+        >
+          <Gear
+            className={`size-5 transition-colors ${
+              pathname.startsWith("/app/settings")
+                ? "text-accent"
+                : "text-foreground/60 group-hover:text-foreground"
+            }`}
+          />
+          {!collapsed && <span className="truncate">Settings</span>}
+        </button>
       </div>
     </>
   );

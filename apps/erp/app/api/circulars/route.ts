@@ -28,17 +28,6 @@ async function getCallerPayload() {
   return verifyToken(token);
 }
 
-// ─── GET /api/circulars — Server-authoritative visibility ──────────────────────
-//
-// Visibility rules:
-//
-//  Role           | Sees
-//  ---------------|-----------------------------------------------------------
-//  student        | ALL + YEAR(their year) + DIVISION(their division)
-//  hod            | EVERYTHING (no filter) — they publish and oversee all
-//  faculty /      | ALL + FACULTY + YEAR + DIVISION(divisions they teach in)
-//  counselor      |   + ALWAYS their own published circulars (by facultyId)
-//
 export async function GET(req: NextRequest) {
   try {
     const payload = await getCallerPayload();
@@ -53,7 +42,6 @@ export async function GET(req: NextRequest) {
 
     const isHod     = roles.includes("hod");
     const isFaculty = roles.includes("faculty") || roles.includes("counselor") || isHod;
-    // NOTE: check staff roles BEFORE student — admin accounts may carry all roles
     const isStudent = roles.includes("student") && !isFaculty;
 
     console.log(`[GET /api/circulars] userId=${userId} roles=${JSON.stringify(roles)} isHod=${isHod} isFaculty=${isFaculty} isStudent=${isStudent}`);

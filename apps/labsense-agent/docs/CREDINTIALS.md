@@ -1,0 +1,2 @@
+# Currently server running on http://192.168.1.50:1108/
+> DOnt hardcode it in app url will be provided during setup and pc name also provided during install and for mock logins for student ids are 24BCADS001,24BCADS002,24BCADS003...050 and password is pass@123 for all; Rust and Cargo both are installed

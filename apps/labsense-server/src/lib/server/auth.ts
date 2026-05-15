@@ -89,7 +89,7 @@ export function setSessionCookie(cookies: Cookies, sessionId: string) {
 		sameSite: 'lax',
 		expires: new Date(Date.now() + 1000 * 60 * 60),
 		path: '/',
-		secure: process.env.NODE_ENV === 'production' // Only use secure cookies in production
+		secure: false
 	});
 }
 

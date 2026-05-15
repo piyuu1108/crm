@@ -140,8 +140,7 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
 
     let mut page_title = title;
 
-    // Find the last " - " or " — " which separates page title from browser name
-    // e.g. "YouTube - Google Chrome" → "YouTube"
+    // 1. Strip the browser suffix (e.g. " - Google Chrome")
     if let Some(pos) = title.rfind(" - ").or_else(|| title.rfind(" — ")) {
         let extracted = title[..pos].trim();
         if !extracted.is_empty() {
@@ -151,7 +150,7 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
 
     let lower = page_title.to_lowercase();
 
-    // 1. Group related authentication pages
+    // 2. Auth Page Protection (Minimal static rule to prevent token leaks)
     if lower.contains("accounts.google.com")
         || lower.contains("sign in - google")
         || lower.contains("sign in – google")
@@ -165,8 +164,7 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
         return "GitHub Authentication".to_string();
     }
 
-    // 2. Clean application names from common domains / prefixes
-    // This merges dynamic titles like "WhatsApp (2)", "LabSense | VTCBCSR", "ChatGPT - New Chat"
+    // 2.5 Explicit User Examples (Static overrides for requested apps)
     if lower.contains("labsense") || lower.contains("lab sense") {
         return "LabSense".to_string();
     }
@@ -176,43 +174,54 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
     if lower.contains("chatgpt") || lower.contains("chat.openai.com") {
         return "ChatGPT".to_string();
     }
-    if lower.contains("youtube") {
-        return "YouTube".to_string();
-    }
-    if lower.contains("github") {
-        return "GitHub".to_string();
-    }
-    if lower.contains("stackoverflow") || lower.contains("stack overflow") {
-        return "Stack Overflow".to_string();
-    }
-    if lower.contains("mail.google.com") || lower.contains("gmail") {
-        return "Gmail".to_string();
-    }
-    if lower.contains("docs.google.com") || lower.contains("google docs") {
-        return "Google Docs".to_string();
-    }
-    if lower.contains("figma") {
-        return "Figma".to_string();
-    }
-    if lower.contains("notion") {
-        return "Notion".to_string();
-    }
 
     let mut cleaned = page_title;
 
-    // 3. Remove query params, hashes, and paths from raw URLs
-    // If there are no spaces, it's highly likely a raw URL
+    // 3. Dynamic Extraction
     if !cleaned.contains(' ') {
-        // Strip protocols
+        // If it looks like a raw URL (no spaces), extract base domain
         if let Some(stripped) = cleaned.strip_prefix("https://") {
             cleaned = stripped;
         } else if let Some(stripped) = cleaned.strip_prefix("http://") {
             cleaned = stripped;
         }
-
-        // Strip query params, hashes, and paths (keep only domain)
         if let Some(pos) = cleaned.find(|c| c == '?' || c == '#' || c == '/') {
             cleaned = &cleaned[..pos];
+        }
+    } else {
+        // Dynamic Title Splitting
+        let separators = [" | ", " - ", " — ", " • ", " :: "];
+        let mut best_segment = cleaned;
+
+        for sep in separators {
+            if cleaned.contains(sep) {
+                let segments: Vec<&str> = cleaned.split(sep).collect();
+                if let Some(last) = segments.last() {
+                    let last_trimmed = last.trim();
+                    let lower_last = last_trimmed.to_lowercase();
+
+                    // Fallback to first segment if the last segment is generic
+                    let generic_terms = [
+                        "home", "dashboard", "login", "welcome", "index", "untitled", "new chat",
+                        "getting started", "settings", "profile", "admin", "search", "results",
+                    ];
+
+                    if generic_terms.contains(&lower_last.as_str()) {
+                        best_segment = segments.first().unwrap().trim();
+                    } else {
+                        best_segment = last_trimmed;
+                    }
+                    break;
+                }
+            }
+        }
+        cleaned = best_segment;
+    }
+
+    // 4. Strip trailing counters (e.g. "WhatsApp (2)" -> "WhatsApp")
+    if let Some(pos) = cleaned.rfind(" (") {
+        if cleaned.ends_with(')') {
+            cleaned = cleaned[..pos].trim();
         }
     }
 
@@ -220,7 +229,6 @@ fn normalize_browser_title(title: &str, _process: &str) -> String {
         return "Browser".to_string();
     }
 
-    // For very long titles, truncate to keep analytics clean
     if cleaned.len() > 60 {
         format!("{}…", &cleaned[..57])
     } else {
@@ -279,7 +287,7 @@ mod tests {
     #[test]
     fn test_browser_complex_title() {
         let app = make_app("chrome.exe", "React docs - Getting Started - Google Chrome");
-        assert_eq!(normalize(&app), "React docs - Getting Started");
+        assert_eq!(normalize(&app), "React docs");
     }
 
     #[test]
@@ -324,7 +332,7 @@ mod tests {
     #[test]
     fn test_browser_url_stripping() {
         let app = make_app("brave.exe", "https://github.com/mohit-rajput-py/my-project - Brave");
-        assert_eq!(normalize(&app), "GitHub");
+        assert_eq!(normalize(&app), "github.com");
 
         let app2 = make_app("chrome.exe", "localhost:3000/dashboard?token=123#hash - Google Chrome");
         assert_eq!(normalize(&app2), "localhost:3000");

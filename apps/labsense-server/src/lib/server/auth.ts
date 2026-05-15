@@ -1,4 +1,4 @@
-import argon2 from 'argon2';
+import { hash, verify } from '@node-rs/argon2';
 import { db } from '$lib/server/db';
 import { adminSessions, masterUsers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
@@ -6,13 +6,28 @@ import type { Cookies } from '@sveltejs/kit';
 
 export const SESSION_COOKIE_NAME = 'auth_session';
 
+// The "Pepper" - Store this in an environment variable, NOT the database.
+const PEPPER = "o-shoneya-menu-nayi-jina-tere-bina";
+
 export async function hashPassword(password: string): Promise<string> {
-	return await argon2.hash(password);
+    return await hash(password + PEPPER, {
+        // 1. Switch to Argon2id (Hybrid - better side-channel protection)
+        algorithm: 2, 
+        
+        // 2. Increase to 2 iterations (Small hit to speed, big hit to attackers)
+        timeCost: 2, 
+        
+        // 3. 32MB Memory (Significant enough to bottleneck 2026-era GPUs)
+        memoryCost: 32768, 
+        
+        parallelism: 1,
+        outputLen: 32 
+    });
 }
 
-export async function verifyPassword(hash: string, password: string): Promise<boolean> {
+export async function verifyPassword(hashStr: string, password: string): Promise<boolean> {
 	try {
-		return await argon2.verify(hash, password);
+		return await verify(hashStr, password);
 	} catch {
 		return false;
 	}

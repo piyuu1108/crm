@@ -1,7 +1,7 @@
 import { db } from '$lib/server/db';
 import { masterUsers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
-import { hash, verify } from 'argon2';
+import { hashPassword, verifyPassword } from '$lib/server/auth';
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 
@@ -48,13 +48,13 @@ export const actions: Actions = {
 		}
 
 		// Verify old password
-		const isValid = await verify(admin.password, oldPassword);
+		const isValid = await verifyPassword(admin.password, oldPassword);
 		if (!isValid) {
 			return fail(401, { message: 'Invalid old password' });
 		}
 
 		// Hash and update new password
-		const hashedPassword = await hash(newPassword);
+		const hashedPassword = await hashPassword(newPassword);
 		await db
 			.update(masterUsers)
 			.set({
@@ -86,7 +86,7 @@ export const actions: Actions = {
 		}
 
 		// Hash password and insert
-		const hashedPassword = await hash(password);
+		const hashedPassword = await hashPassword(password);
 		await db.insert(masterUsers).values({
 			username,
 			password: hashedPassword

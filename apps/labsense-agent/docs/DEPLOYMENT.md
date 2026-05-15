@@ -101,26 +101,21 @@ Source: "target\release\labsense-agent.exe"; DestDir: "{app}"; Flags: ignorevers
 Source: "config.json"; DestDir: "{app}"; Flags: ignoreversion
 
 [Run]
-; 1. Add Windows Firewall Exception for the Web UI (Port 3030)
-Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""LabSense Agent"" dir=in action=allow protocol=TCP localport=3030"; Flags: runhidden
-
-; 2. Register the Windows Service
+; 1. Register the Windows Service
 Filename: "{sys}\sc.exe"; Parameters: "create LabSenseAgent binPath= ""{app}\labsense-agent.exe --service"" start= auto DisplayName= ""LabSense Monitoring Agent"""; Flags: runhidden
 
-; 3. Start the Service
+; 2. Start the Service
 Filename: "{sys}\sc.exe"; Parameters: "start LabSenseAgent"; Flags: runhidden
 
 [UninstallRun]
 ; Clean up when uninstalled
 Filename: "{sys}\sc.exe"; Parameters: "stop LabSenseAgent"; Flags: runhidden; RunOnceId: "StopService"
 Filename: "{sys}\sc.exe"; Parameters: "delete LabSenseAgent"; Flags: runhidden; RunOnceId: "DeleteService"
-Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""LabSense Agent"""; Flags: runhidden
 ```
 
 ### What the installer does automatically:
 1. Copies the `.exe` and `config.json` to `C:\Program Files\LabSense`.
 2. Creates an uninstaller.
-3. Automatically opens **Port 3030** in the Windows Firewall so your server/frontend can talk to the agent.
-4. Registers the `.exe` as an auto-start Windows Service.
-5. Boots up the agent immediately.
-6. Cleans up everything seamlessly if uninstalled via the Windows Control Panel.
+3. Registers the `.exe` as an auto-start Windows Service.
+4. Boots up the agent immediately.
+5. Cleans up everything seamlessly if uninstalled via the Windows Control Panel.

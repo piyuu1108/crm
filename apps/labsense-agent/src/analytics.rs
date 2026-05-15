@@ -18,14 +18,6 @@ pub struct AppCounters {
     pub idle_seconds: u64,
 }
 
-#[derive(Debug, Clone)]
-pub struct PendingActivity {
-    pub identity: AppIdentity,
-    pub total_seconds: u64,
-    pub active_seconds: u64,
-    pub idle_seconds: u64,
-    pub is_committed: bool,
-}
 
 /// Session-level cumulative analytics held in memory.
 #[derive(Debug)]
@@ -35,7 +27,6 @@ pub struct SessionAnalytics {
     pub idle_seconds: u64,
     pub apps: HashMap<AppIdentity, AppCounters>,
     pub login_at: Instant,
-    pub pending_app: Option<PendingActivity>,
 }
 
 impl SessionAnalytics {
@@ -46,7 +37,6 @@ impl SessionAnalytics {
             idle_seconds: 0,
             apps: HashMap::new(),
             login_at: Instant::now(),
-            pending_app: None,
         }
     }
 
@@ -60,55 +50,15 @@ impl SessionAnalytics {
             self.idle_seconds += 1;
         }
 
-        // Check if identity matches pending
-        let matches_pending = self
-            .pending_app
-            .as_ref()
-            .map(|p| p.identity == identity)
-            .unwrap_or(false);
-
-        if !matches_pending {
-            // Identity changed. Discard uncommitted pending activity.
-            self.pending_app = Some(PendingActivity {
-                identity: identity.clone(),
-                total_seconds: 0,
-                active_seconds: 0,
-                idle_seconds: 0,
-                is_committed: false,
-            });
-        }
-
-        if let Some(ref mut pending) = self.pending_app {
-            pending.total_seconds += 1;
-            if is_idle {
-                pending.idle_seconds += 1;
-            } else {
-                pending.active_seconds += 1;
-            }
-
-            if pending.total_seconds >= 15 {
-                if !pending.is_committed {
-                    // Just reached 15 seconds: flush all accumulated pending time to apps
-                    let counters = self.apps.entry(pending.identity.clone()).or_default();
-                    counters.total_seconds += pending.total_seconds;
-                    counters.active_seconds += pending.active_seconds;
-                    counters.idle_seconds += pending.idle_seconds;
-                    pending.is_committed = true;
-                } else {
-                    // Already committed, increment apps directly
-                    let counters = self.apps.entry(pending.identity.clone()).or_default();
-                    counters.total_seconds += 1;
-                    if is_idle {
-                        counters.idle_seconds += 1;
-                    } else {
-                        counters.active_seconds += 1;
-                    }
-                }
-            }
+        let counters = self.apps.entry(identity).or_default();
+        counters.total_seconds += 1;
+        if !is_idle {
+            counters.active_seconds += 1;
+        } else {
+            counters.idle_seconds += 1;
         }
     }
 
-    /// Build a snapshot of the current cumulative analytics for sync.
     pub fn snapshot(&self) -> SyncPayload {
         SyncPayload {
             total_seconds: self.total_seconds,
@@ -117,6 +67,7 @@ impl SessionAnalytics {
             applications: self
                 .apps
                 .iter()
+                .filter(|(_, c)| c.total_seconds >= 15) // Only send apps with global usage >= 15s
                 .map(|(id, c)| AppUsagePayload {
                     app_name: id.app_name.clone(),
                     context_title: id.context_title.clone(),

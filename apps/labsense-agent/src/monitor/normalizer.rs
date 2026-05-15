@@ -181,7 +181,12 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         page_title = "Active";
     }
 
-    let parsed = match url::Url::parse(url_str) {
+    let mut url_to_parse = url_str.trim().to_string();
+    if !url_to_parse.starts_with("http://") && !url_to_parse.starts_with("https://") {
+        url_to_parse = format!("https://{}", url_to_parse);
+    }
+
+    let parsed = match url::Url::parse(&url_to_parse) {
         Ok(p) => p,
         Err(_) => {
             return AppIdentity {
@@ -201,7 +206,9 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         }
     };
 
-    let root_domain = match addr::parse_domain_name(host) {
+    let is_ip_or_localhost = host == "localhost" || host.chars().all(|c| c.is_ascii_digit() || c == '.');
+
+    let mut root_domain = match addr::parse_domain_name(host) {
         Ok(domain) => {
             if let Some(root) = domain.root() {
                 root.to_string()
@@ -212,19 +219,30 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         Err(_) => host.to_string(),
     };
 
+    if is_ip_or_localhost {
+        if let Some(port) = parsed.port() {
+            root_domain = format!("{}:{}", host, port);
+        }
+    }
+
     let friendly_name = normalize_domain(&root_domain);
 
     let app_name = if friendly_name == root_domain {
-        // Fallback: title-case the root domain (e.g. "vtcbcsr.com" -> "Vtcbcsr")
-        let parts: Vec<&str> = root_domain.split('.').collect();
-        let main_part = parts[0];
-        let mut chars = main_part.chars();
-        match chars.next() {
-            None => "Browser".to_string(),
-            Some(first) => {
-                let mut result = first.to_uppercase().to_string();
-                result.extend(chars);
-                result
+        if root_domain.contains(':') || root_domain.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            // It's likely an IP address or contains a port (like localhost:3000)
+            root_domain.to_string()
+        } else {
+            // Fallback: title-case the root domain (e.g. "vtcbcsr.com" -> "Vtcbcsr")
+            let parts: Vec<&str> = root_domain.split('.').collect();
+            let main_part = parts[0];
+            let mut chars = main_part.chars();
+            match chars.next() {
+                None => "Browser".to_string(),
+                Some(first) => {
+                    let mut result = first.to_uppercase().to_string();
+                    result.extend(chars);
+                    result
+                }
             }
         }
     } else {
@@ -519,5 +537,16 @@ mod tests {
         let host = parsed.host_str().unwrap();
         let domain = addr::parse_domain_name(host).unwrap();
         assert_eq!(domain.root().unwrap(), "github.com");
+    }
+
+    #[test]
+    fn test_ip_with_port() {
+        let app = make_app("chrome.exe", "Student Report - Google Chrome");
+        let id = normalize(&app, Some("http://192.168.1.50:1108/app/students/123"));
+        assert_eq!(id.app_name, "192.168.1.50:1108");
+
+        let app2 = make_app("chrome.exe", "Localhost test - Google Chrome");
+        let id2 = normalize(&app2, Some("http://localhost:3000/app"));
+        assert_eq!(id2.app_name, "localhost:3000");
     }
 }

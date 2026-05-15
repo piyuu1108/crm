@@ -145,47 +145,79 @@ pub fn normalize(app: &ForegroundApp, domain_from_uia: Option<&str>) -> AppIdent
     }
 }
 
+fn normalize_domain(domain: &str) -> &str {
+    match domain {
+        "youtube.com" => "YouTube",
+        "github.com" => "GitHub",
+        "chatgpt.com" => "ChatGPT",
+        "openai.com" => "ChatGPT",
+        "amazon.in" => "Amazon",
+        "amazon.com" => "Amazon",
+        "aws.amazon.com" => "AWS",
+        "stackoverflow.com" => "Stack Overflow",
+        "google.com" => "Google",
+        "microsoft.com" => "Microsoft",
+        "notion.so" => "Notion",
+        "figma.com" => "Figma",
+        "linkedin.com" => "LinkedIn",
+        "twitter.com" => "X (Twitter)",
+        "x.com" => "X (Twitter)",
+        "facebook.com" => "Facebook",
+        "instagram.com" => "Instagram",
+        "reddit.com" => "Reddit",
+        "whatsapp.com" => "WhatsApp Web",
+        "discord.com" => "Discord",
+        _ => domain,
+    }
+}
+
 /// Helper to normalize using an explicitly extracted URL/domain.
-fn normalize_by_domain(url: &str, title: &str) -> AppIdentity {
-    let mut cleaned_url = url.trim();
-    if let Some(stripped) = cleaned_url.strip_prefix("https://") {
-        cleaned_url = stripped;
-    } else if let Some(stripped) = cleaned_url.strip_prefix("http://") {
-        cleaned_url = stripped;
+fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
+    let mut page_title = title;
+    if let Some(pos) = title.rfind(" - ").or_else(|| title.rfind(" — ")) {
+        page_title = title[..pos].trim();
     }
-    if let Some(pos) = cleaned_url.find(|c| c == '?' || c == '#' || c == '/') {
-        cleaned_url = &cleaned_url[..pos];
+    if page_title.is_empty() {
+        page_title = "Active";
     }
-    
-    let domain_lower = cleaned_url.to_lowercase();
-    
-    // Extract app name from title and check if the URL contains it
-    let title_extracted = normalize_browser_title(title, "");
-    let title_app_name_lower = title_extracted.app_name.to_lowercase().replace(" ", "");
 
-    let app_name = if title_extracted.app_name != "Browser" && domain_lower.contains(&title_app_name_lower) {
-        title_extracted.app_name
-    } else {
-        // Fallback: Extract from domain using split
-        let mut domain = domain_lower.as_str();
-        if let Some(stripped) = domain.strip_prefix("www.") {
-            domain = stripped;
+    let parsed = match url::Url::parse(url_str) {
+        Ok(p) => p,
+        Err(_) => {
+            return AppIdentity {
+                app_name: "Browser".to_string(),
+                context_title: Some(page_title.to_string()),
+            };
         }
+    };
 
-        let parts: Vec<&str> = domain.split('.').collect();
-        let main_part = if parts.len() >= 2 {
-            let second_last = parts[parts.len() - 2];
-            // Handle common two-part TLDs like co.uk, com.au
-            if (second_last == "co" || second_last == "com" || second_last == "ac") && parts.len() >= 3 {
-                parts[parts.len() - 3]
+    let host = match parsed.host_str() {
+        Some(h) => h,
+        None => {
+            return AppIdentity {
+                app_name: "Browser".to_string(),
+                context_title: Some(page_title.to_string()),
+            };
+        }
+    };
+
+    let root_domain = match addr::parse_domain_name(host) {
+        Ok(domain) => {
+            if let Some(root) = domain.root() {
+                root.to_string()
             } else {
-                second_last
+                host.to_string()
             }
-        } else {
-            parts[0]
-        };
+        }
+        Err(_) => host.to_string(),
+    };
 
-        // Title-case the extracted part
+    let friendly_name = normalize_domain(&root_domain);
+
+    let app_name = if friendly_name == root_domain {
+        // Fallback: title-case the root domain (e.g. "vtcbcsr.com" -> "Vtcbcsr")
+        let parts: Vec<&str> = root_domain.split('.').collect();
+        let main_part = parts[0];
         let mut chars = main_part.chars();
         match chars.next() {
             None => "Browser".to_string(),
@@ -195,22 +227,16 @@ fn normalize_by_domain(url: &str, title: &str) -> AppIdentity {
                 result
             }
         }
+    } else {
+        friendly_name.to_string()
     };
-
-    let mut page_title = title;
-    if let Some(pos) = title.rfind(" - ").or_else(|| title.rfind(" — ")) {
-        page_title = title[..pos].trim();
-    }
-
-    if page_title.is_empty() {
-        page_title = "Active";
-    }
 
     AppIdentity {
         app_name,
         context_title: Some(page_title.to_string()),
     }
 }
+
 
 /// Parse browser window title to extract the meaningful page/site name and context.
 fn normalize_browser_title(title: &str, _process: &str) -> AppIdentity {
@@ -486,5 +512,12 @@ mod tests {
         let id = normalize(&app, Some("https://chatgpt.com/c/12345"));
         assert_eq!(id.app_name, "ChatGPT");
         assert_eq!(id.context_title.unwrap(), "Runtime Config Architecture - ChatGPT");
+    }
+    #[test]
+    fn test_domain_extraction() {
+        let parsed = url::Url::parse("https://docs.github.com/en").unwrap();
+        let host = parsed.host_str().unwrap();
+        let domain = addr::parse_domain_name(host).unwrap();
+        assert_eq!(domain.root().unwrap(), "github.com");
     }
 }

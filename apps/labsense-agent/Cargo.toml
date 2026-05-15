@@ -34,6 +34,8 @@ rand = "0.8"
 parking_lot = "0.12"
 uuid = { version = "1", features = ["v4"] }
 open = "5"
+url = "2.5.8"
+addr = "0.15.6"
 
 [[bin]]
 name = "labsense-agent"

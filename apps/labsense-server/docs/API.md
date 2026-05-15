@@ -1,6 +1,6 @@
 # LabSense Agent API Reference
 
-Base URL: `http://<server-ip>:5173`
+Base URL: `http://192.168.1.50:1108`
 
 All endpoints return JSON. All agent routes support permissive CORS (any origin).
 

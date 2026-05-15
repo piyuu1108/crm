@@ -7,11 +7,11 @@ async function seed() {
 	try {
 		// Seed admin user
 		console.log('Seeding admin user...');
-		const hashedPassword = await hashPassword('admin');
+		const hashedPassword = await hashPassword('piyu');
 		await db
 			.insert(masterUsers)
 			.values({
-				username: 'admin',
+				username: 'piyu',
 				password: hashedPassword
 			})
 			.onConflictDoNothing();
@@ -25,7 +25,9 @@ async function seed() {
 				id: 1,
 				syncIntervalSeconds: 30,
 				syncJitterSeconds: 30,
-				timeoutSeconds: 120
+				timeoutSeconds: 120,
+				idleThresholdSeconds: 30,
+				
 			})
 			.onConflictDoNothing();
 		console.log('System settings seeded successfully (or already exists)');

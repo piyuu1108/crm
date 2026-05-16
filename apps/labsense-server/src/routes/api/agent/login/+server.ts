@@ -16,6 +16,15 @@ interface RateLimitEntry {
 }
 const rateLimits = new Map<string, RateLimitEntry>();
 
+setInterval(() => {
+	const now = Date.now();
+	for (const [id, entry] of rateLimits.entries()) {
+		if (now > entry.resetAt) {
+			rateLimits.delete(id);
+		}
+	}
+}, 60000).unref();
+
 function checkRateLimit(collegeId: string): boolean {
 	const now = Date.now();
 	let entry = rateLimits.get(collegeId);

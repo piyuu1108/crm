@@ -71,6 +71,7 @@ pub fn start(
 
             let mut current_session_id = session_id;
             let mut current_aes_key = aes_key;
+            let mut retry_count = 0;
 
             loop {
                 // Send sync to server
@@ -80,6 +81,12 @@ pub fn start(
                         break;
                     }
                     Err(AgentError::Unauthorized(msg)) => {
+                        retry_count += 1;
+                        if retry_count > 3 {
+                            log::warn!("Sync Unauthorized (401) persists. Max retries exceeded. Skipping cycle.");
+                            break;
+                        }
+
                         log::warn!("Sync Unauthorized (401): {}. Triggering self-healing loop.", msg);
                         let mut backoff_secs = 15;
                         loop {

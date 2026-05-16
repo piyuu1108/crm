@@ -68,10 +68,30 @@ pub fn start(
                 }
             };
 
+            // Debug: log payload summary before sending
+            for app in &payload.applications {
+                log::info!(
+                    "[sync] app='{}' total={}s segments={} details={}",
+                    app.app_name,
+                    app.total_seconds,
+                    app.segments.len(),
+                    app.details.len()
+                );
+                for d in &app.details {
+                    log::info!(
+                        "[sync]   detail title={:?} domain={:?} total={}s segments={}",
+                        d.title,
+                        d.domain,
+                        d.total_seconds,
+                        d.segments.len()
+                    );
+                }
+            }
+
             // Send sync to server
             match api_client.sync(&session_id, payload).await {
                 Ok(()) => {
-                    log::debug!("Sync successful");
+                    log::info!("Sync successful");
                 }
                 Err(AgentError::Conflict(msg)) => {
                     log::warn!("Session ended server-side: {}", msg);

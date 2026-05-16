@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
@@ -99,13 +100,13 @@
 		</div>
 
 		<DropdownMenu.Root>
-			<DropdownMenu.Trigger>
+			<DropdownMenuPrimitive.Trigger asChild>
 				{#snippet child({ props })}
 					<Button {...props} variant="ghost" size="icon">
 						<MoreVertical class="h-5 w-5" />
 					</Button>
 				{/snippet}
-			</DropdownMenu.Trigger>
+			</DropdownMenuPrimitive.Trigger>
 			<DropdownMenu.Content align="end" class="w-48">
 				<DropdownMenu.Item onclick={() => (isEditOpen = true)}>
 					<Edit class="mr-2 h-4 w-4" />

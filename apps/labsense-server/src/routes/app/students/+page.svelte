@@ -16,6 +16,10 @@
 	let searchInput = $state(data.search);
 	let debounceTimer: ReturnType<typeof setTimeout>;
 
+	$effect(() => {
+		searchInput = data.search;
+	});
+
 	function handleSearch(value: string) {
 		clearTimeout(debounceTimer);
 		debounceTimer = setTimeout(() => {

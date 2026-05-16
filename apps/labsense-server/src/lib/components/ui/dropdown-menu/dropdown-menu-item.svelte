@@ -7,10 +7,12 @@
 		class: className,
 		inset,
 		variant = "default",
+		children,
 		...restProps
 	}: DropdownMenuPrimitive.ItemProps & {
 		inset?: boolean;
 		variant?: "default" | "destructive";
+		children?: import('svelte').Snippet;
 	} = $props();
 </script>
 
@@ -24,4 +26,6 @@
 		className
 	)}
 	{...restProps}
-/>
+>
+	{@render children?.()}
+</DropdownMenuPrimitive.Item>

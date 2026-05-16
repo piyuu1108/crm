@@ -3,7 +3,6 @@
 	import * as Table from '$lib/components/ui/table';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
-	import { Separator } from '$lib/components/ui/separator';
 	import { 
 		ArrowLeft, 
 		Clock, 
@@ -53,8 +52,8 @@
 	const efficiency = $derived(getEfficiency(data.app.activeSeconds, data.app.totalSeconds));
 
 	const sortedDetails = $derived([...data.details].sort((a, b) => {
-		let aVal = a[sortKey as keyof typeof a];
-		let bVal = b[sortKey as keyof typeof b];
+		const aVal = a[sortKey as keyof typeof a] ?? 0;
+		const bVal = b[sortKey as keyof typeof b] ?? 0;
 
 		if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
 		if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
@@ -87,9 +86,6 @@
 		</div>
 
 		<div class="flex items-center gap-6 relative z-10">
-			<div class="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary text-4xl font-black border-2 border-primary/20 shadow-inner">
-				{data.app.appName.charAt(0).toUpperCase()}
-			</div>
 			<div>
 				<h1 class="text-4xl font-black tracking-tighter uppercase">{data.app.appName}</h1>
 				<p class="text-muted-foreground flex items-center gap-2 font-medium">
@@ -135,7 +131,7 @@
 						</div>
 					{:else}
 						<div class="relative pl-6 border-l-2 border-muted py-2 space-y-4">
-							{#each data.segments as segment}
+							{#each data.segments as segment (segment.id)}
 								<div class="relative group">
 									<div class="absolute left-[-29px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-background transition-transform group-hover:scale-125"></div>
 									<div class="bg-muted/30 group-hover:bg-muted/50 transition-colors p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -212,7 +208,7 @@
 									</Table.Row>
 								</Table.Header>
 								<Table.Body>
-									{#each sortedDetails as detail}
+									{#each sortedDetails as detail (detail.id)}
 										<Table.Row class="group">
 											<Table.Cell>
 												<div class="flex flex-col gap-1">

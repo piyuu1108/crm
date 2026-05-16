@@ -5,9 +5,23 @@ use std::sync::Arc;
 use std::time::Instant;
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
+pub struct AppDetailIdentity {
+    pub title: Option<String>,
+    pub url: Option<String>,
+    pub domain: Option<String>,
+}
+
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct AppIdentity {
     pub app_name: String,
-    pub context_title: Option<String>,
+    pub detail: Option<AppDetailIdentity>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AppDetailCounters {
+    pub total_seconds: u64,
+    pub active_seconds: u64,
+    pub idle_seconds: u64,
 }
 
 /// Per-application cumulative counters.
@@ -16,8 +30,8 @@ pub struct AppCounters {
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
+    pub details: HashMap<AppDetailIdentity, AppDetailCounters>,
 }
-
 
 /// Session-level cumulative analytics held in memory.
 #[derive(Debug)]
@@ -25,7 +39,7 @@ pub struct SessionAnalytics {
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
-    pub apps: HashMap<AppIdentity, AppCounters>,
+    pub apps: HashMap<String, AppCounters>,
     pub login_at: Instant,
 }
 
@@ -50,12 +64,22 @@ impl SessionAnalytics {
             self.idle_seconds += 1;
         }
 
-        let counters = self.apps.entry(identity).or_default();
-        counters.total_seconds += 1;
+        let app_counters = self.apps.entry(identity.app_name).or_default();
+        app_counters.total_seconds += 1;
         if !is_idle {
-            counters.active_seconds += 1;
+            app_counters.active_seconds += 1;
         } else {
-            counters.idle_seconds += 1;
+            app_counters.idle_seconds += 1;
+        }
+
+        if let Some(detail) = identity.detail {
+            let detail_counters = app_counters.details.entry(detail).or_default();
+            detail_counters.total_seconds += 1;
+            if !is_idle {
+                detail_counters.active_seconds += 1;
+            } else {
+                detail_counters.idle_seconds += 1;
+            }
         }
     }
 
@@ -68,12 +92,32 @@ impl SessionAnalytics {
                 .apps
                 .iter()
                 .filter(|(_, c)| c.total_seconds >= 15) // Only send apps with global usage >= 15s
-                .map(|(id, c)| AppUsagePayload {
-                    app_name: id.app_name.clone(),
-                    context_title: id.context_title.clone(),
-                    total_seconds: c.total_seconds,
-                    active_seconds: c.active_seconds,
-                    idle_seconds: c.idle_seconds,
+                .map(|(app_name, c)| {
+                    let mut details: Vec<_> = c
+                        .details
+                        .iter()
+                        .filter(|(_, dc)| dc.total_seconds >= 5) // Discard transient activities below 5s
+                        .map(|(did, dc)| AppUsageDetailPayload {
+                            title: did.title.clone(),
+                            url: did.url.clone(),
+                            domain: did.domain.clone(),
+                            total_seconds: dc.total_seconds,
+                            active_seconds: dc.active_seconds,
+                            idle_seconds: dc.idle_seconds,
+                        })
+                        .collect();
+
+                    // Cap maximum detail entries per application to 50
+                    details.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
+                    details.truncate(50);
+
+                    AppUsagePayload {
+                        app_name: app_name.clone(),
+                        total_seconds: c.total_seconds,
+                        active_seconds: c.active_seconds,
+                        idle_seconds: c.idle_seconds,
+                        details,
+                    }
                 })
                 .collect(),
         }
@@ -101,11 +145,24 @@ pub struct SyncPayload {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AppUsagePayload {
-    pub app_name: String,
+pub struct AppUsageDetailPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub context_title: Option<String>,
+    pub title: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub domain: Option<String>,
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppUsagePayload {
+    pub app_name: String,
+    pub total_seconds: u64,
+    pub active_seconds: u64,
+    pub idle_seconds: u64,
+    pub details: Vec<AppUsageDetailPayload>,
 }

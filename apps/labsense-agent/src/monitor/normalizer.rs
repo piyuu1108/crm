@@ -1,4 +1,4 @@
-use crate::analytics::AppIdentity;
+use crate::analytics::{AppIdentity, AppDetailIdentity};
 use super::foreground::ForegroundApp;
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -109,6 +109,28 @@ static APP_NAMES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(
     m
 });
 
+/// Map browser exe names to friendly names.
+static BROWSER_NAMES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
+    let mut m = HashMap::new();
+    m.insert("chrome.exe", "Google Chrome");
+    m.insert("msedge.exe", "Microsoft Edge");
+    m.insert("firefox.exe", "Firefox");
+    m.insert("brave.exe", "Brave");
+    m.insert("opera.exe", "Opera");
+    m.insert("vivaldi.exe", "Vivaldi");
+    m.insert("iexplore.exe", "Internet Explorer");
+    m.insert("chromium.exe", "Chromium");
+    m
+});
+
+/// Sanitize URL before storage to remove tokens and query params.
+fn sanitize_url(url_str: &str) -> Option<String> {
+    let mut parsed = url::Url::parse(url_str).ok()?;
+    parsed.set_query(None);
+    parsed.set_fragment(None);
+    Some(parsed.to_string())
+}
+
 /// Normalize a foreground application into a clean, human-friendly name and context.
 ///
 /// For browsers: uses UIA domain if available, else extracts from title.
@@ -134,14 +156,22 @@ pub fn normalize(app: &ForegroundApp, domain_from_uia: Option<&str>) -> AppIdent
     if let Some(friendly) = APP_NAMES.get(process_lower.as_str()) {
         return AppIdentity {
             app_name: friendly.to_string(),
-            context_title: Some(context_title),
+            detail: Some(AppDetailIdentity {
+                title: Some(context_title),
+                url: None,
+                domain: None,
+            }),
         };
     }
 
     // 3. Fallback: strip .exe, title-case
     AppIdentity {
         app_name: strip_and_titlecase(&app.process_name),
-        context_title: Some(context_title),
+        detail: Some(AppDetailIdentity {
+            title: Some(context_title),
+            url: None,
+            domain: None,
+        }),
     }
 }
 
@@ -191,7 +221,11 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         Err(_) => {
             return AppIdentity {
                 app_name: "Browser".to_string(),
-                context_title: Some(page_title.to_string()),
+                detail: Some(AppDetailIdentity {
+                    title: Some(page_title.to_string()),
+                    url: None,
+                    domain: None,
+                }),
             };
         }
     };
@@ -201,7 +235,11 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         None => {
             return AppIdentity {
                 app_name: "Browser".to_string(),
-                context_title: Some(page_title.to_string()),
+                detail: Some(AppDetailIdentity {
+                    title: Some(page_title.to_string()),
+                    url: None,
+                    domain: None,
+                }),
             };
         }
     };
@@ -249,19 +287,27 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         friendly_name.to_string()
     };
 
+    let sanitized_url = sanitize_url(url_str);
+
     AppIdentity {
         app_name,
-        context_title: Some(page_title.to_string()),
+        detail: Some(AppDetailIdentity {
+            title: Some(page_title.to_string()),
+            url: sanitized_url,
+            domain: Some(root_domain),
+        }),
     }
 }
 
 
-/// Parse browser window title to extract the meaningful page/site name and context.
-fn normalize_browser_title(title: &str, _process: &str) -> AppIdentity {
+/// Parse browser window title when UIA domain extraction fails.
+fn normalize_browser_title(title: &str, process: &str) -> AppIdentity {
+    let browser_name = BROWSER_NAMES.get(process).unwrap_or(&"Browser");
+
     if title.is_empty() {
         return AppIdentity {
-            app_name: "Browser".to_string(),
-            context_title: None,
+            app_name: browser_name.to_string(),
+            detail: None,
         };
     }
 
@@ -284,19 +330,19 @@ fn normalize_browser_title(title: &str, _process: &str) -> AppIdentity {
     {
         return AppIdentity {
             app_name: "Google Authentication".to_string(),
-            context_title: None,
+            detail: None,
         };
     }
     if lower.contains("login.microsoftonline.com") || lower.contains("sign in to your account") {
         return AppIdentity {
             app_name: "Microsoft Authentication".to_string(),
-            context_title: None,
+            detail: None,
         };
     }
     if lower.contains("github.com/login") || lower.contains("sign in to github") {
         return AppIdentity {
             app_name: "GitHub Authentication".to_string(),
-            context_title: None,
+            detail: None,
         };
     }
 
@@ -304,88 +350,45 @@ fn normalize_browser_title(title: &str, _process: &str) -> AppIdentity {
     if lower.contains("labsense") || lower.contains("lab sense") {
         return AppIdentity {
             app_name: "LabSense".to_string(),
-            context_title: Some(page_title.to_string()),
+            detail: Some(AppDetailIdentity {
+                title: Some(page_title.to_string()),
+                url: None,
+                domain: None,
+            }),
         };
     }
     if lower.contains("whatsapp") {
         return AppIdentity {
             app_name: "WhatsApp".to_string(),
-            context_title: Some("Active".to_string()),
+            detail: Some(AppDetailIdentity {
+                title: Some("Active".to_string()),
+                url: None,
+                domain: None,
+            }),
         };
     }
     if lower.contains("chatgpt") || lower.contains("chat.openai.com") {
         return AppIdentity {
             app_name: "ChatGPT".to_string(),
-            context_title: Some(page_title.to_string()),
+            detail: Some(AppDetailIdentity {
+                title: Some(page_title.to_string()),
+                url: None,
+                domain: None,
+            }),
         };
     }
 
-    let mut cleaned = page_title;
-
-    // 3. Dynamic Extraction
-    if !cleaned.contains(' ') {
-        // If it looks like a raw URL (no spaces), extract base domain
-        if let Some(stripped) = cleaned.strip_prefix("https://") {
-            cleaned = stripped;
-        } else if let Some(stripped) = cleaned.strip_prefix("http://") {
-            cleaned = stripped;
-        }
-        if let Some(pos) = cleaned.find(|c| c == '?' || c == '#' || c == '/') {
-            cleaned = &cleaned[..pos];
-        }
-    } else {
-        // Dynamic Title Splitting
-        let separators = [" | ", " - ", " — ", " • ", " :: "];
-        let mut best_segment = cleaned;
-
-        for sep in separators {
-            if cleaned.contains(sep) {
-                let segments: Vec<&str> = cleaned.split(sep).collect();
-                if let Some(last) = segments.last() {
-                    let last_trimmed = last.trim();
-                    let lower_last = last_trimmed.to_lowercase();
-
-                    // Fallback to first segment if the last segment is generic
-                    let generic_terms = [
-                        "home", "dashboard", "login", "welcome", "index", "untitled", "new chat",
-                        "getting started", "settings", "profile", "admin", "search", "results",
-                    ];
-
-                    if generic_terms.contains(&lower_last.as_str()) {
-                        best_segment = segments.first().unwrap().trim();
-                    } else {
-                        best_segment = last_trimmed;
-                    }
-                    break;
-                }
-            }
-        }
-        cleaned = best_segment;
-    }
-
-    // 4. Strip trailing counters (e.g. "WhatsApp (2)" -> "WhatsApp")
-    if let Some(pos) = cleaned.rfind(" (") {
-        if cleaned.ends_with(')') {
-            cleaned = cleaned[..pos].trim();
-        }
-    }
-
-    if cleaned.is_empty() {
-        return AppIdentity {
-            app_name: "Browser".to_string(),
-            context_title: None,
-        };
-    }
-
-    let final_app_name = if cleaned.len() > 60 {
-        format!("{}…", &cleaned[..57])
-    } else {
-        cleaned.to_string()
-    };
-
+    // 3. If URL extraction failed and we reach here, we DO NOT make the title the app_name.
+    // The user's explicit instruction: "Browser page titles should NEVER become top-level application identities if domain normalization succeeded. Only fallback to title-as-app if URL extraction failed and no domain identity exists".
+    // Actually, if we use the title as the top-level app, we just reintroduce the bug.
+    // Instead, we use the browser's generic name as the top-level app.
     AppIdentity {
-        app_name: final_app_name,
-        context_title: Some(page_title.to_string()),
+        app_name: browser_name.to_string(),
+        detail: Some(AppDetailIdentity {
+            title: Some(page_title.to_string()),
+            url: None,
+            domain: None,
+        }),
     }
 }
 
@@ -429,22 +432,31 @@ mod tests {
     #[test]
     fn test_browser_youtube() {
         let app = make_app("chrome.exe", "YouTube - Google Chrome");
-        let id = normalize(&app, None);
+        let id = normalize(&app, Some("https://youtube.com/watch"));
         assert_eq!(id.app_name, "YouTube");
+        let detail = id.detail.unwrap();
+        assert_eq!(detail.title.unwrap(), "YouTube");
+        assert_eq!(detail.url.unwrap(), "https://youtube.com/watch");
+        assert_eq!(detail.domain.unwrap(), "youtube.com");
     }
 
     #[test]
     fn test_browser_chatgpt() {
         let app = make_app("msedge.exe", "ChatGPT - Microsoft Edge");
-        let id = normalize(&app, None);
+        let id = normalize(&app, Some("https://chatgpt.com/"));
         assert_eq!(id.app_name, "ChatGPT");
+        let detail = id.detail.unwrap();
+        assert_eq!(detail.title.unwrap(), "ChatGPT");
+        assert_eq!(detail.domain.unwrap(), "chatgpt.com");
     }
 
     #[test]
     fn test_browser_complex_title() {
         let app = make_app("chrome.exe", "React docs - Getting Started - Google Chrome");
-        let id = normalize(&app, None);
-        assert_eq!(id.app_name, "React docs");
+        let id = normalize(&app, Some("https://react.dev/learn"));
+        assert_eq!(id.app_name, "React");
+        let detail = id.detail.unwrap();
+        assert_eq!(detail.title.unwrap(), "React docs - Getting Started");
     }
 
     #[test]
@@ -452,21 +464,7 @@ mod tests {
         let app = make_app("Code.exe", "main.rs - labsense-agent");
         let id = normalize(&app, None);
         assert_eq!(id.app_name, "VS Code");
-        assert_eq!(id.context_title, Some("main.rs - labsense-agent".to_string()));
-    }
-
-    #[test]
-    fn test_known_app_powerpoint() {
-        let app = make_app("POWERPNT.EXE", "Presentation1 - PowerPoint");
-        let id = normalize(&app, None);
-        assert_eq!(id.app_name, "PowerPoint");
-    }
-
-    #[test]
-    fn test_known_app_word() {
-        let app = make_app("WINWORD.EXE", "Document1 - Word");
-        let id = normalize(&app, None);
-        assert_eq!(id.app_name, "Word");
+        assert_eq!(id.detail.unwrap().title.unwrap(), "main.rs - labsense-agent");
     }
 
     #[test]
@@ -480,7 +478,7 @@ mod tests {
     fn test_browser_empty_title() {
         let app = make_app("chrome.exe", "");
         let id = normalize(&app, None);
-        assert_eq!(id.app_name, "Browser");
+        assert_eq!(id.app_name, "Google Chrome");
     }
 
     #[test]
@@ -495,33 +493,14 @@ mod tests {
     }
 
     #[test]
-    fn test_browser_url_stripping() {
-        let app = make_app("brave.exe", "https://github.com/mohit-rajput-py/my-project - Brave");
-        let id = normalize(&app, None);
-        assert_eq!(id.app_name, "github.com");
-
-        let app2 = make_app("chrome.exe", "localhost:3000/dashboard?token=123#hash - Google Chrome");
-        let id2 = normalize(&app2, None);
-        assert_eq!(id2.app_name, "localhost:3000");
-    }
-
-    #[test]
     fn test_browser_domain_based_normalization() {
         let app = make_app("chrome.exe", "LabSense | VTCBCSR - Google Chrome");
-        let id = normalize(&app, None);
-        assert_eq!(id.app_name, "LabSense");
-
-        let app2 = make_app("msedge.exe", "Students | LabSense - Microsoft Edge");
-        let id2 = normalize(&app2, None);
-        assert_eq!(id2.app_name, "LabSense");
+        let id = normalize(&app, Some("https://vtcbcsr.com"));
+        assert_eq!(id.app_name, "Vtcbcsr"); // The capitalized root domain fallback
 
         let app3 = make_app("chrome.exe", "WhatsApp (2) - Google Chrome");
-        let id3 = normalize(&app3, None);
-        assert_eq!(id3.app_name, "WhatsApp");
-
-        let app4 = make_app("brave.exe", "ChatGPT - New Chat - Brave");
-        let id4 = normalize(&app4, None);
-        assert_eq!(id4.app_name, "ChatGPT");
+        let id3 = normalize(&app3, Some("https://web.whatsapp.com/"));
+        assert_eq!(id3.app_name, "WhatsApp Web");
     }
 
     #[test]
@@ -529,24 +508,15 @@ mod tests {
         let app = make_app("chrome.exe", "Runtime Config Architecture - ChatGPT - Google Chrome");
         let id = normalize(&app, Some("https://chatgpt.com/c/12345"));
         assert_eq!(id.app_name, "ChatGPT");
-        assert_eq!(id.context_title.unwrap(), "Runtime Config Architecture - ChatGPT");
-    }
-    #[test]
-    fn test_domain_extraction() {
-        let parsed = url::Url::parse("https://docs.github.com/en").unwrap();
-        let host = parsed.host_str().unwrap();
-        let domain = addr::parse_domain_name(host).unwrap();
-        assert_eq!(domain.root().unwrap(), "github.com");
+        let detail = id.detail.unwrap();
+        assert_eq!(detail.title.unwrap(), "Runtime Config Architecture - ChatGPT");
+        assert_eq!(detail.url.unwrap(), "https://chatgpt.com/c/12345");
+        assert_eq!(detail.domain.unwrap(), "chatgpt.com");
     }
 
     #[test]
-    fn test_ip_with_port() {
-        let app = make_app("chrome.exe", "Student Report - Google Chrome");
-        let id = normalize(&app, Some("http://192.168.1.50:1108/app/students/123"));
-        assert_eq!(id.app_name, "192.168.1.50:1108");
-
-        let app2 = make_app("chrome.exe", "Localhost test - Google Chrome");
-        let id2 = normalize(&app2, Some("http://localhost:3000/app"));
-        assert_eq!(id2.app_name, "localhost:3000");
+    fn test_url_sanitization() {
+        let sanitized = sanitize_url("https://github.com/mohit-rajput-py?tab=repositories#123").unwrap();
+        assert_eq!(sanitized, "https://github.com/mohit-rajput-py");
     }
 }

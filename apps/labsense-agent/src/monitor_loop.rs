@@ -114,7 +114,7 @@ pub fn start(
                 // No foreground window — still count time
                 let mut guard = analytics.lock();
                 if let Some(ref mut a) = *guard {
-                    a.tick(AppIdentity { app_name: "Desktop".to_string(), context_title: None }, user_is_idle);
+                    a.tick(AppIdentity { app_name: "Desktop".to_string(), detail: None }, user_is_idle);
                 }
             }
         }

@@ -183,14 +183,20 @@
 							</Table.Header>
 							<Table.Body>
 								{#each data.apps as app}
-									<Table.Row>
-										<Table.Cell class="font-medium">
-											<div class="flex items-center gap-2">
-												<div class="h-8 w-8 rounded bg-primary/5 flex items-center justify-center text-primary border border-primary/10">
+									<Table.Row class="group cursor-pointer hover:bg-muted/50 transition-colors">
+										<Table.Cell class="font-medium p-0">
+											<a 
+												href="/app/students/{data.student.id}/{data.session.id}/{app.id}" 
+												class="flex items-center gap-2 w-full h-full p-4"
+											>
+												<div class="h-8 w-8 rounded bg-primary/5 flex items-center justify-center text-primary border border-primary/10 group-hover:bg-primary/10 transition-colors">
 													{app.appName.charAt(0).toUpperCase()}
 												</div>
-												{app.appName}
-											</div>
+												<div class="flex flex-col">
+													<span>{app.appName}</span>
+													<span class="text-[10px] text-muted-foreground font-normal group-hover:text-primary transition-colors">View Deep Details →</span>
+												</div>
+											</a>
 										</Table.Cell>
 										<Table.Cell>{formatDuration(app.totalSeconds)}</Table.Cell>
 										<Table.Cell class="text-emerald-600 font-medium">

@@ -56,7 +56,7 @@ impl SessionAnalytics {
 
     /// Called every ~1 second by the monitoring loop.
     /// Increments the correct counters based on the current app identity and idle state.
-    pub fn tick(&mut self, identity: AppIdentity, is_idle: bool) {
+    pub fn tick(&mut self, identity: &AppIdentity, is_idle: bool) {
         self.total_seconds += 1;
         if !is_idle {
             self.active_seconds += 1;
@@ -64,7 +64,13 @@ impl SessionAnalytics {
             self.idle_seconds += 1;
         }
 
-        let app_counters = self.apps.entry(identity.app_name).or_default();
+        let app_counters = if let Some(ac) = self.apps.get_mut(&identity.app_name) {
+            ac
+        } else {
+            self.apps.insert(identity.app_name.clone(), AppCounters::default());
+            self.apps.get_mut(&identity.app_name).unwrap()
+        };
+
         app_counters.total_seconds += 1;
         if !is_idle {
             app_counters.active_seconds += 1;
@@ -72,13 +78,39 @@ impl SessionAnalytics {
             app_counters.idle_seconds += 1;
         }
 
-        if let Some(detail) = identity.detail {
-            let detail_counters = app_counters.details.entry(detail).or_default();
-            detail_counters.total_seconds += 1;
-            if !is_idle {
-                detail_counters.active_seconds += 1;
+        if let Some(detail) = &identity.detail {
+            // Memory bound: Cap details at 100.
+            if !app_counters.details.contains_key(detail) && app_counters.details.len() >= 100 {
+                // Prune the detail with the lowest total_seconds
+                let mut min_key = None;
+                let mut min_secs = u64::MAX;
+                for (k, v) in app_counters.details.iter() {
+                    if v.total_seconds < min_secs {
+                        min_secs = v.total_seconds;
+                        min_key = Some(k.clone());
+                    }
+                }
+                if let Some(k) = min_key {
+                    app_counters.details.remove(&k);
+                }
+            }
+
+            if let Some(detail_counters) = app_counters.details.get_mut(detail) {
+                detail_counters.total_seconds += 1;
+                if !is_idle {
+                    detail_counters.active_seconds += 1;
+                } else {
+                    detail_counters.idle_seconds += 1;
+                }
             } else {
-                detail_counters.idle_seconds += 1;
+                let mut detail_counters = AppDetailCounters::default();
+                detail_counters.total_seconds += 1;
+                if !is_idle {
+                    detail_counters.active_seconds += 1;
+                } else {
+                    detail_counters.idle_seconds += 1;
+                }
+                app_counters.details.insert(detail.clone(), detail_counters);
             }
         }
     }

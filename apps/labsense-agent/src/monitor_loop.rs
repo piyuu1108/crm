@@ -108,17 +108,16 @@ pub fn start(
 
                 let mut guard = analytics.lock();
                 if let Some(ref mut a) = *guard {
-                    a.tick(identity, user_is_idle);
+                    a.tick(&identity, user_is_idle);
                 }
             } else {
                 // No foreground window — still count time
                 let mut guard = analytics.lock();
                 if let Some(ref mut a) = *guard {
-                    a.tick(AppIdentity { app_name: "Desktop".to_string(), detail: None }, user_is_idle);
+                    a.tick(&AppIdentity { app_name: "Desktop".to_string(), detail: None }, user_is_idle);
                 }
             }
         }
-
         log::info!("Monitor loop exited");
     })
 }

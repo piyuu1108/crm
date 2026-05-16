@@ -123,10 +123,68 @@ static BROWSER_NAMES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::
     m
 });
 
+/// Strips leading and trailing timer formats (e.g., "0:01 - ", "01:23:45 ") from titles.
+fn strip_timer(title: &str) -> &str {
+    let mut cleaned = title.trim();
+    
+    fn is_timer(s: &str) -> bool {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() < 2 || parts.len() > 3 {
+            return false;
+        }
+        parts.iter().all(|p| !p.is_empty() && p.len() <= 2 && p.chars().all(|c| c.is_ascii_digit()))
+    }
+
+    // Strip leading "MM:SS - " or "HH:MM:SS "
+    if let Some(pos) = cleaned.find(" - ") {
+        if is_timer(&cleaned[..pos]) {
+            cleaned = &cleaned[pos + 3..];
+        }
+    } else if let Some(pos) = cleaned.find(' ') {
+        if is_timer(&cleaned[..pos]) {
+            cleaned = &cleaned[pos + 1..];
+        }
+    }
+
+    // Strip trailing " - MM:SS" or " HH:MM:SS"
+    if let Some(pos) = cleaned.rfind(" - ") {
+        if is_timer(&cleaned[pos + 3..]) {
+            cleaned = &cleaned[..pos];
+        }
+    } else if let Some(pos) = cleaned.rfind(' ') {
+        if is_timer(&cleaned[pos + 1..]) {
+            cleaned = &cleaned[..pos];
+        }
+    }
+
+    if is_timer(cleaned) {
+        return "";
+    }
+
+    cleaned.trim()
+}
+
 /// Sanitize URL before storage to remove tokens and query params.
 fn sanitize_url(url_str: &str) -> Option<String> {
     let mut parsed = url::Url::parse(url_str).ok()?;
+    
+    let allowed_params = ["v", "id", "q"];
+    let mut pairs = Vec::new();
+    for (k, v) in parsed.query_pairs() {
+        if allowed_params.contains(&k.as_ref()) {
+            pairs.push((k.into_owned(), v.into_owned()));
+        }
+    }
+    
     parsed.set_query(None);
+    if !pairs.is_empty() {
+        let mut q = parsed.query_pairs_mut();
+        for (k, v) in pairs {
+            q.append_pair(&k, &v);
+        }
+        q.finish();
+    }
+    
     parsed.set_fragment(None);
     Some(parsed.to_string())
 }
@@ -147,7 +205,7 @@ pub fn normalize(app: &ForegroundApp, domain_from_uia: Option<&str>) -> AppIdent
         return normalize_browser_title(&app.window_title, &process_lower);
     }
 
-    let mut context_title = app.window_title.trim().to_string();
+    let mut context_title = strip_timer(&app.window_title).to_string();
     if context_title.is_empty() {
         context_title = "Active".to_string();
     }
@@ -213,9 +271,9 @@ fn normalize_domain(domain: &str) -> Option<&str> {
 
 /// Helper to normalize using an explicitly extracted URL/domain.
 fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
-    let mut page_title = title;
-    if let Some(pos) = title.rfind(" - ").or_else(|| title.rfind(" — ")) {
-        page_title = title[..pos].trim();
+    let mut page_title = strip_timer(title);
+    if let Some(pos) = page_title.rfind(" - ").or_else(|| page_title.rfind(" — ")) {
+        page_title = page_title[..pos].trim();
     }
     if page_title.is_empty() {
         page_title = "Active";
@@ -326,11 +384,11 @@ fn normalize_browser_title(title: &str, process: &str) -> AppIdentity {
         };
     }
 
-    let mut page_title = title;
+    let mut page_title = strip_timer(title);
 
     // 1. Strip the browser suffix (e.g. " - Google Chrome")
-    if let Some(pos) = title.rfind(" - ").or_else(|| title.rfind(" — ")) {
-        let extracted = title[..pos].trim();
+    if let Some(pos) = page_title.rfind(" - ").or_else(|| page_title.rfind(" — ")) {
+        let extracted = page_title[..pos].trim();
         if !extracted.is_empty() {
             page_title = extracted;
         }
@@ -531,7 +589,32 @@ mod tests {
 
     #[test]
     fn test_url_sanitization() {
+        // Strip unknown params
         let sanitized = sanitize_url("https://github.com/mohit-rajput-py?tab=repositories#123").unwrap();
         assert_eq!(sanitized, "https://github.com/mohit-rajput-py");
+
+        // Preserve 'v'
+        let sanitized2 = sanitize_url("https://youtube.com/watch?v=dQw4w9WgXcQ&feature=share").unwrap();
+        assert_eq!(sanitized2, "https://youtube.com/watch?v=dQw4w9WgXcQ");
+
+        // Preserve 'id'
+        let sanitized3 = sanitize_url("https://docs.google.com/document/d/123/edit?id=456&usp=sharing").unwrap();
+        assert_eq!(sanitized3, "https://docs.google.com/document/d/123/edit?id=456");
+        
+        // Preserve 'q'
+        let sanitized4 = sanitize_url("https://google.com/search?q=rust+lang&client=edge").unwrap();
+        assert_eq!(sanitized4, "https://google.com/search?q=rust+lang");
+    }
+
+    #[test]
+    fn test_title_timer_stripping() {
+        assert_eq!(strip_timer("0:01 - Song Name"), "Song Name");
+        assert_eq!(strip_timer("01:23:45 - Movie Title"), "Movie Title");
+        assert_eq!(strip_timer("Track 1 - 04:20"), "Track 1");
+        assert_eq!(strip_timer("1:23:45 Video Title"), "Video Title");
+        assert_eq!(strip_timer("Video Title 12:34"), "Video Title");
+        // Should not strip real numbers
+        assert_eq!(strip_timer("2001: A Space Odyssey"), "2001: A Space Odyssey");
+        assert_eq!(strip_timer("12:34"), ""); // Only timer in title
     }
 }

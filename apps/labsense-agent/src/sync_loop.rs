@@ -70,11 +70,15 @@ pub fn start(
 
             // Debug: log payload summary before sending
             for app in &payload.applications {
+                let detail_segs: usize = app.details.iter().map(|d| d.segments.len()).sum();
+                let total_segs = app.segments.len() + detail_segs;
                 log::info!(
-                    "[sync] app='{}' total={}s segments={} details={}",
+                    "[sync] app='{}' total={}s app_segs={} detail_segs={} TOTAL_SEGS={} details={}",
                     app.app_name,
                     app.total_seconds,
                     app.segments.len(),
+                    detail_segs,
+                    total_segs,
                     app.details.len()
                 );
                 for d in &app.details {

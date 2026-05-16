@@ -341,12 +341,13 @@ impl SessionAnalytics {
                     details.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
                     details.truncate(50);
 
-                    // Build app-level segments first
-                    let app_segments = map_segments(c.segments.as_ref());
+                    // Build app-level segments first, truncate to cap
+                    let mut app_segments = map_segments(c.segments.as_ref());
+                    let max_total_segs = self.max_segments_per_app;
+                    app_segments.truncate(max_total_segs);
 
                     // Enforce TOTAL segments (app-level + all details) ≤ maxSegmentsPerApp.
                     // App-level segments get first priority.
-                    let max_total_segs = self.max_segments_per_app;
                     let remaining_budget = max_total_segs.saturating_sub(app_segments.len());
                     let total_detail_segs: usize =
                         details.iter().map(|d| d.segments.len()).sum();

@@ -142,10 +142,21 @@ impl ApiClient {
         let url = format!("{}/api/sessions/{}", self.base_url, session_id);
         log::debug!("PATCH {} (total={}s, active={}s)", url, payload.total_seconds, payload.active_seconds);
 
+        let json_bytes = serde_json::to_vec(&payload)
+            .map_err(|e| AgentError::Network(format!("JSON error: {}", e)))?;
+        
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+        std::io::Write::write_all(&mut encoder, &json_bytes)
+            .map_err(|e| AgentError::Network(format!("Gzip compress error: {}", e)))?;
+        let compressed_body = encoder.finish()
+            .map_err(|e| AgentError::Network(format!("Gzip finish error: {}", e)))?;
+
         let resp = self
             .client
             .patch(&url)
-            .json(&payload)
+            .header("Content-Encoding", "gzip")
+            .header("Content-Type", "application/json")
+            .body(compressed_body)
             .send()
             .await
             .map_err(|e| AgentError::Network(e.to_string()))?;

@@ -28,7 +28,6 @@ export const actions: Actions = {
 		}
 
 		try {
-			// Check uniqueness
 			const [existing] = await db.select({ id: students.id }).from(students).where(eq(students.id, collegeId));
 
 			if (existing) {

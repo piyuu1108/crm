@@ -70,8 +70,8 @@ Content-Type: application/json
 curl -X POST http://localhost:5173/api/agent/login \
   -H "Content-Type: application/json" \
   -d '{
-    "collegeId": "STU001",
-    "password": "secret123",
+    "collegeId": "24bcads135",
+    "password": "pass@123",
     "hardwareId": "HW-ABC-DEF-123",
     "pcName": "LAB1-PC05",
     "labName": "Lab A"

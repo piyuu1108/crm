@@ -6,6 +6,7 @@
   "scripts": {
     "dev:erp": "cd apps/erp && pnpm run dev",
     "dev:ims": "cd apps/ims && pnpm run dev",
+    "dev:lab-server": "cd apps/labsense-server && pnpm dev",
     "dev": "concurrently \"pnpm run dev:erp\" \"pnpm run dev:ims\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

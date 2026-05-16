@@ -102,17 +102,40 @@ export async function getSystemSettings(): Promise<{
 	syncJitterSeconds: number;
 	timeoutSeconds: number;
 	idleThresholdSeconds: number;
+	enableDetails: boolean;
+	enableSegments: boolean;
+	maxSegmentsPerApp: number;
+	maxSegmentsPerDetail: number;
+	minimumTrackedSeconds: number;
+	candidateRetentionMinutes: number;
 }> {
 	const [settings] = await db.select().from(systemSettings).limit(1);
 
 	if (!settings) {
-		return { syncIntervalSeconds: 30, syncJitterSeconds: 30, timeoutSeconds: 120, idleThresholdSeconds: 300 };
+		return {
+			syncIntervalSeconds: 30,
+			syncJitterSeconds: 30,
+			timeoutSeconds: 120,
+			idleThresholdSeconds: 120,
+			enableDetails: true,
+			enableSegments: true,
+			maxSegmentsPerApp: 50,
+			maxSegmentsPerDetail: 20,
+			minimumTrackedSeconds: 15,
+			candidateRetentionMinutes: 10
+		};
 	}
 
 	return {
 		syncIntervalSeconds: settings.syncIntervalSeconds,
 		syncJitterSeconds: settings.syncJitterSeconds,
 		timeoutSeconds: settings.timeoutSeconds,
-		idleThresholdSeconds: settings.idleThresholdSeconds
+		idleThresholdSeconds: settings.idleThresholdSeconds,
+		enableDetails: settings.enableDetails,
+		enableSegments: settings.enableSegments,
+		maxSegmentsPerApp: settings.maxSegmentsPerApp,
+		maxSegmentsPerDetail: settings.maxSegmentsPerDetail,
+		minimumTrackedSeconds: settings.minimumTrackedSeconds,
+		candidateRetentionMinutes: settings.candidateRetentionMinutes
 	};
 }

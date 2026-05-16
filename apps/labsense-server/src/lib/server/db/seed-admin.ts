@@ -26,8 +26,13 @@ async function seed() {
 				syncIntervalSeconds: 30,
 				syncJitterSeconds: 30,
 				timeoutSeconds: 120,
-				idleThresholdSeconds: 30,
-				
+				idleThresholdSeconds: 120,
+				enableDetails: true,
+				enableSegments: true,
+				maxSegmentsPerApp: 50,
+				maxSegmentsPerDetail: 20,
+				minimumTrackedSeconds: 15,
+				candidateRetentionMinutes: 10
 			})
 			.onConflictDoNothing();
 		console.log('System settings seeded successfully (or already exists)');

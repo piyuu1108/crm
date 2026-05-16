@@ -14,7 +14,13 @@ export const load: PageServerLoad = async () => {
 			syncIntervalSeconds: 30,
 			syncJitterSeconds: 30,
 			timeoutSeconds: 120,
-			idleThresholdSeconds: 300
+			idleThresholdSeconds: 120,
+			enableDetails: true,
+			enableSegments: true,
+			maxSegmentsPerApp: 50,
+			maxSegmentsPerDetail: 20,
+			minimumTrackedSeconds: 15,
+			candidateRetentionMinutes: 10
 		}
 	};
 };
@@ -26,9 +32,24 @@ export const actions: Actions = {
 		const syncJitterSeconds = parseInt(formData.get('syncJitterSeconds') as string);
 		const timeoutSeconds = parseInt(formData.get('timeoutSeconds') as string);
 		const idleThresholdSeconds = parseInt(formData.get('idleThresholdSeconds') as string);
+		const enableDetails = formData.get('enableDetails') === 'true';
+		const enableSegments = formData.get('enableSegments') === 'true';
+		const maxSegmentsPerApp = parseInt(formData.get('maxSegmentsPerApp') as string);
+		const maxSegmentsPerDetail = parseInt(formData.get('maxSegmentsPerDetail') as string);
+		const minimumTrackedSeconds = parseInt(formData.get('minimumTrackedSeconds') as string);
+		const candidateRetentionMinutes = parseInt(formData.get('candidateRetentionMinutes') as string);
 		const confirmationPassword = formData.get('confirmationPassword') as string;
 
-		if (isNaN(syncIntervalSeconds) || isNaN(syncJitterSeconds) || isNaN(timeoutSeconds) || isNaN(idleThresholdSeconds)) {
+		if (
+			isNaN(syncIntervalSeconds) ||
+			isNaN(syncJitterSeconds) ||
+			isNaN(timeoutSeconds) ||
+			isNaN(idleThresholdSeconds) ||
+			isNaN(maxSegmentsPerApp) ||
+			isNaN(maxSegmentsPerDetail) ||
+			isNaN(minimumTrackedSeconds) ||
+			isNaN(candidateRetentionMinutes)
+		) {
 			return fail(400, { message: 'Invalid values' });
 		}
 
@@ -44,6 +65,12 @@ export const actions: Actions = {
 				syncJitterSeconds,
 				timeoutSeconds,
 				idleThresholdSeconds,
+				enableDetails,
+				enableSegments,
+				maxSegmentsPerApp,
+				maxSegmentsPerDetail,
+				minimumTrackedSeconds,
+				candidateRetentionMinutes,
 				updatedAt: new Date()
 			})
 			.onConflictDoUpdate({
@@ -53,6 +80,12 @@ export const actions: Actions = {
 					syncJitterSeconds,
 					timeoutSeconds,
 					idleThresholdSeconds,
+					enableDetails,
+					enableSegments,
+					maxSegmentsPerApp,
+					maxSegmentsPerDetail,
+					minimumTrackedSeconds,
+					candidateRetentionMinutes,
 					updatedAt: new Date()
 				}
 			});

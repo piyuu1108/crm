@@ -55,6 +55,12 @@ export const POST: RequestHandler = async ({ request }) => {
 		syncIntervalSeconds: settings.syncIntervalSeconds,
 		syncJitterSeconds: settings.syncJitterSeconds,
 		timeoutSeconds: settings.timeoutSeconds,
-		idleThreshold: settings.idleThresholdSeconds
+		idleThresholdSeconds: settings.idleThresholdSeconds,
+		enableDetails: settings.enableDetails,
+		enableSegments: settings.enableSegments,
+		maxSegmentsPerApp: settings.maxSegmentsPerApp,
+		maxSegmentsPerDetail: settings.maxSegmentsPerDetail,
+		minimumTrackedSeconds: settings.minimumTrackedSeconds,
+		candidateRetentionMinutes: settings.candidateRetentionMinutes
 	});
 };

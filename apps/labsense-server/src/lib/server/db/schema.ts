@@ -103,6 +103,12 @@ export const systemSettings = pgTable('system_settings', {
 	syncIntervalSeconds: integer('sync_interval_seconds').notNull().default(30),
 	syncJitterSeconds: integer('sync_jitter_seconds').notNull().default(30),
 	timeoutSeconds: integer('timeout_seconds').notNull().default(120),
-	idleThresholdSeconds: integer('idle_threshold_seconds').notNull().default(300),
+	idleThresholdSeconds: integer('idle_threshold_seconds').notNull().default(120),
+	enableDetails: boolean('enable_details').notNull().default(true),
+	enableSegments: boolean('enable_segments').notNull().default(true),
+	maxSegmentsPerApp: integer('max_segments_per_app').notNull().default(50),
+	maxSegmentsPerDetail: integer('max_segments_per_detail').notNull().default(20),
+	minimumTrackedSeconds: integer('minimum_tracked_seconds').notNull().default(15),
+	candidateRetentionMinutes: integer('candidate_retention_minutes').notNull().default(10),
 	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 });

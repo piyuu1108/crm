@@ -9,8 +9,7 @@ import type { SyncPayload } from '$lib/server/types';
  * 2. Updates session aggregates + last_sync_at
  * 3. Updates machine last_seen_at
  * 4. Upserts application usage aggregates
- * 5. Upserts application details
- * 6. Inserts activity segments (deduplicated by unique constraint)
+ * 5. Deletes + re-inserts details and segments (cumulative replace)
  */
 export async function syncSession(
 	sessionId: string,
@@ -77,10 +76,18 @@ export async function syncSession(
 				})
 				.returning({ id: sessionApps.id });
 
-			// 5. Upsert application details
+			// 5. Delete stale segments for this app (before details, since segments FK to details)
+			await tx.delete(activitySegments).where(eq(activitySegments.appId, upsertedApp.id));
+
+			// 6. Delete stale details for this app, then re-insert fresh
+			// (Agent sends cumulative snapshots — full replace semantics.
+			//  Upsert breaks because PostgreSQL treats NULL != NULL in unique constraints,
+			//  so details with NULL url create duplicate rows every sync cycle.)
+			await tx.delete(sessionDetails).where(eq(sessionDetails.appId, upsertedApp.id));
+
 			if (app.details && app.details.length > 0) {
 				for (const detail of app.details) {
-					const [upsertedDetail] = await tx
+					const [insertedDetail] = await tx
 						.insert(sessionDetails)
 						.values({
 							appId: upsertedApp.id,
@@ -92,18 +99,9 @@ export async function syncSession(
 							idleSeconds: detail.idleSeconds,
 							updatedAt: now
 						})
-						.onConflictDoUpdate({
-							target: [sessionDetails.appId, sessionDetails.title, sessionDetails.url],
-							set: {
-								totalSeconds: detail.totalSeconds,
-								activeSeconds: detail.activeSeconds,
-								idleSeconds: detail.idleSeconds,
-								updatedAt: now
-							}
-						})
 						.returning({ id: sessionDetails.id });
 
-					// 6. Insert detail segments
+					// 7. Insert detail segments
 					if (detail.segments && detail.segments.length > 0) {
 						await tx
 							.insert(activitySegments)
@@ -111,17 +109,16 @@ export async function syncSession(
 								detail.segments.map((s) => ({
 									sessionId,
 									appId: upsertedApp.id,
-									detailId: upsertedDetail.id,
+									detailId: insertedDetail.id,
 									startedAt: new Date(s.startedAt),
 									endedAt: new Date(s.endedAt)
 								}))
-							)
-							.onConflictDoNothing();
+							);
 					}
 				}
 			}
 
-			// 7. Insert app segments
+			// 8. Insert app-level segments
 			if (app.segments && app.segments.length > 0) {
 				await tx
 					.insert(activitySegments)
@@ -132,8 +129,7 @@ export async function syncSession(
 							startedAt: new Date(s.startedAt),
 							endedAt: new Date(s.endedAt)
 						}))
-					)
-					.onConflictDoNothing();
+					);
 			}
 		}
 

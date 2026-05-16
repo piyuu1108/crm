@@ -5,12 +5,28 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct AppDetailIdentity {
     pub title: Option<String>,
     pub url: Option<String>,
     pub domain: Option<String>,
 }
+
+impl std::hash::Hash for AppDetailIdentity {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Identity is url + domain only — title is a display label
+        self.url.hash(state);
+        self.domain.hash(state);
+    }
+}
+
+impl PartialEq for AppDetailIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        self.url == other.url && self.domain == other.domain
+    }
+}
+
+impl Eq for AppDetailIdentity {}
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct AppIdentity {
@@ -67,6 +83,8 @@ pub struct AppDetailCounters {
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
+    /// Display title — updated on each tick to the latest window title.
+    pub title: Option<String>,
     /// None when segments are disabled — zero allocation.
     pub segments: Option<Vec<Segment>>,
 }
@@ -199,6 +217,8 @@ impl SessionAnalytics {
 
                 if let Some(detail_counters) = details_map.get_mut(detail) {
                     detail_counters.total_seconds += 1;
+                    // Update display title to latest
+                    detail_counters.title = detail.title.clone();
                     if !is_idle {
                         detail_counters.active_seconds += 1;
                         if enable_segments {
@@ -213,6 +233,7 @@ impl SessionAnalytics {
                         total_seconds: 1,
                         active_seconds: 0,
                         idle_seconds: 0,
+                        title: detail.title.clone(),
                         segments: None,
                     };
                     if !is_idle {
@@ -304,7 +325,7 @@ impl SessionAnalytics {
                             .iter()
                             .filter(|(_, dc)| dc.total_seconds >= 5)
                             .map(|(did, dc)| AppUsageDetailPayload {
-                                title: did.title.clone(),
+                                title: dc.title.clone(),
                                 url: did.url.clone(),
                                 domain: did.domain.clone(),
                                 total_seconds: dc.total_seconds,
@@ -320,14 +341,17 @@ impl SessionAnalytics {
                     details.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
                     details.truncate(50);
 
-                    // Enforce combined detail segments ≤ maxSegmentsPerApp
+                    // Build app-level segments first
+                    let app_segments = map_segments(c.segments.as_ref());
+
+                    // Enforce TOTAL segments (app-level + all details) ≤ maxSegmentsPerApp.
+                    // App-level segments get first priority.
                     let max_total_segs = self.max_segments_per_app;
+                    let remaining_budget = max_total_segs.saturating_sub(app_segments.len());
                     let total_detail_segs: usize =
                         details.iter().map(|d| d.segments.len()).sum();
-                    if total_detail_segs > max_total_segs {
-                        // Details are sorted by importance (most total_seconds first).
-                        // Allocate budget to the most important details first.
-                        let mut budget = max_total_segs;
+                    if total_detail_segs > remaining_budget {
+                        let mut budget = remaining_budget;
                         for d in details.iter_mut() {
                             if d.segments.len() <= budget {
                                 budget -= d.segments.len();
@@ -343,7 +367,7 @@ impl SessionAnalytics {
                         total_seconds: c.total_seconds,
                         active_seconds: c.active_seconds,
                         idle_seconds: c.idle_seconds,
-                        segments: map_segments(c.segments.as_ref()),
+                        segments: app_segments,
                         details,
                     }
                 })
@@ -616,11 +640,12 @@ mod tests {
 
         // Simulate browser with domain normalization —
         // top-level app_name should be "ChatGPT", details hold the page titles
+        // Identity is based on url+domain; different URLs = different detail entries
         let app_id = AppIdentity {
             app_name: "ChatGPT".to_string(),
             detail: Some(AppDetailIdentity {
                 title: Some("Runtime Config Architecture".to_string()),
-                url: None,
+                url: Some("https://chatgpt.com/c/abc123".to_string()),
                 domain: Some("chatgpt.com".to_string()),
             }),
         };
@@ -632,7 +657,7 @@ mod tests {
             app_name: "ChatGPT".to_string(),
             detail: Some(AppDetailIdentity {
                 title: Some("Fixing Chrono Timezones".to_string()),
-                url: None,
+                url: Some("https://chatgpt.com/c/def456".to_string()),
                 domain: Some("chatgpt.com".to_string()),
             }),
         };
@@ -640,7 +665,7 @@ mod tests {
             analytics.tick(&app_id2, false);
         }
 
-        // Should be one top-level app "ChatGPT" with 2 details
+        // Should be one top-level app "ChatGPT" with 2 details (different URLs)
         assert!(analytics.apps.contains_key("ChatGPT"));
         assert!(!analytics.apps.contains_key("Runtime Config Architecture"));
         let app = analytics.apps.get("ChatGPT").unwrap();
@@ -675,6 +700,7 @@ mod tests {
                 total_seconds: 0,
                 active_seconds: 0,
                 idle_seconds: 0,
+                title: None,
                 segments: Some(Vec::new()),
             });
             let segs = dc.segments.get_or_insert_with(Vec::new);

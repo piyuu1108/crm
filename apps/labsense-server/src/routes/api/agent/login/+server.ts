@@ -43,7 +43,7 @@ export const OPTIONS: RequestHandler = async () => {
  */
 export const POST: RequestHandler = async ({ request }) => {
 	// Parse body looking for encrypted payload
-	const body = await parseJsonBody(request);
+	const body = await parseJsonBody(request) as any;
 	if (body === null || typeof body.payload !== 'string') {
 		return errorResponse('Invalid payload format. Expected { payload: string }', 400);
 	}
@@ -56,13 +56,20 @@ export const POST: RequestHandler = async ({ request }) => {
 		return errorResponse('Decryption failed', 400);
 	}
 
+	const combinedPayload = {
+		...body,
+		...decryptedJson
+	};
+
+	const sessionAesKey = combinedPayload.sessionAesKey;
+
 	// Validate payload
-	const validation = validateLoginPayload(decryptedJson);
+	const validation = validateLoginPayload(combinedPayload);
 	if (!validation.ok) {
 		return errorResponse(validation.error, 400);
 	}
 
-	const { collegeId, password, sessionAesKey, hardwareId, pcName, labName } = validation.data as any;
+	const { collegeId, password, hardwareId, pcName, labName } = validation.data as any;
 
 	if (!sessionAesKey) {
 		return errorResponse('Missing sessionAesKey in payload', 400);

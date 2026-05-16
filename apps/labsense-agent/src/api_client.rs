@@ -11,8 +11,21 @@ pub struct ApiClient {
 // ─── Request / Response types ───
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RsaLoginPayload {
+    pub college_id: String,
+    pub password: String,
+    pub session_aes_key: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LoginPayload {
     pub payload: String,
+    pub hardware_id: String,
+    pub pc_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lab_name: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -123,13 +136,24 @@ impl ApiClient {
 
         let aes_key = crate::crypto::generate_aes_key();
         use base64::{engine::general_purpose, Engine as _};
-        req.session_aes_key = general_purpose::STANDARD.encode(aes_key);
+        let encoded_aes_key = general_purpose::STANDARD.encode(aes_key);
+        
+        let rsa_payload = RsaLoginPayload {
+            college_id: req.college_id.clone(),
+            password: req.password.clone(),
+            session_aes_key: encoded_aes_key,
+        };
 
-        let json_str = serde_json::to_string(&req).unwrap();
+        let json_str = serde_json::to_string(&rsa_payload).unwrap();
         let encrypted = crate::crypto::encrypt_rsa_base64(json_str.as_bytes())
             .map_err(|e| AgentError::Network(format!("RSA Encryption failed: {}", e)))?;
 
-        let payload = LoginPayload { payload: encrypted };
+        let payload = LoginPayload {
+            payload: encrypted,
+            hardware_id: req.hardware_id.clone(),
+            pc_name: req.pc_name.clone(),
+            lab_name: req.lab_name.clone(),
+        };
 
         let resp = self
             .client

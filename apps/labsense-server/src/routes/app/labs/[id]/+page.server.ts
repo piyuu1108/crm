@@ -116,7 +116,7 @@ export const actions: Actions = {
 			return fail(401, { message: 'Incorrect admin password' });
 		}
 
-		// Delete sessions first
+		// Cascade chain: labSessions → sessionApps → sessionDetails → activitySegments
 		await db.delete(labSessions).where(eq(labSessions.machineId, params.id));
 		await db.delete(machines).where(eq(machines.id, params.id));
 

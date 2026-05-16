@@ -86,7 +86,7 @@ export const sessionApps = pgTable(
 		id: uuid('id').defaultRandom().primaryKey(),
 		sessionId: uuid('session_id')
 			.notNull()
-			.references(() => labSessions.id),
+			.references(() => labSessions.id, { onDelete: 'cascade' }),
 		appName: text('app_name').notNull(),
 		totalSeconds: integer('total_seconds').notNull().default(0),
 		activeSeconds: integer('active_seconds').notNull().default(0),

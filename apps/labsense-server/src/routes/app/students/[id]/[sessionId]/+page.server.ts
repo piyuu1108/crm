@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { students, labSessions, machines, sessionApps, activitySegments } from '$lib/server/db/schema';
+import { students, labSessions, machines, sessionApps } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
@@ -58,20 +58,11 @@ export const actions: Actions = {
 		const { id: studentId, sessionId } = params;
 
 		try {
-			await db.transaction(async (tx) => {
-				// 1. Delete segments (direct FK to session)
-				await tx.delete(activitySegments).where(eq(activitySegments.sessionId, sessionId));
-				
-				// 2. Delete apps (direct FK to session). 
-				// Note: sessionDetails will cascade from apps because it has onDelete: 'cascade'
-				await tx.delete(sessionApps).where(eq(sessionApps.sessionId, sessionId));
-
-				// 3. Delete the session itself
-				await tx.delete(labSessions).where(and(
-					eq(labSessions.id, sessionId),
-					eq(labSessions.studentId, studentId)
-				));
-			});
+			// Cascade chain: labSessions → sessionApps → sessionDetails → activitySegments
+			await db.delete(labSessions).where(and(
+				eq(labSessions.id, sessionId),
+				eq(labSessions.studentId, studentId)
+			));
 		} catch (err) {
 			console.error('[delete-session] Error:', err);
 			throw error(500, 'Failed to delete session');

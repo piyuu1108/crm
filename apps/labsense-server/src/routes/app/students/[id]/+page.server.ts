@@ -116,7 +116,7 @@ export const actions: Actions = {
 			return fail(401, { message: 'Incorrect admin password' });
 		}
 
-		// Delete sessions first (due to foreign keys if not cascade)
+		// Cascade chain: labSessions → sessionApps → sessionDetails → activitySegments
 		await db.delete(labSessions).where(eq(labSessions.studentId, params.id));
 		await db.delete(students).where(eq(students.id, params.id));
 

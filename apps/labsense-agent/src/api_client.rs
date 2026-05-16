@@ -11,10 +11,23 @@ pub struct ApiClient {
 // ─── Request / Response types ───
 
 #[derive(Debug, Serialize)]
+pub struct LoginPayload {
+    pub payload: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SyncRequestPayload {
+    #[serde(rename = "syncToken")]
+    pub sync_token: String,
+    pub payload: String,
+}
+
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginRequest {
     pub college_id: String,
     pub password: String,
+    pub session_aes_key: String,
     pub hardware_id: String,
     pub pc_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -104,14 +117,24 @@ impl ApiClient {
     }
 
     /// POST /api/agent/login — authenticate student and create session.
-    pub async fn login(&self, req: LoginRequest) -> Result<LoginResponse, AgentError> {
+    pub async fn login(&self, mut req: LoginRequest) -> Result<(LoginResponse, [u8; 32]), AgentError> {
         let url = format!("{}/api/agent/login", self.base_url);
         log::info!("POST {} (student: {})", url, req.college_id);
+
+        let aes_key = crate::crypto::generate_aes_key();
+        use base64::{engine::general_purpose, Engine as _};
+        req.session_aes_key = general_purpose::STANDARD.encode(aes_key);
+
+        let json_str = serde_json::to_string(&req).unwrap();
+        let encrypted = crate::crypto::encrypt_rsa_base64(json_str.as_bytes())
+            .map_err(|e| AgentError::Network(format!("RSA Encryption failed: {}", e)))?;
+
+        let payload = LoginPayload { payload: encrypted };
 
         let resp = self
             .client
             .post(&url)
-            .json(&req)
+            .json(&payload)
             .send()
             .await
             .map_err(|e| AgentError::Network(e.to_string()))?;
@@ -124,7 +147,7 @@ impl ApiClient {
                     .await
                     .map_err(|e| AgentError::Network(e.to_string()))?;
                 log::info!("Login successful — session: {}", body.session_id);
-                Ok(body)
+                Ok((body, aes_key))
             }
             400 => {
                 let body = resp.json::<ErrorResponse>().await.unwrap_or(ErrorResponse {
@@ -151,19 +174,29 @@ impl ApiClient {
         }
     }
 
-    /// PATCH /api/sessions/:id — send cumulative analytics sync.
+    /// PATCH /api/agent/sync — send cumulative analytics sync securely.
     pub async fn sync(
         &self,
         session_id: &str,
+        aes_key: &[u8; 32],
         payload: SyncPayload,
     ) -> Result<(), AgentError> {
-        let url = format!("{}/api/sessions/{}", self.base_url, session_id);
+        let url = format!("{}/api/agent/sync", self.base_url);
         log::debug!("PATCH {} (total={}s, active={}s)", url, payload.total_seconds, payload.active_seconds);
+
+        let json_str = serde_json::to_string(&payload).unwrap();
+        let encrypted = crate::crypto::encrypt_aes_gcm_base64(aes_key, json_str.as_bytes())
+            .map_err(|e| AgentError::Network(format!("AES Encryption failed: {}", e)))?;
+
+        let req_payload = SyncRequestPayload {
+            sync_token: session_id.to_string(),
+            payload: encrypted,
+        };
 
         let resp = self
             .client
             .patch(&url)
-            .json(&payload)
+            .json(&req_payload)
             .send()
             .await
             .map_err(|e| AgentError::Network(e.to_string()))?;

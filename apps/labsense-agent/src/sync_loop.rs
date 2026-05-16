@@ -16,8 +16,8 @@ pub fn start(
         log::info!("Sync loop started");
 
         loop {
-            // Read sync config
-            let (session_id, interval, jitter) = {
+            // Fetch AES key along with session ID
+            let (session_id, aes_key, interval, jitter) = {
                 let sess = session.lock();
                 if !sess.is_active() {
                     log::info!("Sync loop: session no longer active, exiting");
@@ -26,6 +26,7 @@ pub fn start(
                 let config = sess.runtime_config.as_ref().unwrap();
                 (
                     sess.session_id.clone().unwrap(),
+                    sess.session_aes_key.unwrap(),
                     config.sync_interval_seconds,
                     config.sync_jitter_seconds,
                 )
@@ -68,50 +69,79 @@ pub fn start(
                 }
             };
 
-            // Debug: log payload summary before sending
-            for app in &payload.applications {
-                let detail_segs: usize = app.details.iter().map(|d| d.segments.len()).sum();
-                let total_segs = app.segments.len() + detail_segs;
-                log::info!(
-                    "[sync] app='{}' total={}s app_segs={} detail_segs={} TOTAL_SEGS={} details={}",
-                    app.app_name,
-                    app.total_seconds,
-                    app.segments.len(),
-                    detail_segs,
-                    total_segs,
-                    app.details.len()
-                );
-                for d in &app.details {
-                    log::info!(
-                        "[sync]   detail title={:?} domain={:?} total={}s segments={}",
-                        d.title,
-                        d.domain,
-                        d.total_seconds,
-                        d.segments.len()
-                    );
-                }
-            }
+            let mut current_session_id = session_id;
+            let mut current_aes_key = aes_key;
 
-            // Send sync to server
-            match api_client.sync(&session_id, payload).await {
-                Ok(()) => {
-                    log::info!("Sync successful");
-                }
-                Err(AgentError::Conflict(msg)) => {
-                    log::warn!("Session ended server-side: {}", msg);
-                    session.lock().deactivate();
-                    *analytics.lock() = None;
-                    break;
-                }
-                Err(AgentError::NotFound(msg)) => {
-                    log::warn!("Session lost: {}", msg);
-                    session.lock().deactivate();
-                    *analytics.lock() = None;
-                    break;
-                }
-                Err(e) => {
-                    log::warn!("Sync failed (will retry): {}", e);
-                    // Continue to next cycle — server timeout will eventually catch up
+            loop {
+                // Send sync to server
+                match api_client.sync(&current_session_id, &current_aes_key, payload.clone()).await {
+                    Ok(()) => {
+                        log::info!("Sync successful");
+                        break;
+                    }
+                    Err(AgentError::Unauthorized(msg)) => {
+                        log::warn!("Sync Unauthorized (401): {}. Triggering self-healing loop.", msg);
+                        let mut backoff_secs = 15;
+                        loop {
+                            let (college_id, password) = {
+                                let sess = session.lock();
+                                (
+                                    sess.student_id.clone().unwrap_or_default(),
+                                    sess.student_password.clone().unwrap_or_default(),
+                                )
+                            };
+                            
+                            let config = crate::config::AgentConfig::load().unwrap_or_else(|_| crate::config::AgentConfig {
+                                server_url: String::new(),
+                                pc_name: String::new(),
+                                lab_name: None,
+                            });
+
+                            let req = crate::api_client::LoginRequest {
+                                college_id,
+                                password,
+                                session_aes_key: String::new(),
+                                hardware_id: crate::hardware::get_hardware_id(),
+                                pc_name: config.pc_name,
+                                lab_name: config.lab_name,
+                            };
+
+                            match api_client.login(req).await {
+                                Ok((resp, new_aes_key)) => {
+                                    log::info!("Self-healing successful. New session: {}", resp.session_id);
+                                    let mut sess = session.lock();
+                                    sess.session_id = Some(resp.session_id.clone());
+                                    sess.session_aes_key = Some(new_aes_key);
+                                    
+                                    current_session_id = resp.session_id;
+                                    current_aes_key = new_aes_key;
+                                    break;
+                                }
+                                Err(e) => {
+                                    log::warn!("Self-healing login failed: {}. Retrying in {}s", e, backoff_secs);
+                                    tokio::time::sleep(Duration::from_secs(backoff_secs)).await;
+                                    backoff_secs = std::cmp::min(backoff_secs * 2, 60);
+                                }
+                            }
+                        }
+                        // Inner loop broken: we have a new session, outer loop will immediately retry sync
+                    }
+                    Err(AgentError::Conflict(msg)) => {
+                        log::warn!("Session ended server-side: {}", msg);
+                        session.lock().deactivate();
+                        *analytics.lock() = None;
+                        break;
+                    }
+                    Err(AgentError::NotFound(msg)) => {
+                        log::warn!("Session lost: {}", msg);
+                        session.lock().deactivate();
+                        *analytics.lock() = None;
+                        break;
+                    }
+                    Err(e) => {
+                        log::warn!("Sync failed (will retry next cycle): {}", e);
+                        break; // Continue to next cycle
+                    }
                 }
             }
         }

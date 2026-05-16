@@ -164,14 +164,15 @@ async fn handle_login(
 
     let req = LoginRequest {
         college_id: body.college_id.clone(),
-        password: body.password,
+        password: body.password.clone(),
+        session_aes_key: String::new(),
         hardware_id,
         pc_name: config.pc_name.clone(),
         lab_name: config.lab_name.clone(),
     };
 
     match api_client.login(req).await {
-        Ok(resp) => {
+        Ok((resp, aes_key)) => {
             let runtime_config = RuntimeConfig::from(&resp);
 
             // Initialize analytics with feature flags from server config
@@ -183,7 +184,7 @@ async fn handle_login(
             // Activate session
             {
                 let mut sess = session.lock();
-                sess.activate(resp.session_id.clone(), body.college_id, runtime_config);
+                sess.activate(resp.session_id.clone(), body.college_id, body.password, aes_key, runtime_config);
             }
 
             // Start monitor and sync loops
@@ -222,7 +223,7 @@ async fn handle_logout(
     session: SharedSession,
     analytics: SharedAnalytics,
 ) -> Result<impl warp::Reply, warp::Rejection> {
-    let session_id = {
+    let (session_id, aes_key) = {
         let sess = session.lock();
         if !sess.is_active() {
             return Ok(warp::reply::with_status(
@@ -230,7 +231,7 @@ async fn handle_logout(
                 warp::http::StatusCode::OK,
             ));
         }
-        sess.session_id.clone().unwrap()
+        (sess.session_id.clone().unwrap(), sess.session_aes_key.unwrap())
     };
 
     // Send final sync before logout — extract payload first, then drop the lock
@@ -239,7 +240,7 @@ async fn handle_logout(
         guard.as_ref().map(|a| a.snapshot())
     };
     if let Some(payload) = final_payload {
-        let _ = api_client.sync(&session_id, payload).await;
+        let _ = api_client.sync(&session_id, &aes_key, payload).await;
     }
 
     // Call server logout

@@ -47,6 +47,8 @@ pub struct Session {
     pub state: SessionState,
     pub session_id: Option<String>,
     pub student_id: Option<String>,
+    pub student_password: Option<String>,
+    pub session_aes_key: Option<[u8; 32]>,
     pub runtime_config: Option<RuntimeConfig>,
 }
 
@@ -56,15 +58,19 @@ impl Session {
             state: SessionState::Idle,
             session_id: None,
             student_id: None,
+            student_password: None,
+            session_aes_key: None,
             runtime_config: None,
         }
     }
 
     /// Transition to active after successful login.
-    pub fn activate(&mut self, session_id: String, student_id: String, config: RuntimeConfig) {
+    pub fn activate(&mut self, session_id: String, student_id: String, password: String, aes_key: [u8; 32], config: RuntimeConfig) {
         self.state = SessionState::Active;
         self.session_id = Some(session_id);
         self.student_id = Some(student_id);
+        self.student_password = Some(password);
+        self.session_aes_key = Some(aes_key);
         self.runtime_config = Some(config);
     }
 
@@ -73,6 +79,8 @@ impl Session {
         self.state = SessionState::Idle;
         self.session_id = None;
         self.student_id = None;
+        self.student_password = None;
+        self.session_aes_key = None;
         self.runtime_config = None;
     }
 

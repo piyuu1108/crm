@@ -1,6 +1,7 @@
 mod analytics;
 mod api_client;
 mod config;
+mod crypto;
 mod hardware;
 mod monitor;
 mod monitor_loop;

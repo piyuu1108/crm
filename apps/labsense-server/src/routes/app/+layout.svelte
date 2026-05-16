@@ -8,27 +8,38 @@
 
 	let { data, children } = $props();
 
-	const getTitle = (path: string) => {
-		const segments = path.split('/').filter(Boolean);
-		if (segments.length <= 1) return 'Dashboard';
+	type Crumb = { label: string; href?: string };
 
-		if (path.startsWith('/app/labs')) return 'Labs';
-		if (path.startsWith('/app/admins')) return 'Administrators';
-		if (path.startsWith('/app/logs')) return 'Logs';
-		if (path.startsWith('/app/settings')) return 'Settings';
-		
-		if (path.startsWith('/app/students')) {
-			if (path === '/app/students/add') return 'Add Students';
-			if (path === '/app/students/bulk') return 'Bulk Import';
-			// If there's an ID after /app/students/
-			if (segments.length > 2) return 'Student Profile';
-			return 'Students';
+	const getCrumbs = (path: string): Crumb[] => {
+		const segments = path.split('/').filter(Boolean);
+		if (segments.length <= 1) return [];
+
+		const section = segments[1]; // students, labs, settings, etc.
+
+		if (section === 'settings') return [{ label: 'Settings' }];
+		if (section === 'admins') return [{ label: 'Administrators' }];
+		if (section === 'logs') return [{ label: 'Logs' }];
+
+		if (section === 'students') {
+			if (path === '/app/students/add') return [{ label: 'Students', href: '/app/students' }, { label: 'Add Student' }];
+			if (path === '/app/students/bulk') return [{ label: 'Students', href: '/app/students' }, { label: 'Bulk Import' }];
+			if (segments.length === 2) return [{ label: 'Students' }];
+			if (segments.length === 3) return [{ label: 'Students', href: '/app/students' }, { label: 'Profile' }];
+			if (segments.length === 4) return [{ label: 'Students', href: '/app/students' }, { label: 'Profile', href: `/app/students/${segments[2]}` }, { label: 'Session' }];
+			if (segments.length >= 5) return [{ label: 'Students', href: '/app/students' }, { label: 'Profile', href: `/app/students/${segments[2]}` }, { label: 'Session', href: `/app/students/${segments[2]}/${segments[3]}` }, { label: 'App Details' }];
+			return [{ label: 'Students' }];
 		}
 
-		return 'Dashboard';
+		if (section === 'labs') {
+			if (segments.length === 2) return [{ label: 'Labs' }];
+			if (segments.length >= 3) return [{ label: 'Labs', href: '/app/labs' }, { label: 'Machine' }];
+			return [{ label: 'Labs' }];
+		}
+
+		return [];
 	};
 
-	let title = $derived(getTitle($page.url.pathname));
+	let crumbs = $derived(getCrumbs($page.url.pathname));
 </script>
 
 <Sidebar.Provider>
@@ -43,12 +54,16 @@
 						<Breadcrumb.Item>
 							<Breadcrumb.Link href="/app" class="text-muted-foreground hover:text-foreground transition-colors">Dashboard</Breadcrumb.Link>
 						</Breadcrumb.Item>
-						{#if title !== 'Dashboard'}
+						{#each crumbs as crumb, i}
 							<Breadcrumb.Separator />
 							<Breadcrumb.Item>
-								<Breadcrumb.Page class="font-semibold text-foreground">{title}</Breadcrumb.Page>
+								{#if crumb.href && i < crumbs.length - 1}
+									<Breadcrumb.Link href={crumb.href} class="text-muted-foreground hover:text-foreground transition-colors">{crumb.label}</Breadcrumb.Link>
+								{:else}
+									<Breadcrumb.Page class="font-semibold text-foreground">{crumb.label}</Breadcrumb.Page>
+								{/if}
 							</Breadcrumb.Item>
-						{/if}
+						{/each}
 					</Breadcrumb.List>
 				</Breadcrumb.Root>
 			</div>

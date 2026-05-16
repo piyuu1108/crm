@@ -13,7 +13,6 @@
 	import { 
 		MoreVertical, 
 		Monitor, 
-		Calendar, 
 		Clock, 
 		User, 
 		Activity, 
@@ -216,7 +215,7 @@
 						</Table.Row>
 					{:else}
 						{#each data.sessions as session (session.id)}
-							<Table.Row>
+						<Table.Row class="cursor-pointer hover:bg-muted/50" onclick={() => window.location.href = `/app/students/${session.studentId}/${session.id}`}>
 								<Table.Cell>
 									<div class="flex flex-col">
 										<span class="font-medium">{new Date(session.loginAt).toLocaleDateString()}</span>

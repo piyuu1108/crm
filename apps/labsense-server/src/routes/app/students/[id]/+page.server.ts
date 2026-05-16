@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { students, labSessions, machines, masterUsers } from '$lib/server/db/schema';
+import { students, labSessions, machines } from '$lib/server/db/schema';
 import { eq, desc, sql, and, gte, lte } from 'drizzle-orm';
 import { error, fail, redirect } from '@sveltejs/kit';
 import { verifyPassword, hashPassword } from '$lib/server/auth';

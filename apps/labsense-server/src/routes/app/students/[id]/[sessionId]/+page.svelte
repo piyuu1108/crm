@@ -83,7 +83,7 @@
 		<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
 			<div>
 				<h2 class="text-3xl font-bold tracking-tight">Session Report</h2>
-				<p class="text-muted-foreground">Detailed usage analytics for session {data.session.id.slice(0, 8)}...</p>
+				<p class="text-muted-foreground">{data.student.name}'s session on {new Date(data.session.loginAt).toLocaleDateString()}</p>
 			</div>
 			<div class="flex items-center gap-2">
 				<Badge variant={data.session.status === 'active' ? 'default' : 'outline'} class="px-4 py-1 text-sm capitalize">

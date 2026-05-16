@@ -13,7 +13,6 @@
 	import { 
 		MoreVertical, 
 		User, 
-		Calendar, 
 		Clock, 
 		Monitor, 
 		Activity, 

@@ -21,6 +21,12 @@ pub struct LoginRequest {
     pub lab_name: Option<String>,
 }
 
+fn default_false() -> bool { false }
+fn default_max_segments_per_app() -> usize { 50 }
+fn default_max_segments_per_detail() -> usize { 20 }
+fn default_minimum_tracked_seconds() -> u64 { 15 }
+fn default_candidate_retention_minutes() -> u64 { 10 }
+
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginResponse {
@@ -28,7 +34,19 @@ pub struct LoginResponse {
     pub sync_interval_seconds: u64,
     pub sync_jitter_seconds: u64,
     pub timeout_seconds: u64,
-    pub idle_threshold: u64,
+    pub idle_threshold_seconds: u64,
+    #[serde(default = "default_false")]
+    pub enable_details: bool,
+    #[serde(default = "default_false")]
+    pub enable_segments: bool,
+    #[serde(default = "default_max_segments_per_app")]
+    pub max_segments_per_app: usize,
+    #[serde(default = "default_max_segments_per_detail")]
+    pub max_segments_per_detail: usize,
+    #[serde(default = "default_minimum_tracked_seconds")]
+    pub minimum_tracked_seconds: u64,
+    #[serde(default = "default_candidate_retention_minutes")]
+    pub candidate_retention_minutes: u64,
 }
 
 #[allow(dead_code)]

@@ -174,10 +174,10 @@ async fn handle_login(
         Ok(resp) => {
             let runtime_config = RuntimeConfig::from(&resp);
 
-            // Initialize analytics
+            // Initialize analytics with feature flags from server config
             {
                 let mut guard = analytics.lock();
-                *guard = Some(SessionAnalytics::new());
+                *guard = Some(SessionAnalytics::new(&runtime_config));
             }
 
             // Activate session

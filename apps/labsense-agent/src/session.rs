@@ -10,6 +10,12 @@ pub struct RuntimeConfig {
     pub sync_jitter_seconds: u64,
     pub timeout_seconds: u64,
     pub idle_threshold_seconds: u64,
+    pub enable_details: bool,
+    pub enable_segments: bool,
+    pub max_segments_per_app: usize,
+    pub max_segments_per_detail: usize,
+    pub minimum_tracked_seconds: u64,
+    pub candidate_retention_minutes: u64,
 }
 
 impl From<&LoginResponse> for RuntimeConfig {
@@ -18,7 +24,13 @@ impl From<&LoginResponse> for RuntimeConfig {
             sync_interval_seconds: resp.sync_interval_seconds,
             sync_jitter_seconds: resp.sync_jitter_seconds,
             timeout_seconds: resp.timeout_seconds,
-            idle_threshold_seconds: resp.idle_threshold,
+            idle_threshold_seconds: resp.idle_threshold_seconds,
+            enable_details: resp.enable_details,
+            enable_segments: resp.enable_segments,
+            max_segments_per_app: resp.max_segments_per_app,
+            max_segments_per_detail: resp.max_segments_per_detail,
+            minimum_tracked_seconds: resp.minimum_tracked_seconds,
+            candidate_retention_minutes: resp.candidate_retention_minutes,
         }
     }
 }

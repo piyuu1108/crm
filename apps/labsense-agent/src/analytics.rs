@@ -14,15 +14,27 @@ pub struct AppDetailIdentity {
 
 impl std::hash::Hash for AppDetailIdentity {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // Identity is url + domain only — title is a display label
         self.url.hash(state);
         self.domain.hash(state);
+        // When url and domain are both None (non-browser apps),
+        // title is the only differentiator (e.g. different VS Code tabs).
+        // For browser details (url/domain present), title is just a display label.
+        if self.url.is_none() && self.domain.is_none() {
+            self.title.hash(state);
+        }
     }
 }
 
 impl PartialEq for AppDetailIdentity {
     fn eq(&self, other: &Self) -> bool {
-        self.url == other.url && self.domain == other.domain
+        if self.url != other.url || self.domain != other.domain {
+            return false;
+        }
+        // When both url and domain are None, compare by title too
+        if self.url.is_none() && self.domain.is_none() {
+            return self.title == other.title;
+        }
+        true
     }
 }
 

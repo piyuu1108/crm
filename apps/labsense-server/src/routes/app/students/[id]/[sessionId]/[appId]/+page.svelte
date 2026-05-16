@@ -17,10 +17,14 @@
 		ExternalLink,
 		AlertCircle,
 		Search,
-		Layers
+		Layers,
+		ArrowUpDown
 	} from 'lucide-svelte';
 
 	let { data } = $props();
+
+	let sortKey = $state('totalSeconds');
+	let sortDir = $state('desc');
 
 	function formatDuration(seconds: number) {
 		const h = Math.floor(seconds / 3600);
@@ -47,6 +51,24 @@
 	}
 
 	const efficiency = $derived(getEfficiency(data.app.activeSeconds, data.app.totalSeconds));
+
+	const sortedDetails = $derived([...data.details].sort((a, b) => {
+		let aVal = a[sortKey as keyof typeof a];
+		let bVal = b[sortKey as keyof typeof b];
+
+		if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+		if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+		return 0;
+	}));
+
+	function toggleSort(key: string) {
+		if (sortKey === key) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortKey = key;
+			sortDir = 'desc';
+		}
+	}
 </script>
 
 <div class="flex flex-col gap-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -115,7 +137,7 @@
 						<div class="relative pl-6 border-l-2 border-muted py-2 space-y-4">
 							{#each data.segments as segment}
 								<div class="relative group">
-									<div class="absolute -left-[29px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-background transition-transform group-hover:scale-125"></div>
+									<div class="absolute left-[-29px] top-1.5 h-3 w-3 rounded-full bg-primary ring-4 ring-background transition-transform group-hover:scale-125"></div>
 									<div class="bg-muted/30 group-hover:bg-muted/50 transition-colors p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 										<div class="flex flex-col gap-1">
 											<div class="flex items-center gap-2 text-sm font-semibold">
@@ -125,12 +147,12 @@
 												{formatDate(segment.endedAt)}
 											</div>
 											{#if segment.detailId}
-												{#const detail = data.details.find(d => d.id === segment.detailId)}
 												<div class="flex items-center gap-2 text-xs text-primary font-medium mt-1">
 													<Badge variant="outline" class="text-[10px] uppercase font-bold py-0 h-4 border-primary/20 bg-primary/5">Detail Focus</Badge>
-													<span class="truncate max-w-[200px] sm:max-w-md">{detail?.title || 'Unknown Detail'}</span>
+													<span class="truncate max-w-[200px] sm:max-w-md">
+														{data.details.find(d => d.id === segment.detailId)?.title || 'Unknown Detail'}
+													</span>
 												</div>
-												{/if}
 											{:else}
 												<div class="flex items-center gap-2 text-xs text-muted-foreground font-medium mt-1">
 													<Badge variant="outline" class="text-[10px] uppercase font-bold py-0 h-4">General App Focus</Badge>
@@ -167,15 +189,30 @@
 					{:else}
 						<div class="rounded-xl border overflow-hidden">
 							<Table.Root>
-								<Table.Header>
+									<Table.Header>
 									<Table.Row class="bg-muted/50">
-										<Table.Head class="w-[50%]">Activity / Title</Table.Head>
-										<Table.Head>Domain</Table.Head>
-										<Table.Head class="text-right">Time Spent</Table.Head>
+										<Table.Head>
+											<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('title')}>
+												Activity / Title
+												<ArrowUpDown class="size-3 opacity-50" />
+											</button>
+										</Table.Head>
+										<Table.Head>
+											<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('domain')}>
+												Domain
+												<ArrowUpDown class="size-3 opacity-50" />
+											</button>
+										</Table.Head>
+										<Table.Head class="text-right">
+											<button class="flex items-center gap-1 hover:underline w-full justify-end" onclick={() => toggleSort('activeSeconds')}>
+												Time Spent
+												<ArrowUpDown class="size-3 opacity-50" />
+											</button>
+										</Table.Head>
 									</Table.Row>
 								</Table.Header>
 								<Table.Body>
-									{#each data.details as detail}
+									{#each sortedDetails as detail}
 										<Table.Row class="group">
 											<Table.Cell>
 												<div class="flex flex-col gap-1">

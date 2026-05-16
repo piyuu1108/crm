@@ -30,9 +30,11 @@ export const load: PageServerLoad = async ({ url }) => {
 
 		// Sort column mapping
 		const sortMap: Record<string, ReturnType<typeof sql>> = {
+			id: sql`${students.id}`,
 			name: sql`${students.name}`,
 			totalLab: sql`coalesce(sum(${labSessions.totalSeconds}), 0)::int`,
 			totalActive: sql`coalesce(sum(${labSessions.activeSeconds}), 0)::int`,
+			totalIdle: sql`coalesce(sum(${labSessions.idleSeconds}), 0)::int`,
 			lastLogin: sql`max(${labSessions.loginAt})`
 		};
 

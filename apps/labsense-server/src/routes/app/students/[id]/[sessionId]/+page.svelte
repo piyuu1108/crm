@@ -14,10 +14,14 @@
 		Layout,
 		Timer,
 		MousePointer2,
-		Coffee
+		Coffee,
+		ArrowUpDown
 	} from 'lucide-svelte';
 
 	let { data } = $props();
+
+	let sortKey = $state('totalSeconds');
+	let sortDir = $state('desc');
 
 	function formatDuration(seconds: number) {
 		const h = Math.floor(seconds / 3600);
@@ -39,6 +43,29 @@
 	}
 
 	const efficiency = $derived(getEfficiency(data.session.activeSeconds, data.session.totalSeconds));
+
+	const sortedApps = $derived([...data.apps].sort((a, b) => {
+		let aVal = a[sortKey as keyof typeof a];
+		let bVal = b[sortKey as keyof typeof b];
+		
+		if (sortKey === 'efficiency') {
+			aVal = getEfficiency(a.activeSeconds, a.totalSeconds);
+			bVal = getEfficiency(b.activeSeconds, b.totalSeconds);
+		}
+
+		if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
+		if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
+		return 0;
+	}));
+
+	function toggleSort(key: string) {
+		if (sortKey === key) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortKey = key;
+			sortDir = 'desc';
+		}
+	}
 </script>
 
 <div class="flex flex-col gap-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -159,30 +186,43 @@
 						<Table.Root>
 							<Table.Header>
 								<Table.Row class="bg-muted/50">
-									<Table.Head class="w-[300px]">Application Name</Table.Head>
 									<Table.Head>
-										<div class="flex items-center gap-1">
+										<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('appName')}>
+											Application Name
+											<ArrowUpDown class="size-3 opacity-50" />
+										</button>
+									</Table.Head>
+									<Table.Head>
+										<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('totalSeconds')}>
 											<Timer class="h-3 w-3" />
 											Total Time
-										</div>
+											<ArrowUpDown class="size-3 opacity-50" />
+										</button>
 									</Table.Head>
 									<Table.Head>
-										<div class="flex items-center gap-1">
+										<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('activeSeconds')}>
 											<MousePointer2 class="h-3 w-3" />
 											Active
-										</div>
+											<ArrowUpDown class="size-3 opacity-50" />
+										</button>
 									</Table.Head>
 									<Table.Head>
-										<div class="flex items-center gap-1">
+										<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('idleSeconds')}>
 											<Coffee class="h-3 w-3" />
 											Idle
-										</div>
+											<ArrowUpDown class="size-3 opacity-50" />
+										</button>
 									</Table.Head>
-									<Table.Head>Efficiency</Table.Head>
+									<Table.Head>
+										<button class="flex items-center gap-1 hover:underline w-full justify-start" onclick={() => toggleSort('efficiency')}>
+											Efficiency
+											<ArrowUpDown class="size-3 opacity-50" />
+										</button>
+									</Table.Head>
 								</Table.Row>
 							</Table.Header>
 							<Table.Body>
-								{#each data.apps as app}
+								{#each sortedApps as app}
 									<Table.Row class="group cursor-pointer hover:bg-muted/50 transition-colors">
 										<Table.Cell class="font-medium p-0">
 											<a 

@@ -103,8 +103,18 @@
 			<Table.Root>
 				<Table.Header>
 					<Table.Row>
-						<Table.Head>Student ID</Table.Head>
-						<Table.Head>Name</Table.Head>
+						<Table.Head>
+							<button class="flex items-center gap-1 hover:underline" onclick={() => handleSort('id')}>
+								Student ID
+								<ArrowUpDownIcon class="size-3" />
+							</button>
+						</Table.Head>
+						<Table.Head>
+							<button class="flex items-center gap-1 hover:underline" onclick={() => handleSort('name')}>
+								Name
+								<ArrowUpDownIcon class="size-3" />
+							</button>
+						</Table.Head>
 						<Table.Head>
 							<button class="flex items-center gap-1 hover:underline" onclick={() => handleSort('totalLab')}>
 								Total Lab Time
@@ -117,7 +127,12 @@
 								<ArrowUpDownIcon class="size-3" />
 							</button>
 						</Table.Head>
-						<Table.Head>Total Free Time</Table.Head>
+						<Table.Head>
+							<button class="flex items-center gap-1 hover:underline" onclick={() => handleSort('totalIdle')}>
+								Total Free Time
+								<ArrowUpDownIcon class="size-3" />
+							</button>
+						</Table.Head>
 						<Table.Head>
 							<button class="flex items-center gap-1 hover:underline" onclick={() => handleSort('lastLogin')}>
 								Last Login

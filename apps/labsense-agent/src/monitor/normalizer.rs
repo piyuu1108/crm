@@ -175,29 +175,39 @@ pub fn normalize(app: &ForegroundApp, domain_from_uia: Option<&str>) -> AppIdent
     }
 }
 
-fn normalize_domain(domain: &str) -> &str {
+fn normalize_domain(domain: &str) -> Option<&str> {
     match domain {
-        "youtube.com" => "YouTube",
-        "github.com" => "GitHub",
-        "chatgpt.com" => "ChatGPT",
-        "openai.com" => "ChatGPT",
-        "amazon.in" => "Amazon",
-        "amazon.com" => "Amazon",
-        "aws.amazon.com" => "AWS",
-        "stackoverflow.com" => "Stack Overflow",
-        "google.com" => "Google",
-        "microsoft.com" => "Microsoft",
-        "notion.so" => "Notion",
-        "figma.com" => "Figma",
-        "linkedin.com" => "LinkedIn",
-        "twitter.com" => "X (Twitter)",
-        "x.com" => "X (Twitter)",
-        "facebook.com" => "Facebook",
-        "instagram.com" => "Instagram",
-        "reddit.com" => "Reddit",
-        "whatsapp.com" => "WhatsApp Web",
-        "discord.com" => "Discord",
-        _ => domain,
+        // Specific host/subdomain mappings
+        "localhost:8888" => Some("Jupyter Notebook"),
+        "colab.research.google.com" => Some("Google Colab"),
+        "docs.google.com" => Some("Google Docs"),
+        "drive.google.com" => Some("Google Drive"),
+        "meet.google.com" => Some("Google Meet"),
+        "mail.google.com" => Some("Gmail"),
+        "calendar.google.com" => Some("Google Calendar"),
+        "web.whatsapp.com" => Some("WhatsApp Web"),
+
+        // Root domain mappings
+        "youtube.com" => Some("YouTube"),
+        "github.com" => Some("GitHub"),
+        "chatgpt.com" => Some("ChatGPT"),
+        "openai.com" => Some("ChatGPT"),
+        "amazon.in" => Some("Amazon"),
+        "amazon.com" => Some("Amazon"),
+        "aws.amazon.com" => Some("AWS"),
+        "stackoverflow.com" => Some("Stack Overflow"),
+        "google.com" => Some("Google"),
+        "microsoft.com" => Some("Microsoft"),
+        "notion.so" => Some("Notion"),
+        "figma.com" => Some("Figma"),
+        "linkedin.com" => Some("LinkedIn"),
+        "twitter.com" => Some("X (Twitter)"),
+        "x.com" => Some("X (Twitter)"),
+        "facebook.com" => Some("Facebook"),
+        "instagram.com" => Some("Instagram"),
+        "reddit.com" => Some("Reddit"),
+        "discord.com" => Some("Discord"),
+        _ => None,
     }
 }
 
@@ -244,6 +254,11 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         }
     };
 
+    let mut full_host = host.to_string();
+    if let Some(port) = parsed.port() {
+        full_host = format!("{}:{}", host, port);
+    }
+
     let is_ip_or_localhost = host == "localhost" || host.chars().all(|c| c.is_ascii_digit() || c == '.');
 
     let mut root_domain = match addr::parse_domain_name(host) {
@@ -258,14 +273,14 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
     };
 
     if is_ip_or_localhost {
-        if let Some(port) = parsed.port() {
-            root_domain = format!("{}:{}", host, port);
-        }
+        root_domain = full_host.clone();
     }
 
-    let friendly_name = normalize_domain(&root_domain);
-
-    let app_name = if friendly_name == root_domain {
+    let app_name = if let Some(friendly) = normalize_domain(&full_host) {
+        friendly.to_string()
+    } else if let Some(friendly) = normalize_domain(&root_domain) {
+        friendly.to_string()
+    } else {
         if root_domain.contains(':') || root_domain.chars().all(|c| c.is_ascii_digit() || c == '.') {
             // It's likely an IP address or contains a port (like localhost:3000)
             root_domain.to_string()
@@ -283,8 +298,6 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
                 }
             }
         }
-    } else {
-        friendly_name.to_string()
     };
 
     let sanitized_url = sanitize_url(url_str);
@@ -294,7 +307,9 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         detail: Some(AppDetailIdentity {
             title: Some(page_title.to_string()),
             url: sanitized_url,
-            domain: Some(root_domain),
+            // Track the original root domain in the detail so it's clean,
+            // or the full_host for IPs/localhosts.
+            domain: Some(if is_ip_or_localhost { full_host } else { root_domain }),
         }),
     }
 }

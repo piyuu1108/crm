@@ -15,11 +15,28 @@ export interface LoginResponse {
 	timeoutSeconds: number;
 }
 
+export interface SegmentPayload {
+	startedAt: string;
+	endedAt: string;
+}
+
+export interface DetailPayload {
+	title: string;
+	url?: string;
+	domain?: string;
+	totalSeconds: number;
+	activeSeconds: number;
+	idleSeconds: number;
+	segments?: SegmentPayload[];
+}
+
 export interface AppUsagePayload {
 	appName: string;
 	totalSeconds: number;
 	activeSeconds: number;
 	idleSeconds: number;
+	segments?: SegmentPayload[];
+	details?: DetailPayload[];
 }
 
 export interface SyncPayload {

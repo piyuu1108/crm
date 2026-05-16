@@ -96,6 +96,47 @@ export const sessionApps = pgTable(
 	(t) => [unique('uq_session_app').on(t.sessionId, t.appName)]
 );
 
+export const sessionDetails = pgTable(
+	'session_details',
+	{
+		id: uuid('id').defaultRandom().primaryKey(),
+		appId: uuid('app_id')
+			.notNull()
+			.references(() => sessionApps.id, { onDelete: 'cascade' }),
+		title: text('title'),
+		url: text('url'),
+		domain: text('domain'),
+		totalSeconds: integer('total_seconds').notNull().default(0),
+		activeSeconds: integer('active_seconds').notNull().default(0),
+		idleSeconds: integer('idle_seconds').notNull().default(0),
+		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+	},
+	(t) => [unique('uq_session_detail').on(t.appId, t.title, t.url)]
+);
+
+export const activitySegments = pgTable(
+	'activity_segments',
+	{
+		id: uuid('id').defaultRandom().primaryKey(),
+		sessionId: uuid('session_id')
+			.notNull()
+			.references(() => labSessions.id, { onDelete: 'cascade' }),
+		appId: uuid('app_id')
+			.references(() => sessionApps.id, { onDelete: 'cascade' }),
+		detailId: uuid('detail_id')
+			.references(() => sessionDetails.id, { onDelete: 'cascade' }),
+		startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }).notNull(),
+		endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }).notNull(),
+		createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
+	},
+	(t) => [
+		index('idx_segments_session').on(t.sessionId),
+		index('idx_segments_app').on(t.appId),
+		index('idx_segments_detail').on(t.detailId),
+		unique('uq_activity_segment').on(t.sessionId, t.startedAt, t.endedAt, t.appId, t.detailId)
+	]
+);
+
 // ── System Settings ─────────────────────────────────────────
 
 export const systemSettings = pgTable('system_settings', {

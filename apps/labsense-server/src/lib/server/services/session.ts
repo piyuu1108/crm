@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
-import { labSessions, sessionApps, machines } from '$lib/server/db/schema';
-import { eq, and, lt, sql } from 'drizzle-orm';
+import { labSessions, sessionApps, machines, sessionDetails, activitySegments } from '$lib/server/db/schema';
+import { eq, and, lt } from 'drizzle-orm';
 import type { SyncPayload } from '$lib/server/types';
 
 /**
@@ -9,6 +9,8 @@ import type { SyncPayload } from '$lib/server/types';
  * 2. Updates session aggregates + last_sync_at
  * 3. Updates machine last_seen_at
  * 4. Upserts application usage aggregates
+ * 5. Upserts application details
+ * 6. Inserts activity segments (deduplicated by unique constraint)
  */
 export async function syncSession(
 	sessionId: string,
@@ -54,7 +56,7 @@ export async function syncSession(
 
 		// 4. Upsert application aggregates
 		for (const app of payload.applications) {
-			await tx
+			const [upsertedApp] = await tx
 				.insert(sessionApps)
 				.values({
 					sessionId,
@@ -72,7 +74,67 @@ export async function syncSession(
 						idleSeconds: app.idleSeconds,
 						updatedAt: now
 					}
-				});
+				})
+				.returning({ id: sessionApps.id });
+
+			// 5. Upsert application details
+			if (app.details && app.details.length > 0) {
+				for (const detail of app.details) {
+					const [upsertedDetail] = await tx
+						.insert(sessionDetails)
+						.values({
+							appId: upsertedApp.id,
+							title: detail.title,
+							url: detail.url ?? null,
+							domain: detail.domain ?? null,
+							totalSeconds: detail.totalSeconds,
+							activeSeconds: detail.activeSeconds,
+							idleSeconds: detail.idleSeconds,
+							updatedAt: now
+						})
+						.onConflictDoUpdate({
+							target: [sessionDetails.appId, sessionDetails.title, sessionDetails.url],
+							set: {
+								totalSeconds: detail.totalSeconds,
+								activeSeconds: detail.activeSeconds,
+								idleSeconds: detail.idleSeconds,
+								updatedAt: now
+							}
+						})
+						.returning({ id: sessionDetails.id });
+
+					// 6. Insert detail segments
+					if (detail.segments && detail.segments.length > 0) {
+						await tx
+							.insert(activitySegments)
+							.values(
+								detail.segments.map((s) => ({
+									sessionId,
+									appId: upsertedApp.id,
+									detailId: upsertedDetail.id,
+									startedAt: new Date(s.startedAt),
+									endedAt: new Date(s.endedAt)
+								}))
+							)
+							.onConflictDoNothing();
+					}
+				}
+			}
+
+			// 7. Insert app segments
+			if (app.segments && app.segments.length > 0) {
+				await tx
+					.insert(activitySegments)
+					.values(
+						app.segments.map((s) => ({
+							sessionId,
+							appId: upsertedApp.id,
+							startedAt: new Date(s.startedAt),
+							endedAt: new Date(s.endedAt)
+						}))
+					)
+					.onConflictDoNothing();
+			}
 		}
 
 		return { ok: true };

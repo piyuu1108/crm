@@ -75,41 +75,76 @@ export function validateSyncPayload(body: unknown): ValidationResult<SyncPayload
 		return { ok: false, error: 'applications must be an array' };
 	}
 
-	const apps = [];
-	for (let i = 0; i < b.applications.length; i++) {
-		const app = b.applications[i] as Record<string, unknown>;
-		if (!app || typeof app !== 'object') {
-			return { ok: false, error: `applications[${i}] must be an object` };
-		}
-		if (!isNonEmptyString(app.appName)) {
-			return { ok: false, error: `applications[${i}].appName is required` };
-		}
-		if (!isNonNegativeInt(app.totalSeconds)) {
-			return { ok: false, error: `applications[${i}].totalSeconds must be a non-negative integer` };
-		}
-		if (!isNonNegativeInt(app.activeSeconds)) {
-			return { ok: false, error: `applications[${i}].activeSeconds must be a non-negative integer` };
-		}
-		if (!isNonNegativeInt(app.idleSeconds)) {
-			return { ok: false, error: `applications[${i}].idleSeconds must be a non-negative integer` };
-		}
-		apps.push({
-			appName: app.appName.trim(),
-			totalSeconds: app.totalSeconds,
-			activeSeconds: app.activeSeconds,
-			idleSeconds: app.idleSeconds
+	const validateSegments = (segs: unknown, path: string) => {
+		if (segs === undefined || segs === null) return [];
+		if (!Array.isArray(segs)) throw new Error(`${path} must be an array`);
+		return segs.map((s, j) => {
+			if (!s || typeof s !== 'object') throw new Error(`${path}[${j}] must be an object`);
+			const startedAt = s.startedAt as string;
+			const endedAt = s.endedAt as string;
+			if (isNaN(Date.parse(startedAt)) || isNaN(Date.parse(endedAt))) {
+				throw new Error(`${path}[${j}] contains invalid dates`);
+			}
+			return { startedAt, endedAt };
 		});
-	}
-
-	return {
-		ok: true,
-		data: {
-			totalSeconds: b.totalSeconds,
-			activeSeconds: b.activeSeconds,
-			idleSeconds: b.idleSeconds,
-			applications: apps
-		}
 	};
+
+	try {
+		const apps = b.applications.map((app, i) => {
+			if (!app || typeof app !== 'object') throw new Error(`applications[${i}] must be an object`);
+			if (!isNonEmptyString(app.appName)) throw new Error(`applications[${i}].appName is required`);
+			if (!isNonNegativeInt(app.totalSeconds))
+				throw new Error(`applications[${i}].totalSeconds must be a non-negative integer`);
+			if (!isNonNegativeInt(app.activeSeconds))
+				throw new Error(`applications[${i}].activeSeconds must be a non-negative integer`);
+			if (!isNonNegativeInt(app.idleSeconds))
+				throw new Error(`applications[${i}].idleSeconds must be a non-negative integer`);
+
+			const details = Array.isArray(app.details)
+				? app.details.map((d, j) => {
+						if (!d || typeof d !== 'object') throw new Error(`applications[${i}].details[${j}] must be an object`);
+						if (!isNonEmptyString(d.title)) throw new Error(`applications[${i}].details[${j}].title is required`);
+						if (!isNonNegativeInt(d.totalSeconds))
+							throw new Error(`applications[${i}].details[${j}].totalSeconds must be integer`);
+						if (!isNonNegativeInt(d.activeSeconds))
+							throw new Error(`applications[${i}].details[${j}].activeSeconds must be integer`);
+						if (!isNonNegativeInt(d.idleSeconds))
+							throw new Error(`applications[${i}].details[${j}].idleSeconds must be integer`);
+
+						return {
+							title: d.title.trim(),
+							url: typeof d.url === 'string' ? d.url.trim() : undefined,
+							domain: typeof d.domain === 'string' ? d.domain.trim() : undefined,
+							totalSeconds: d.totalSeconds,
+							activeSeconds: d.activeSeconds,
+							idleSeconds: d.idleSeconds,
+							segments: validateSegments(d.segments, `applications[${i}].details[${j}].segments`)
+						};
+					})
+				: [];
+
+			return {
+				appName: app.appName.trim(),
+				totalSeconds: app.totalSeconds,
+				activeSeconds: app.activeSeconds,
+				idleSeconds: app.idleSeconds,
+				segments: validateSegments(app.segments, `applications[${i}].segments`),
+				details
+			};
+		});
+
+		return {
+			ok: true,
+			data: {
+				totalSeconds: b.totalSeconds,
+				activeSeconds: b.activeSeconds,
+				idleSeconds: b.idleSeconds,
+				applications: apps
+			}
+		};
+	} catch (e) {
+		return { ok: false, error: e instanceof Error ? e.message : 'Validation failed' };
+	}
 }
 
 /** Safely parses a JSON request body, returning null on failure. */

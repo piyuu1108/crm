@@ -320,6 +320,24 @@ impl SessionAnalytics {
                     details.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
                     details.truncate(50);
 
+                    // Enforce combined detail segments ≤ maxSegmentsPerApp
+                    let max_total_segs = self.max_segments_per_app;
+                    let total_detail_segs: usize =
+                        details.iter().map(|d| d.segments.len()).sum();
+                    if total_detail_segs > max_total_segs {
+                        // Details are sorted by importance (most total_seconds first).
+                        // Allocate budget to the most important details first.
+                        let mut budget = max_total_segs;
+                        for d in details.iter_mut() {
+                            if d.segments.len() <= budget {
+                                budget -= d.segments.len();
+                            } else {
+                                d.segments.truncate(budget);
+                                budget = 0;
+                            }
+                        }
+                    }
+
                     AppUsagePayload {
                         app_name: app_name.clone(),
                         total_seconds: c.total_seconds,

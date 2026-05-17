@@ -61,6 +61,9 @@ export function validateSyncPayload(body: unknown): ValidationResult<SyncPayload
 
 	const b = body as Record<string, unknown>;
 
+	if (!isNonNegativeInt(b.sequenceNumber)) {
+		return { ok: false, error: 'sequenceNumber must be a non-negative integer' };
+	}
 	if (!isNonNegativeInt(b.totalSeconds)) {
 		return { ok: false, error: 'totalSeconds must be a non-negative integer' };
 	}
@@ -136,6 +139,7 @@ export function validateSyncPayload(body: unknown): ValidationResult<SyncPayload
 		return {
 			ok: true,
 			data: {
+				sequenceNumber: b.sequenceNumber,
 				totalSeconds: b.totalSeconds,
 				activeSeconds: b.activeSeconds,
 				idleSeconds: b.idleSeconds,

@@ -7,7 +7,8 @@ import {
 	uuid,
 	boolean,
 	unique,
-	index
+	index,
+	bigint
 } from 'drizzle-orm/pg-core';
 
 // ── Enums ───────────────────────────────────────────────────
@@ -67,6 +68,7 @@ export const labSessions = pgTable(
 		loginAt: timestamp('login_at', { withTimezone: true, mode: 'date' }).notNull(),
 		logoutAt: timestamp('logout_at', { withTimezone: true, mode: 'date' }),
 		lastSyncAt: timestamp('last_sync_at', { withTimezone: true, mode: 'date' }).notNull(),
+		lastSequenceNumber: bigint('last_sequence_number', { mode: 'number' }).notNull().default(0),
 		totalSeconds: integer('total_seconds').notNull().default(0),
 		activeSeconds: integer('active_seconds').notNull().default(0),
 		idleSeconds: integer('idle_seconds').notNull().default(0),

@@ -40,6 +40,7 @@ export interface AppUsagePayload {
 }
 
 export interface SyncPayload {
+	sequenceNumber: number;
 	totalSeconds: number;
 	activeSeconds: number;
 	idleSeconds: number;

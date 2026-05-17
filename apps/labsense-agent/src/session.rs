@@ -62,6 +62,8 @@ pub struct Session {
     pub student_password: Option<String>,
     pub session_aes_key: Option<[u8; 32]>,
     pub runtime_config: Option<RuntimeConfig>,
+    /// Signal to stop all background loops for this session
+    pub stop_signal: Option<StopSignal>,
 }
 
 impl Session {
@@ -73,21 +75,26 @@ impl Session {
             student_password: None,
             session_aes_key: None,
             runtime_config: None,
+            stop_signal: None,
         }
     }
 
     /// Transition to active after successful login.
-    pub fn activate(&mut self, session_id: String, student_id: String, password: String, aes_key: [u8; 32], config: RuntimeConfig) {
+    pub fn activate(&mut self, session_id: String, student_id: String, password: String, aes_key: [u8; 32], config: RuntimeConfig, stop: StopSignal) {
         self.state = SessionState::Active;
         self.session_id = Some(session_id);
         self.student_id = Some(student_id);
         self.student_password = Some(password);
         self.session_aes_key = Some(aes_key);
         self.runtime_config = Some(config);
+        self.stop_signal = Some(stop);
     }
 
     /// Reset to idle after logout or error.
     pub fn deactivate(&mut self) {
+        if let Some(stop) = self.stop_signal.take() {
+            stop.notify_waiters();
+        }
         self.state = SessionState::Idle;
         self.session_id = None;
         self.student_id = None;

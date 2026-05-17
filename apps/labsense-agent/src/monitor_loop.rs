@@ -3,6 +3,8 @@ use crate::monitor::{foreground, idle, normalizer, uia};
 use crate::session::{SharedSession, StopSignal};
 use std::time::Duration;
 use sysinfo::System;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 /// Starts the foreground application monitoring loop in a background task.
 /// Polls every ~1 second, updates cumulative analytics counters.
@@ -32,6 +34,9 @@ pub fn start(
         }
 
         let mut cache: Option<WindowCache> = None;
+        
+        // Fix 2: UIA Thread Guard (Prevent Thread Pool Exhaustion)
+        let uia_in_flight = Arc::new(AtomicBool::new(false));
 
         loop {
             // Wait ~1 second or stop signal
@@ -79,37 +84,42 @@ pub fn start(
                     id
                 } else {
                     // Cache miss or window changed
-                    let _is_browser = normalizer::normalize(&app, None).app_name != app.process_name
-                        && !app.process_name.is_empty(); 
-                    
-                    // A better check for browser is just passing domain, the normalizer handles it.
-                    // But we only want to extract URL if it's a browser.
                     let process_lower = app.process_name.to_lowercase();
                     let is_browser = ["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe", "iexplore.exe", "chromium.exe"]
                         .contains(&process_lower.as_str());
 
                     let domain = if is_browser {
-                        let hwnd = app.hwnd;
-                        let extraction_task = tokio::task::spawn_blocking(move || {
-                            unsafe {
-                                let _ = windows::Win32::System::Com::CoInitializeEx(
-                                    None,
-                                    windows::Win32::System::Com::COINIT_MULTITHREADED,
-                                );
-                            }
-                            let url = uia::extract_browser_url(hwnd);
-                            unsafe {
-                                windows::Win32::System::Com::CoUninitialize();
-                            }
-                            url
-                        });
+                        // Only spawn UIA extraction if one isn't already stuck in the thread pool
+                        if !uia_in_flight.load(Ordering::SeqCst) {
+                            let hwnd = app.hwnd;
+                            let guard = uia_in_flight.clone();
+                            
+                            let extraction_task = tokio::task::spawn_blocking(move || {
+                                guard.store(true, Ordering::SeqCst);
+                                unsafe {
+                                    let _ = windows::Win32::System::Com::CoInitializeEx(
+                                        None,
+                                        windows::Win32::System::Com::COINIT_MULTITHREADED,
+                                    );
+                                }
+                                let url = uia::extract_browser_url(hwnd);
+                                unsafe {
+                                    windows::Win32::System::Com::CoUninitialize();
+                                }
+                                guard.store(false, Ordering::SeqCst);
+                                url
+                            });
 
-                        match tokio::time::timeout(Duration::from_millis(200), extraction_task).await {
-                            Ok(Ok(url)) => url,
-                            _ => {
-                                log::debug!("UIA extraction timed out or failed for hwnd {}", hwnd);
-                                None
+                            match tokio::time::timeout(Duration::from_millis(250), extraction_task).await {
+                                Ok(Ok(url)) => url,
+                                _ => {
+                                    log::debug!("UIA extraction timed out or failed for hwnd {}. Guard active.", hwnd);
+                                    None
+                                }
                             }
+                        } else {
+                            log::debug!("Skipping UIA extraction: previous task still blocked in thread pool.");
+                            None
                         }
                     } else {
                         None
@@ -138,6 +148,10 @@ pub fn start(
                     a.tick(&AppIdentity { app_name: "Desktop".to_string(), detail: None }, user_is_idle);
                 }
             }
+        }
+        
+        unsafe {
+            windows::Win32::System::Com::CoUninitialize();
         }
         log::info!("Monitor loop exited");
     })

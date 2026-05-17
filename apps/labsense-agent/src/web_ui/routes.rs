@@ -181,14 +181,22 @@ async fn handle_login(
                 *guard = Some(SessionAnalytics::new(&runtime_config));
             }
 
-            // Activate session
-            {
-                let mut sess = session.lock();
-                sess.activate(resp.session_id.clone(), body.college_id, body.password, aes_key, runtime_config);
-            }
-
             // Start monitor and sync loops
             let stop = session::new_stop_signal();
+            
+            // Activate session with the stop signal
+            {
+                let mut sess = session.lock();
+                sess.activate(
+                    resp.session_id.clone(), 
+                    body.college_id, 
+                    body.password, 
+                    aes_key, 
+                    runtime_config,
+                    stop.clone()
+                );
+            }
+
             monitor_loop::start(session.clone(), analytics.clone(), stop.clone());
             sync_loop::start(api_client.clone(), session.clone(), analytics.clone(), stop);
 

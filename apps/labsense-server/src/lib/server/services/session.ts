@@ -5,7 +5,7 @@ import type { SyncPayload } from '$lib/server/types';
 
 /**
  * Syncs session data from the agent. Runs in a single transaction:
- * 1. Validates session exists and is active
+ * 1. Validates session exists, is active, and sequence number is monotonic
  * 2. Updates session aggregates (Monotonic) + machine last_seen
  * 3. Bulk upserts apps, details, and segments (Monotonic)
  * 4. Symmetric Bulk Pruning for both segments and details
@@ -15,12 +15,13 @@ export async function syncSession(
 	payload: SyncPayload
 ): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
 	return await db.transaction(async (tx) => {
-		// 1. Fetch session + verify state
+		// 1. Fetch session + verify state + validate sequence number
 		const [session] = await tx
 			.select({
 				id: labSessions.id,
 				machineId: labSessions.machineId,
-				status: labSessions.status
+				status: labSessions.status,
+				lastSequenceNumber: labSessions.lastSequenceNumber
 			})
 			.from(labSessions)
 			.where(eq(labSessions.id, sessionId));
@@ -33,12 +34,19 @@ export async function syncSession(
 			return { ok: false, error: 'Session is already completed', status: 409 };
 		}
 
+		// Fix 4: Monotonic Sequence Number Validation
+		// Reject out-of-order or replayed packets
+		if (payload.sequenceNumber <= session.lastSequenceNumber) {
+			return { ok: false, error: 'Out-of-order or duplicate sync packet', status: 400 };
+		}
+
 		const now = new Date();
 
-		// 2. Update session aggregates (Fix 3: Monotonic Session Guard)
+		// 2. Update session aggregates
 		await tx
 			.update(labSessions)
 			.set({
+				lastSequenceNumber: payload.sequenceNumber,
 				totalSeconds: sql`GREATEST(${labSessions.totalSeconds}, ${payload.totalSeconds})`,
 				activeSeconds: sql`GREATEST(${labSessions.activeSeconds}, ${payload.activeSeconds})`,
 				idleSeconds: sql`GREATEST(${labSessions.idleSeconds}, ${payload.idleSeconds})`,
@@ -110,7 +118,6 @@ export async function syncSession(
 					idleSeconds: detail.idleSeconds,
 					updatedAt: now
 				});
-				// Tuple for Detail Pruning: (app_id, title, url)
 				const u = detail.url ? `'${detail.url.replace(/'/g, "''")}'` : 'NULL';
 				keepDetails.push(`('${appId}', '${detail.title.replace(/'/g, "''")}', ${u})`);
 			}
@@ -211,7 +218,7 @@ export async function syncSession(
 			}
 		}
 
-		// ─── Phase D: Null-Safe Segment Pruning (Fix 2) ──────────
+		// ─── Phase D: Null-Safe Segment Pruning ──────────────────
 		if (keepSegments.length > 0) {
 			const keepTuples = keepSegments.join(', ');
 			await tx.execute(sql.raw(`
@@ -226,7 +233,7 @@ export async function syncSession(
 			`));
 		}
 
-		// ─── Phase E: Zombie Detail Pruning (Fix 1) ──────────────
+		// ─── Phase E: Zombie Detail Pruning ──────────────────────
 		if (keepDetails.length > 0) {
 			const keepDetailTuples = keepDetails.join(', ');
 			await tx.execute(sql.raw(`

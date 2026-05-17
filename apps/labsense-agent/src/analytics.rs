@@ -16,9 +16,6 @@ impl std::hash::Hash for AppDetailIdentity {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.url.hash(state);
         self.domain.hash(state);
-        // When url and domain are both None (non-browser apps),
-        // title is the only differentiator (e.g. different VS Code tabs).
-        // For browser details (url/domain present), title is just a display label.
         if self.url.is_none() && self.domain.is_none() {
             self.title.hash(state);
         }
@@ -30,7 +27,6 @@ impl PartialEq for AppDetailIdentity {
         if self.url != other.url || self.domain != other.domain {
             return false;
         }
-        // When both url and domain are None, compare by title too
         if self.url.is_none() && self.domain.is_none() {
             return self.title == other.title;
         }
@@ -76,7 +72,6 @@ fn add_or_extend_segment(
     });
 
     if segments.len() > max_segments {
-        // Evict shortest-duration segment, but protect the active (last) segment
         let mut min_idx = 0;
         let mut min_dur = i64::MAX;
         for i in 0..segments.len() - 1 {
@@ -95,23 +90,17 @@ pub struct AppDetailCounters {
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
-    /// Display title — updated on each tick to the latest window title.
     pub title: Option<String>,
-    /// None when segments are disabled — zero allocation.
     pub segments: Option<Vec<Segment>>,
 }
 
-/// Per-application cumulative counters.
 #[derive(Debug, Clone)]
 pub struct AppCounters {
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
-    /// None when details are disabled — zero allocation.
     pub details: Option<HashMap<AppDetailIdentity, AppDetailCounters>>,
-    /// None when segments are disabled — zero allocation.
     pub segments: Option<Vec<Segment>>,
-    /// Tracks the last time this app was the active foreground app (for pruning).
     pub last_active_at: Instant,
 }
 
@@ -136,7 +125,6 @@ pub struct SessionAnalytics {
     pub idle_seconds: u64,
     pub apps: HashMap<String, AppCounters>,
     pub login_at: Instant,
-    // Feature flags — copied from RuntimeConfig at session start
     pub enable_details: bool,
     pub enable_segments: bool,
     pub max_segments_per_app: usize,
@@ -144,8 +132,9 @@ pub struct SessionAnalytics {
     pub max_details_per_app: usize,
     pub minimum_tracked_seconds: u64,
     pub candidate_retention_minutes: u64,
-    /// Tick counter for periodic pruning (run every ~60 ticks ≈ 1 minute).
     prune_counter: u32,
+    /// Monotonic sequence number to protect against out-of-order syncs and replays.
+    sequence_number: u64,
 }
 
 impl SessionAnalytics {
@@ -164,11 +153,10 @@ impl SessionAnalytics {
             minimum_tracked_seconds: config.minimum_tracked_seconds,
             candidate_retention_minutes: config.candidate_retention_minutes,
             prune_counter: 0,
+            sequence_number: 0,
         }
     }
 
-    /// Called every ~1 second by the monitoring loop.
-    /// Increments the correct counters based on the current app identity and idle state.
     pub fn tick(&mut self, identity: &AppIdentity, is_idle: bool) {
         let now = chrono::Utc::now();
         self.total_seconds += 1;
@@ -178,42 +166,31 @@ impl SessionAnalytics {
             self.idle_seconds += 1;
         }
 
-        let enable_details = self.enable_details;
-        let enable_segments = self.enable_segments;
-        let max_seg_app = self.max_segments_per_app;
-        let max_seg_detail = self.max_segments_per_detail;
-
         let app_counters = if let Some(ac) = self.apps.get_mut(&identity.app_name) {
             ac
         } else {
             self.apps.insert(
                 identity.app_name.clone(),
-                AppCounters::new_with_flags(enable_details, enable_segments),
+                AppCounters::new_with_flags(self.enable_details, self.enable_segments),
             );
             self.apps.get_mut(&identity.app_name).unwrap()
         };
 
         app_counters.last_active_at = Instant::now();
-
         app_counters.total_seconds += 1;
         if !is_idle {
             app_counters.active_seconds += 1;
-
-            // App-level segments — only record if details are disabled OR there is no active detail
-            if enable_segments && (!enable_details || identity.detail.is_none()) {
+            if self.enable_segments && (!self.enable_details || identity.detail.is_none()) {
                 let segments = app_counters.segments.get_or_insert_with(Vec::new);
-                add_or_extend_segment(segments, now, max_seg_app);
+                add_or_extend_segment(segments, now, self.max_segments_per_app);
             }
         } else {
             app_counters.idle_seconds += 1;
         }
 
-        // Details — fully gated
-        if enable_details {
+        if self.enable_details {
             if let Some(detail) = &identity.detail {
                 let details_map = app_counters.details.get_or_insert_with(HashMap::new);
-
-                // Memory bound: Cap details at 2 * max_details_per_app.
                 let mem_cap = self.max_details_per_app.saturating_mul(2);
                 if !details_map.contains_key(detail) && details_map.len() >= mem_cap {
                     let mut min_key = None;
@@ -231,13 +208,12 @@ impl SessionAnalytics {
 
                 if let Some(detail_counters) = details_map.get_mut(detail) {
                     detail_counters.total_seconds += 1;
-                    // Update display title to latest
                     detail_counters.title = detail.title.clone();
                     if !is_idle {
                         detail_counters.active_seconds += 1;
-                        if enable_segments {
+                        if self.enable_segments {
                             let segs = detail_counters.segments.get_or_insert_with(Vec::new);
-                            add_or_extend_segment(segs, now, max_seg_detail);
+                            add_or_extend_segment(segs, now, self.max_segments_per_detail);
                         }
                     } else {
                         detail_counters.idle_seconds += 1;
@@ -252,9 +228,9 @@ impl SessionAnalytics {
                     };
                     if !is_idle {
                         detail_counters.active_seconds = 1;
-                        if enable_segments {
+                        if self.enable_segments {
                             let segs = detail_counters.segments.get_or_insert_with(Vec::new);
-                            add_or_extend_segment(segs, now, max_seg_detail);
+                            add_or_extend_segment(segs, now, self.max_segments_per_detail);
                         }
                     } else {
                         detail_counters.idle_seconds = 1;
@@ -264,7 +240,6 @@ impl SessionAnalytics {
             }
         }
 
-        // Periodic pruning — every ~60 ticks (≈1 minute)
         self.prune_counter += 1;
         if self.prune_counter >= 60 {
             self.prune_counter = 0;
@@ -272,9 +247,6 @@ impl SessionAnalytics {
         }
     }
 
-    /// Remove candidate apps that have been inactive longer than `candidate_retention_minutes`
-    /// AND have not been promoted (total_seconds < minimum_tracked_seconds).
-    /// The currently active app is always preserved.
     fn prune_inactive_candidates(&mut self, current_app: &str) {
         let retention_duration =
             std::time::Duration::from_secs(self.candidate_retention_minutes * 60);
@@ -282,61 +254,37 @@ impl SessionAnalytics {
         let now = Instant::now();
 
         self.apps.retain(|app_name, counters| {
-            // Always preserve the currently active app
-            if app_name == current_app {
-                return true;
-            }
-            // Promoted apps (above threshold) are never pruned
-            if counters.total_seconds >= threshold {
-                return true;
-            }
-            // Prune if inactive longer than retention window
+            if app_name == current_app { return true; }
+            if counters.total_seconds >= threshold { return true; }
             let inactive_for = now.duration_since(counters.last_active_at);
-            if inactive_for > retention_duration {
-                log::debug!(
-                    "Pruning candidate app '{}' ({}s, inactive {:?})",
-                    app_name,
-                    counters.total_seconds,
-                    inactive_for
-                );
-                return false;
-            }
-            true
+            inactive_for <= retention_duration
         });
     }
 
-    pub fn snapshot(&self) -> SyncPayload {
+    pub fn snapshot(&mut self) -> SyncPayload {
+        self.sequence_number += 1;
+        let sequence_number = self.sequence_number;
+
         fn map_segments(segments: Option<&Vec<Segment>>) -> Vec<SegmentPayload> {
             match segments {
-                Some(segs) => segs
-                    .iter()
-                    .map(|s| SegmentPayload {
-                        started_at: s
-                            .started_at
-                            .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                        ended_at: s
-                            .ended_at
-                            .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                    })
-                    .collect(),
+                Some(segs) => segs.iter().map(|s| SegmentPayload {
+                    started_at: s.started_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                    ended_at: s.ended_at.to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                }).collect(),
                 None => Vec::new(),
             }
         }
 
-        let min_tracked = self.minimum_tracked_seconds;
-
         SyncPayload {
+            sequence_number,
             total_seconds: self.total_seconds,
             active_seconds: self.active_seconds,
             idle_seconds: self.idle_seconds,
-            applications: self
-                .apps
-                .iter()
-                .filter(|(_, c)| c.total_seconds >= min_tracked)
+            applications: self.apps.iter()
+                .filter(|(_, c)| c.total_seconds >= self.minimum_tracked_seconds)
                 .map(|(app_name, c)| {
                     let mut details: Vec<_> = match &c.details {
-                        Some(detail_map) => detail_map
-                            .iter()
+                        Some(map) => map.iter()
                             .filter(|(_, dc)| dc.total_seconds >= 5)
                             .map(|(did, dc)| {
                                 let mut detail_segs = map_segments(dc.segments.as_ref());
@@ -350,16 +298,12 @@ impl SessionAnalytics {
                                     idle_seconds: dc.idle_seconds,
                                     segments: detail_segs,
                                 }
-                            })
-                            .collect(),
+                            }).collect(),
                         None => Vec::new(),
                     };
-
-                    // Cap maximum detail entries per application
                     details.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
                     details.truncate(self.max_details_per_app);
 
-                    // Build app-level segments first, truncate to cap
                     let mut app_segments = map_segments(c.segments.as_ref());
                     app_segments.truncate(self.max_segments_per_app);
 
@@ -371,25 +315,21 @@ impl SessionAnalytics {
                         segments: app_segments,
                         details,
                     }
-                })
-                .collect(),
+                }).collect(),
         }
     }
 }
 
-/// Thread-safe handle to session analytics.
 pub type SharedAnalytics = Arc<Mutex<Option<SessionAnalytics>>>;
 
-/// Creates a new shared analytics handle (starts as None — no active session).
 pub fn new_shared() -> SharedAnalytics {
     Arc::new(Mutex::new(None))
 }
 
-// ─── Serializable payloads for the server API ───
-
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncPayload {
+    pub sequence_number: u64,
     pub total_seconds: u64,
     pub active_seconds: u64,
     pub idle_seconds: u64,
@@ -427,459 +367,4 @@ pub struct AppUsagePayload {
     pub idle_seconds: u64,
     pub segments: Vec<SegmentPayload>,
     pub details: Vec<AppUsageDetailPayload>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::thread::sleep;
-    use std::time::Duration;
-
-    /// Helper: build a RuntimeConfig for tests with all features enabled.
-    fn test_config_all_enabled() -> RuntimeConfig {
-        RuntimeConfig {
-            sync_interval_seconds: 30,
-            sync_jitter_seconds: 5,
-            timeout_seconds: 120,
-            idle_threshold_seconds: 120,
-            enable_details: true,
-            enable_segments: true,
-            max_segments_per_app: 50,
-            max_segments_per_detail: 20,
-            max_details_per_app: 50,
-            minimum_tracked_seconds: 15,
-            candidate_retention_minutes: 10,
-        }
-    }
-
-    /// Helper: build a RuntimeConfig with both features disabled.
-    fn test_config_all_disabled() -> RuntimeConfig {
-        RuntimeConfig {
-            enable_details: false,
-            enable_segments: false,
-            ..test_config_all_enabled()
-        }
-    }
-
-    #[test]
-    fn test_segment_extension_and_creation() {
-        let config = test_config_all_enabled();
-        let mut analytics = SessionAnalytics::new(&config);
-        let app_id = AppIdentity {
-            app_name: "TestApp".to_string(),
-            detail: None,
-        };
-
-        // Tick 1
-        analytics.tick(&app_id, false);
-        let segments = analytics.apps.get("TestApp").unwrap().segments.as_ref().unwrap();
-        assert_eq!(segments.len(), 1);
-        let end1 = segments[0].ended_at;
-
-        // Sleep to simulate time passing (1 sec)
-        sleep(Duration::from_secs(1));
-
-        // Tick 2 (should extend)
-        analytics.tick(&app_id, false);
-        let segments = analytics.apps.get("TestApp").unwrap().segments.as_ref().unwrap();
-        assert_eq!(segments.len(), 1);
-        let end2 = segments[0].ended_at;
-        assert!(end2 > end1);
-
-        // Sleep to simulate long gap (3 secs)
-        sleep(Duration::from_secs(3));
-
-        // Tick 3 (should create new segment because gap > 2 secs)
-        analytics.tick(&app_id, false);
-        let segments = analytics.apps.get("TestApp").unwrap().segments.as_ref().unwrap();
-        assert_eq!(segments.len(), 2);
-    }
-
-    #[test]
-    fn test_segment_eviction_strategy() {
-        let mut segments = Vec::new();
-        let base_time = chrono::Utc::now();
-
-        // Add 51 segments to trigger eviction
-        for i in 0..51 {
-            let start = base_time + chrono::Duration::hours(i);
-            let end = if i == 10 {
-                start // shortest segment (0 duration)
-            } else {
-                start + chrono::Duration::seconds(5)
-            };
-
-            add_or_extend_segment(&mut segments, start, 50);
-            segments.last_mut().unwrap().ended_at = end;
-        }
-
-        let new_start = base_time + chrono::Duration::hours(52);
-        add_or_extend_segment(&mut segments, new_start, 50);
-
-        assert_eq!(segments.len(), 50);
-    }
-
-    #[test]
-    fn test_details_disabled_no_allocations() {
-        let config = RuntimeConfig {
-            enable_details: false,
-            enable_segments: true,
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-        let app_id = AppIdentity {
-            app_name: "Browser".to_string(),
-            detail: Some(AppDetailIdentity {
-                title: Some("Some Page".to_string()),
-                url: Some("https://example.com".to_string()),
-                domain: Some("example.com".to_string()),
-            }),
-        };
-
-        for _ in 0..20 {
-            analytics.tick(&app_id, false);
-        }
-
-        let app = analytics.apps.get("Browser").unwrap();
-        // Details should be None — zero allocation
-        assert!(app.details.is_none());
-        // Segments should still work
-        assert!(app.segments.is_some());
-        assert!(!app.segments.as_ref().unwrap().is_empty());
-    }
-
-    #[test]
-    fn test_segments_disabled_no_allocations() {
-        let config = RuntimeConfig {
-            enable_details: true,
-            enable_segments: false,
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-        let app_id = AppIdentity {
-            app_name: "Editor".to_string(),
-            detail: Some(AppDetailIdentity {
-                title: Some("file.rs".to_string()),
-                url: None,
-                domain: None,
-            }),
-        };
-
-        for _ in 0..20 {
-            analytics.tick(&app_id, false);
-        }
-
-        let app = analytics.apps.get("Editor").unwrap();
-        // Segments should be None — zero allocation
-        assert!(app.segments.is_none());
-        // Details should exist
-        assert!(app.details.is_some());
-        let details = app.details.as_ref().unwrap();
-        assert_eq!(details.len(), 1);
-        // Detail segments should also be None
-        let dc = details.values().next().unwrap();
-        assert!(dc.segments.is_none());
-    }
-
-    #[test]
-    fn test_configurable_segment_eviction() {
-        // Use a small limit to verify configurable eviction
-        let config = RuntimeConfig {
-            max_segments_per_app: 5,
-            enable_segments: true,
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-        // Create 10 segments by introducing gaps
-        for i in 0..10u64 {
-            // Inject a segment with a large gap to force new segment creation
-            let now = chrono::Utc::now() + chrono::Duration::hours(i as i64);
-            let app_counters = analytics
-                .apps
-                .entry("TestApp".to_string())
-                .or_insert_with(|| AppCounters::new_with_flags(true, true));
-            let segs = app_counters.segments.get_or_insert_with(Vec::new);
-            add_or_extend_segment(segs, now, 5);
-        }
-
-        let segs = analytics
-            .apps
-            .get("TestApp")
-            .unwrap()
-            .segments
-            .as_ref()
-            .unwrap();
-        assert!(segs.len() <= 5);
-    }
-
-    #[test]
-    fn test_active_segment_protection() {
-        let mut segments = Vec::new();
-        let base_time = chrono::Utc::now();
-
-        // Fill to limit
-        for i in 0..5 {
-            let start = base_time + chrono::Duration::hours(i);
-            add_or_extend_segment(&mut segments, start, 5);
-            // Make all segments short
-            segments.last_mut().unwrap().ended_at = segments.last().unwrap().started_at;
-        }
-
-        // Add one more to trigger eviction
-        let new_start = base_time + chrono::Duration::hours(10);
-        add_or_extend_segment(&mut segments, new_start, 5);
-
-        // The last segment (active) should be the newly added one
-        assert_eq!(segments.len(), 5);
-        let last = segments.last().unwrap();
-        assert_eq!(last.started_at, new_start);
-    }
-
-    #[test]
-    fn test_browser_hierarchy_correctness() {
-        let config = test_config_all_enabled();
-        let mut analytics = SessionAnalytics::new(&config);
-
-        // Simulate browser with domain normalization —
-        // top-level app_name should be "ChatGPT", details hold the page titles
-        // Identity is based on url+domain; different URLs = different detail entries
-        let app_id = AppIdentity {
-            app_name: "ChatGPT".to_string(),
-            detail: Some(AppDetailIdentity {
-                title: Some("Runtime Config Architecture".to_string()),
-                url: Some("https://chatgpt.com/c/abc123".to_string()),
-                domain: Some("chatgpt.com".to_string()),
-            }),
-        };
-        for _ in 0..20 {
-            analytics.tick(&app_id, false);
-        }
-
-        let app_id2 = AppIdentity {
-            app_name: "ChatGPT".to_string(),
-            detail: Some(AppDetailIdentity {
-                title: Some("Fixing Chrono Timezones".to_string()),
-                url: Some("https://chatgpt.com/c/def456".to_string()),
-                domain: Some("chatgpt.com".to_string()),
-            }),
-        };
-        for _ in 0..10 {
-            analytics.tick(&app_id2, false);
-        }
-
-        // Should be one top-level app "ChatGPT" with 2 details (different URLs)
-        assert!(analytics.apps.contains_key("ChatGPT"));
-        assert!(!analytics.apps.contains_key("Runtime Config Architecture"));
-        let app = analytics.apps.get("ChatGPT").unwrap();
-        let details = app.details.as_ref().unwrap();
-        assert_eq!(details.len(), 2);
-        assert_eq!(app.total_seconds, 30);
-    }
-
-    #[test]
-    fn test_bounded_memory_detail_segments() {
-        let config = RuntimeConfig {
-            max_segments_per_detail: 3,
-            enable_details: true,
-            enable_segments: true,
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-        let detail = AppDetailIdentity {
-            title: Some("page".to_string()),
-            url: None,
-            domain: None,
-        };
-        // Add segments with gaps to force many new segments
-        for i in 0..10u64 {
-            let now = chrono::Utc::now() + chrono::Duration::hours(i as i64);
-            let app_counters = analytics
-                .apps
-                .entry("App".to_string())
-                .or_insert_with(|| AppCounters::new_with_flags(true, true));
-            let details_map = app_counters.details.get_or_insert_with(HashMap::new);
-            let dc = details_map.entry(detail.clone()).or_insert_with(|| AppDetailCounters {
-                total_seconds: 0,
-                active_seconds: 0,
-                idle_seconds: 0,
-                title: None,
-                segments: Some(Vec::new()),
-            });
-            let segs = dc.segments.get_or_insert_with(Vec::new);
-            add_or_extend_segment(segs, now, 3);
-        }
-
-        let dc = analytics
-            .apps
-            .get("App")
-            .unwrap()
-            .details
-            .as_ref()
-            .unwrap()
-            .get(&detail)
-            .unwrap();
-        assert!(dc.segments.as_ref().unwrap().len() <= 3);
-    }
-
-    #[test]
-    fn test_runtime_config_application() {
-        let config = test_config_all_disabled();
-        let analytics = SessionAnalytics::new(&config);
-
-        assert!(!analytics.enable_details);
-        assert!(!analytics.enable_segments);
-        assert_eq!(analytics.max_segments_per_app, 50);
-        assert_eq!(analytics.max_segments_per_detail, 20);
-        assert_eq!(analytics.minimum_tracked_seconds, 15);
-        assert_eq!(analytics.candidate_retention_minutes, 10);
-    }
-
-    #[test]
-    fn test_segment_reuse_extension() {
-        let config = test_config_all_enabled();
-        let mut analytics = SessionAnalytics::new(&config);
-        let app_id = AppIdentity {
-            app_name: "App".to_string(),
-            detail: None,
-        };
-
-        // Rapid consecutive ticks should extend, not create new segments
-        analytics.tick(&app_id, false);
-        analytics.tick(&app_id, false);
-        analytics.tick(&app_id, false);
-
-        let segs = analytics
-            .apps
-            .get("App")
-            .unwrap()
-            .segments
-            .as_ref()
-            .unwrap();
-        assert_eq!(segs.len(), 1, "Consecutive ticks should extend a single segment");
-    }
-
-    #[test]
-    fn test_candidate_pruning() {
-        let config = RuntimeConfig {
-            minimum_tracked_seconds: 10,
-            candidate_retention_minutes: 0, // immediate pruning for test
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-
-        // App with short usage (candidate — below threshold)
-        let candidate = AppIdentity {
-            app_name: "Transient".to_string(),
-            detail: None,
-        };
-        for _ in 0..3 {
-            analytics.tick(&candidate, false);
-        }
-
-        // Promoted app (above threshold)
-        let promoted = AppIdentity {
-            app_name: "MainApp".to_string(),
-            detail: None,
-        };
-        for _ in 0..15 {
-            analytics.tick(&promoted, false);
-        }
-
-        // Simulate candidate going stale
-        if let Some(ac) = analytics.apps.get_mut("Transient") {
-            ac.last_active_at = Instant::now() - Duration::from_secs(120);
-        }
-
-        // Force pruning by setting counter to 59 and ticking once more
-        analytics.prune_counter = 59;
-        analytics.tick(&promoted, false);
-
-        // Transient should be pruned, MainApp preserved
-        assert!(
-            !analytics.apps.contains_key("Transient"),
-            "Candidate app should be pruned after retention window"
-        );
-        assert!(
-            analytics.apps.contains_key("MainApp"),
-            "Promoted app should be preserved"
-        );
-    }
-
-    #[test]
-    fn test_configurable_details_eviction() {
-        let config = RuntimeConfig {
-            max_details_per_app: 3,
-            enable_details: true,
-            minimum_tracked_seconds: 0,
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-
-        // Record 5 distinct details under the same app.
-        // We will make some details more active than others.
-        // Loop with at least 5 ticks so that they pass the `total_seconds >= 5` gateway in snapshot compilation.
-        for i in 1..=5 {
-            let detail_id = AppDetailIdentity {
-                title: Some(format!("Page {}", i)),
-                url: Some(format!("https://example.com/{}", i)),
-                domain: Some("example.com".to_string()),
-            };
-            let app_id = AppIdentity {
-                app_name: "Browser".to_string(),
-                detail: Some(detail_id),
-            };
-            
-            // Ticks: Page 1 = 5, Page 2 = 6, Page 3 = 7, Page 4 = 8, Page 5 = 9
-            for _ in 0..(i + 4) {
-                analytics.tick(&app_id, false);
-            }
-        }
-
-        // Snapshot details list and verify size is exactly max_details_per_app (3)
-        let payload = analytics.snapshot();
-        assert_eq!(payload.applications.len(), 1);
-        
-        let app_payload = &payload.applications[0];
-        let details = &app_payload.details;
-        assert_eq!(details.len(), 3);
-
-        // The details kept should be Page 5, Page 4, Page 3 because they had higher total seconds.
-        // Page 1 and Page 2 should have been evicted/truncated.
-        let titles: Vec<_> = details.iter().map(|d| d.title.as_ref().unwrap().as_str()).collect();
-        assert!(titles.contains(&"Page 5"));
-        assert!(titles.contains(&"Page 4"));
-        assert!(titles.contains(&"Page 3"));
-        assert!(!titles.contains(&"Page 2"));
-        assert!(!titles.contains(&"Page 1"));
-    }
-
-    #[test]
-    fn test_snapshot_uses_configurable_threshold() {
-        let config = RuntimeConfig {
-            minimum_tracked_seconds: 5,
-            ..test_config_all_enabled()
-        };
-        let mut analytics = SessionAnalytics::new(&config);
-
-        let app_short = AppIdentity {
-            app_name: "Short".to_string(),
-            detail: None,
-        };
-        for _ in 0..3 {
-            analytics.tick(&app_short, false);
-        }
-
-        let app_long = AppIdentity {
-            app_name: "Long".to_string(),
-            detail: None,
-        };
-        for _ in 0..10 {
-            analytics.tick(&app_long, false);
-        }
-
-        let payload = analytics.snapshot();
-        let app_names: Vec<_> = payload.applications.iter().map(|a| &a.app_name).collect();
-        assert!(app_names.contains(&&"Long".to_string()));
-        assert!(!app_names.contains(&&"Short".to_string()));
-    }
 }

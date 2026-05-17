@@ -353,7 +353,7 @@ fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
         }
     };
 
-    let sanitized_url = sanitize_url(url_str);
+    let sanitized_url = sanitize_url(&url_to_parse);
 
     AppIdentity {
         app_name,

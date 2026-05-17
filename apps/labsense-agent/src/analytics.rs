@@ -336,14 +336,18 @@ impl SessionAnalytics {
                         Some(detail_map) => detail_map
                             .iter()
                             .filter(|(_, dc)| dc.total_seconds >= 5)
-                            .map(|(did, dc)| AppUsageDetailPayload {
-                                title: dc.title.clone(),
-                                url: did.url.clone(),
-                                domain: did.domain.clone(),
-                                total_seconds: dc.total_seconds,
-                                active_seconds: dc.active_seconds,
-                                idle_seconds: dc.idle_seconds,
-                                segments: map_segments(dc.segments.as_ref()),
+                            .map(|(did, dc)| {
+                                let mut detail_segs = map_segments(dc.segments.as_ref());
+                                detail_segs.truncate(self.max_segments_per_detail);
+                                AppUsageDetailPayload {
+                                    title: dc.title.clone(),
+                                    url: did.url.clone(),
+                                    domain: did.domain.clone(),
+                                    total_seconds: dc.total_seconds,
+                                    active_seconds: dc.active_seconds,
+                                    idle_seconds: dc.idle_seconds,
+                                    segments: detail_segs,
+                                }
                             })
                             .collect(),
                         None => Vec::new(),
@@ -355,25 +359,7 @@ impl SessionAnalytics {
 
                     // Build app-level segments first, truncate to cap
                     let mut app_segments = map_segments(c.segments.as_ref());
-                    let max_total_segs = self.max_segments_per_app;
-                    app_segments.truncate(max_total_segs);
-
-                    // Enforce TOTAL segments (app-level + all details) ≤ maxSegmentsPerApp.
-                    // App-level segments get first priority.
-                    let remaining_budget = max_total_segs.saturating_sub(app_segments.len());
-                    let total_detail_segs: usize =
-                        details.iter().map(|d| d.segments.len()).sum();
-                    if total_detail_segs > remaining_budget {
-                        let mut budget = remaining_budget;
-                        for d in details.iter_mut() {
-                            if d.segments.len() <= budget {
-                                budget -= d.segments.len();
-                            } else {
-                                d.segments.truncate(budget);
-                                budget = 0;
-                            }
-                        }
-                    }
+                    app_segments.truncate(self.max_segments_per_app);
 
                     AppUsagePayload {
                         app_name: app_name.clone(),

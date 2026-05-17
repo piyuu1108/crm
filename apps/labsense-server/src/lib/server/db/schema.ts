@@ -111,7 +111,7 @@ export const sessionDetails = pgTable(
 		idleSeconds: integer('idle_seconds').notNull().default(0),
 		updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 	},
-	(t) => [unique('uq_session_detail').on(t.appId, t.title, t.url)]
+	(t) => [unique('uq_session_detail').on(t.appId, t.title, t.url).nullsNotDistinct()]
 );
 
 export const activitySegments = pgTable(
@@ -133,7 +133,7 @@ export const activitySegments = pgTable(
 		index('idx_segments_session').on(t.sessionId),
 		index('idx_segments_app').on(t.appId),
 		index('idx_segments_detail').on(t.detailId),
-		unique('uq_activity_segment').on(t.sessionId, t.startedAt, t.endedAt, t.appId, t.detailId)
+		unique('uq_activity_segment').on(t.sessionId, t.appId, t.detailId, t.startedAt).nullsNotDistinct()
 	]
 );
 

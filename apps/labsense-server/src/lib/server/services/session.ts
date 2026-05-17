@@ -1,15 +1,15 @@
 import { db } from '$lib/server/db';
 import { labSessions, sessionApps, machines, sessionDetails, activitySegments } from '$lib/server/db/schema';
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, lt, sql } from 'drizzle-orm';
 import type { SyncPayload } from '$lib/server/types';
 
 /**
  * Syncs session data from the agent. Runs in a single transaction:
  * 1. Validates session exists and is active
- * 2. Updates session aggregates + last_sync_at
- * 3. Updates machine last_seen_at
- * 4. Upserts application usage aggregates
- * 5. Deletes + re-inserts details and segments (cumulative replace)
+ * 2. Updates session aggregates + machine last_seen_at
+ * 3. Bulk upserts application aggregates
+ * 4. Bulk upserts detail aggregates
+ * 5. Bulk upserts activity segments (both app-level and detail-level)
  */
 export async function syncSession(
 	sessionId: string,
@@ -36,7 +36,7 @@ export async function syncSession(
 
 		const now = new Date();
 
-		// 2. Update session aggregates
+		// 2. Update session aggregates & machine last_seen
 		await tx
 			.update(labSessions)
 			.set({
@@ -47,89 +47,151 @@ export async function syncSession(
 			})
 			.where(eq(labSessions.id, sessionId));
 
-		// 3. Update machine last_seen_at
 		await tx
 			.update(machines)
 			.set({ lastSeenAt: now })
 			.where(eq(machines.id, session.machineId));
 
-		// 4. Upsert application aggregates
+		// ─── Phase A: Bulk Upsert Applications ───────────────────
+
+		if (payload.applications.length === 0) {
+			return { ok: true };
+		}
+
+		const appValues = payload.applications.map((app) => ({
+			sessionId,
+			appName: app.appName,
+			totalSeconds: app.totalSeconds,
+			activeSeconds: app.activeSeconds,
+			idleSeconds: app.idleSeconds,
+			updatedAt: now
+		}));
+
+		const upsertedApps = await tx
+			.insert(sessionApps)
+			.values(appValues)
+			.onConflictDoUpdate({
+				target: [sessionApps.sessionId, sessionApps.appName],
+				set: {
+					totalSeconds: sql`EXCLUDED.total_seconds`,
+					activeSeconds: sql`EXCLUDED.active_seconds`,
+					idleSeconds: sql`EXCLUDED.idle_seconds`,
+					updatedAt: sql`EXCLUDED.updated_at`
+				}
+			})
+			.returning({ id: sessionApps.id, appName: sessionApps.appName });
+
+		// Map appName to database UUID
+		const appMap = new Map(upsertedApps.map((a) => [a.appName, a.id]));
+
+		// ─── Phase B: Bulk Upsert Details ────────────────────────
+
+		const detailValues: any[] = [];
+
 		for (const app of payload.applications) {
-			const [upsertedApp] = await tx
-				.insert(sessionApps)
-				.values({
-					sessionId,
-					appName: app.appName,
-					totalSeconds: app.totalSeconds,
-					activeSeconds: app.activeSeconds,
-					idleSeconds: app.idleSeconds,
+			const appId = appMap.get(app.appName);
+			if (!appId || !app.details) continue;
+
+			for (const detail of app.details) {
+				detailValues.push({
+					appId,
+					title: detail.title,
+					url: detail.url ?? null,
+					domain: detail.domain ?? null,
+					totalSeconds: detail.totalSeconds,
+					activeSeconds: detail.activeSeconds,
+					idleSeconds: detail.idleSeconds,
 					updatedAt: now
-				})
+				});
+			}
+		}
+
+		let detailMap = new Map<string, string>();
+		if (detailValues.length > 0) {
+			const upsertedDetails = await tx
+				.insert(sessionDetails)
+				.values(detailValues)
 				.onConflictDoUpdate({
-					target: [sessionApps.sessionId, sessionApps.appName],
+					target: [sessionDetails.appId, sessionDetails.title, sessionDetails.url],
 					set: {
-						totalSeconds: app.totalSeconds,
-						activeSeconds: app.activeSeconds,
-						idleSeconds: app.idleSeconds,
-						updatedAt: now
+						totalSeconds: sql`EXCLUDED.total_seconds`,
+						activeSeconds: sql`EXCLUDED.active_seconds`,
+						idleSeconds: sql`EXCLUDED.idle_seconds`,
+						updatedAt: sql`EXCLUDED.updated_at`
 					}
 				})
-				.returning({ id: sessionApps.id });
+				.returning({
+					id: sessionDetails.id,
+					appId: sessionDetails.appId,
+					title: sessionDetails.title,
+					url: sessionDetails.url
+				});
 
-			// 5. Delete stale segments for this app (before details, since segments FK to details)
-			await tx.delete(activitySegments).where(eq(activitySegments.appId, upsertedApp.id));
+			// Map (appId|title|url) to database UUID
+			detailMap = new Map(
+				upsertedDetails.map((d) => [`${d.appId}|${d.title}|${d.url}`, d.id])
+			);
+		}
 
-			// 6. Delete stale details for this app, then re-insert fresh
-			// (Agent sends cumulative snapshots — full replace semantics.
-			//  Upsert breaks because PostgreSQL treats NULL != NULL in unique constraints,
-			//  so details with NULL url create duplicate rows every sync cycle.)
-			await tx.delete(sessionDetails).where(eq(sessionDetails.appId, upsertedApp.id));
+		// ─── Phase C: Bulk Upsert Segments ────────────────────────
 
-			if (app.details && app.details.length > 0) {
-				for (const detail of app.details) {
-					const [insertedDetail] = await tx
-						.insert(sessionDetails)
-						.values({
-							appId: upsertedApp.id,
-							title: detail.title,
-							url: detail.url ?? null,
-							domain: detail.domain ?? null,
-							totalSeconds: detail.totalSeconds,
-							activeSeconds: detail.activeSeconds,
-							idleSeconds: detail.idleSeconds,
-							updatedAt: now
-						})
-						.returning({ id: sessionDetails.id });
+		const segmentValues: any[] = [];
 
-					// 7. Insert detail segments
-					if (detail.segments && detail.segments.length > 0) {
-						await tx
-							.insert(activitySegments)
-							.values(
-								detail.segments.map((s) => ({
-									sessionId,
-									appId: upsertedApp.id,
-									detailId: insertedDetail.id,
-									startedAt: new Date(s.startedAt),
-									endedAt: new Date(s.endedAt)
-								}))
-							);
-					}
+		for (const app of payload.applications) {
+			const appId = appMap.get(app.appName);
+			if (!appId) continue;
+
+			// App-level segments
+			if (app.segments) {
+				for (const s of app.segments) {
+					segmentValues.push({
+						sessionId,
+						appId,
+						detailId: null,
+						startedAt: new Date(s.startedAt),
+						endedAt: new Date(s.endedAt)
+					});
 				}
 			}
 
-			// 8. Insert app-level segments
-			if (app.segments && app.segments.length > 0) {
-				await tx
-					.insert(activitySegments)
-					.values(
-						app.segments.map((s) => ({
+			// Detail-level segments
+			if (app.details) {
+				for (const detail of app.details) {
+					const detailId = detailMap.get(`${appId}|${detail.title}|${detail.url ?? null}`);
+					if (!detailId || !detail.segments) continue;
+
+					for (const s of detail.segments) {
+						segmentValues.push({
 							sessionId,
-							appId: upsertedApp.id,
+							appId,
+							detailId,
 							startedAt: new Date(s.startedAt),
 							endedAt: new Date(s.endedAt)
-						}))
-					);
+						});
+					}
+				}
+			}
+		}
+
+		if (segmentValues.length > 0) {
+			// Chunk segments to avoid PostgreSQL parameter limit (65,535)
+			const CHUNK_SIZE = 5000;
+			for (let i = 0; i < segmentValues.length; i += CHUNK_SIZE) {
+				const chunk = segmentValues.slice(i, i + CHUNK_SIZE);
+				await tx
+					.insert(activitySegments)
+					.values(chunk)
+					.onConflictDoUpdate({
+						target: [
+							activitySegments.sessionId,
+							activitySegments.appId,
+							activitySegments.detailId,
+							activitySegments.startedAt
+						],
+						set: {
+							endedAt: sql`EXCLUDED.ended_at`
+						}
+					});
 			}
 		}
 
@@ -139,7 +201,6 @@ export async function syncSession(
 
 /**
  * Marks a session as completed with reason = logout.
- * Rejects sessions that are already completed.
  */
 export async function logoutSession(
 	sessionId: string
@@ -176,9 +237,7 @@ export async function logoutSession(
 }
 
 /**
- * Batch-updates all active sessions whose last_sync_at is older than the
- * timeout threshold. Marks them as completed with reason = timeout.
- * Returns the count of timed-out sessions.
+ * Batch-updates all active sessions whose last_sync_at is older than the threshold.
  */
 export async function sweepTimedOutSessions(timeoutSeconds: number): Promise<number> {
 	const cutoff = new Date(Date.now() - timeoutSeconds * 1000);

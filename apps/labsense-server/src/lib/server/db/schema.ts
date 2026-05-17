@@ -14,6 +14,7 @@ import {
 
 export const sessionStatusEnum = pgEnum('session_status', ['active', 'completed']);
 export const endReasonEnum = pgEnum('end_reason', ['logout', 'timeout']);
+export const schedulingModeEnum = pgEnum('scheduling_mode', ['random_jitter', 'deterministic_slot']);
 
 // ── Admin Auth ──────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ export const systemSettings = pgTable('system_settings', {
 	id: integer('id').primaryKey(),
 	syncIntervalSeconds: integer('sync_interval_seconds').notNull().default(30),
 	syncJitterSeconds: integer('sync_jitter_seconds').notNull().default(30),
+	schedulingMode: schedulingModeEnum('scheduling_mode').notNull().default('deterministic_slot'),
 	timeoutSeconds: integer('timeout_seconds').notNull().default(120),
 	idleThresholdSeconds: integer('idle_threshold_seconds').notNull().default(120),
 	enableDetails: boolean('enable_details').notNull().default(true),
@@ -154,4 +156,3 @@ export const systemSettings = pgTable('system_settings', {
 	candidateRetentionMinutes: integer('candidate_retention_minutes').notNull().default(10),
 	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 });
-

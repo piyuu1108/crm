@@ -2,12 +2,21 @@ use crate::api_client::LoginResponse;
 use parking_lot::Mutex;
 use std::sync::Arc;
 use tokio::sync::Notify;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum SchedulingMode {
+    RandomJitter,
+    DeterministicSlot,
+}
 
 /// Runtime configuration received from the server after login.
 #[derive(Debug, Clone)]
 pub struct RuntimeConfig {
     pub sync_interval_seconds: u64,
     pub sync_jitter_seconds: u64,
+    pub scheduling_mode: SchedulingMode,
     pub timeout_seconds: u64,
     pub idle_threshold_seconds: u64,
     pub enable_details: bool,
@@ -24,6 +33,7 @@ impl From<&LoginResponse> for RuntimeConfig {
         Self {
             sync_interval_seconds: resp.sync_interval_seconds,
             sync_jitter_seconds: resp.sync_jitter_seconds,
+            scheduling_mode: resp.scheduling_mode.clone(),
             timeout_seconds: resp.timeout_seconds,
             idle_threshold_seconds: resp.idle_threshold_seconds,
             enable_details: resp.enable_details,

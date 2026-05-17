@@ -1,4 +1,5 @@
 use crate::analytics::SyncPayload;
+use crate::session::SchedulingMode;
 use serde::{Deserialize, Serialize};
 
 /// HTTP client for the LabSense server API.
@@ -48,6 +49,7 @@ pub struct LoginRequest {
 }
 
 fn default_false() -> bool { false }
+fn default_scheduling_mode() -> SchedulingMode { SchedulingMode::DeterministicSlot }
 fn default_max_segments_per_app() -> usize { 50 }
 fn default_max_segments_per_detail() -> usize { 20 }
 fn default_max_details_per_app() -> usize { 50 }
@@ -60,6 +62,8 @@ pub struct LoginResponse {
     pub session_id: String,
     pub sync_interval_seconds: u64,
     pub sync_jitter_seconds: u64,
+    #[serde(default = "default_scheduling_mode")]
+    pub scheduling_mode: SchedulingMode,
     pub timeout_seconds: u64,
     pub idle_threshold_seconds: u64,
     #[serde(default = "default_false")]
@@ -175,9 +179,10 @@ impl ApiClient {
                     .map_err(|e| AgentError::Network(e.to_string()))?;
                 log::info!("Login successful — session: {}", body.session_id);
                 log::info!(
-                    "Sync settings received from server: sync_interval={}s, sync_jitter={}s, timeout={}s, idle_threshold={}s, enable_details={}, enable_segments={}, max_segments_per_app={}, max_segments_per_detail={}, max_details_per_app={}, minimum_tracked={}s, candidate_retention={}m",
+                    "Sync settings received from server: sync_interval={}s, sync_jitter={}s, scheduling_mode={:?}, timeout={}s, idle_threshold={}s, enable_details={}, enable_segments={}, max_segments_per_app={}, max_segments_per_detail={}, max_details_per_app={}, minimum_tracked={}s, candidate_retention={}m",
                     body.sync_interval_seconds,
                     body.sync_jitter_seconds,
+                    body.scheduling_mode,
                     body.timeout_seconds,
                     body.idle_threshold_seconds,
                     body.enable_details,

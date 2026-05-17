@@ -100,6 +100,7 @@ export async function createLabSession(
 export async function getSystemSettings(): Promise<{
 	syncIntervalSeconds: number;
 	syncJitterSeconds: number;
+	schedulingMode: 'random_jitter' | 'deterministic_slot';
 	timeoutSeconds: number;
 	idleThresholdSeconds: number;
 	enableDetails: boolean;
@@ -116,6 +117,7 @@ export async function getSystemSettings(): Promise<{
 		return {
 			syncIntervalSeconds: 30,
 			syncJitterSeconds: 30,
+			schedulingMode: 'deterministic_slot',
 			timeoutSeconds: 120,
 			idleThresholdSeconds: 120,
 			enableDetails: true,
@@ -131,6 +133,7 @@ export async function getSystemSettings(): Promise<{
 	return {
 		syncIntervalSeconds: settings.syncIntervalSeconds,
 		syncJitterSeconds: settings.syncJitterSeconds,
+		schedulingMode: settings.schedulingMode as 'random_jitter' | 'deterministic_slot',
 		timeoutSeconds: settings.timeoutSeconds,
 		idleThresholdSeconds: settings.idleThresholdSeconds,
 		enableDetails: settings.enableDetails,

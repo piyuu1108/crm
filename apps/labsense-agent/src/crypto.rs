@@ -1,5 +1,5 @@
 use aes_gcm::{
-    aead::{Aead, KeyInit, OsRng},
+    aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
 use base64::{engine::general_purpose, Engine as _};
@@ -8,7 +8,16 @@ use rsa::{Oaep, RsaPublicKey};
 use sha2::Sha256;
 
 /// Hardcoded RSA Public Key (2048-bit)
-const PUBLIC_KEY_PEM: &str = include_str!("public_key.pem");
+const PUBLIC_KEY_PEM: &str = r#"-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsjOpZ0P/V5BucdMDogEA
+JR1vJcKXKVPRY1D+f9mOaGEru2mv7kVXj3sk2BhEI4w33SIhElQ6jNQX2f2q3leA
+EDcvi7FVwvuACShRFLKG9BA+F0VipsVEOxr/5hWRfQ6LzStgC0FxyF8tBTzkh7Rl
+gJmcYMAPZ46DTVuUYco4R4sDZUAaOA8nKZbFkSY0cTWFfRjgrWjmihmvMQkShbEF
+sdE5vPM0dckbuEzFm3ZZrQwqzRMGhtvMOPGrqh0GGQ6lAEDJL7e35rphoPTjaboc
+5tiZTqf6B+lpZjj77Cbya1i8o6Cg3z7F9D7poVnBnxMJ6s2ejSQTrV0yFfsno0UV
+3wIDAQAB
+-----END PUBLIC KEY-----
+"#;
 
 /// Generate a 32-byte AES-256 key
 pub fn generate_aes_key() -> [u8; 32] {

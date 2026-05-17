@@ -26,8 +26,8 @@ graph LR
         S[LabSense Server<br/>SvelteKit + PostgreSQL]
     end
 
-    A -- "POST /api/agent/login" --> S
-    A -- "PATCH /api/sessions/:id<br/>(cumulative sync every 30s)" --> S
+    A -- "POST /api/agent/login<br/>(RSA-OAEP Encrypted)" --> S
+    A -- "PATCH /api/agent/sync<br/>(AES-GCM Encrypted every 30s)" --> S
     A -- "POST /api/sessions/:id/logout" --> S
     S -- "Admin Dashboard<br/>:5173" --> D[Admin Browser]
     A -- "Student Login UI<br/>:21211" --> U[Student Browser]
@@ -231,8 +231,8 @@ erDiagram
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| `POST` | `/api/agent/login` | None (CORS *) | Student login → create session |
-| `PATCH` | `/api/sessions/:id` | None (CORS *) | Cumulative analytics sync |
+| `POST` | `/api/agent/login` | RSA-OAEP | Student login → securely exchanges AES key & creates session |
+| `PATCH` | `/api/agent/sync` | AES-GCM | Secure cumulative analytics sync using in-memory AES key |
 | `POST` | `/api/sessions/:id/logout` | None (CORS *) | End session (reason: logout) |
 
 > Agent API endpoints use permissive CORS (`Access-Control-Allow-Origin: *`) for LAN communication. Admin dashboard routes use cookie-based session auth.
@@ -262,10 +262,23 @@ Central Server (Linux/Docker)
 
 ---
 
-## Security Model
+## Security Model & Hybrid Cryptography
+
+LabSense employs a highly secure **Application-Layer Hybrid Cryptography** architecture, ensuring payload confidentiality and authenticity independently of the network transport layer.
+
+### 1. Cryptographic Pipeline
+- **Key Exchange (RSA-OAEP):** On login, the Rust agent generates a cryptographically secure 32-byte AES key. The sensitive payload (Student ID, Password, AES Key) is encrypted using a hardcoded **RSA-2048** Public Key (OAEP padding, SHA-256) before transmission. The server decrypts this payload using its `.env` Private Key and authenticates the student via Argon2.
+- **Telemetry Encryption (AES-GCM):** The server stores the active AES key in a secure, rolling in-memory Key Vault (5-minute TTL). For every sync cycle, the agent generates a fresh 12-byte CSPRNG nonce and encrypts the telemetry payload using **AES-256-GCM**. This strictly prevents Man-in-the-Middle (MITM) tampering and eavesdropping.
+
+### 2. Self-Healing Resilience
+If the server restarts or the AES Key Vault expires (returning an `HTTP 401`), the agent intercepts the failure and **retains the telemetry payload in memory**. It triggers a silent re-authentication loop using exponential backoff (15s up to 60s max) to acquire a new AES key, instantly re-encrypts the retained payload, and retries the sync — guaranteeing **zero data loss** during backend deployments or network drops.
+
+### 3. Core Protections
 
 | Layer | Mechanism |
 |-------|-----------|
+| **Payload Integrity** | AES-GCM 16-byte Auth Tag verifies telemetry wasn't tampered with |
+| **MITM Resistance** | Asymmetric RSA Key Exchange + symmetric payload encryption |
 | **Student auth** | Argon2id (2 iterations, 32 MB memory, peppered) — verified server-side |
 | **Admin auth** | Argon2id + cookie sessions (1-hour expiry, HttpOnly, SameSite=Lax) |
 | **Settings protection** | Separate confirmation password for config changes |
@@ -273,6 +286,7 @@ Central Server (Linux/Docker)
 | **URL privacy** | Query param stripping, auth page blocking, fragment removal |
 | **Network** | Agent listens only on `127.0.0.1:21211` (loopback — not reachable from network) |
 | **Machine identity** | Stable hardware fingerprint via Windows `MachineGuid` registry key |
+| **DoS Protection** | Memory-bounded rate limiters (with garbage collection) on login endpoints |
 
 ---
 

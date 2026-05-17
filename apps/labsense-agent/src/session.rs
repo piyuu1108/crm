@@ -14,6 +14,7 @@ pub struct RuntimeConfig {
     pub enable_segments: bool,
     pub max_segments_per_app: usize,
     pub max_segments_per_detail: usize,
+    pub max_details_per_app: usize,
     pub minimum_tracked_seconds: u64,
     pub candidate_retention_minutes: u64,
 }
@@ -29,6 +30,7 @@ impl From<&LoginResponse> for RuntimeConfig {
             enable_segments: resp.enable_segments,
             max_segments_per_app: resp.max_segments_per_app,
             max_segments_per_detail: resp.max_segments_per_detail,
+            max_details_per_app: resp.max_details_per_app,
             minimum_tracked_seconds: resp.minimum_tracked_seconds,
             candidate_retention_minutes: resp.candidate_retention_minutes,
         }

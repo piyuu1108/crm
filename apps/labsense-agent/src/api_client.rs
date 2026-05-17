@@ -50,6 +50,7 @@ pub struct LoginRequest {
 fn default_false() -> bool { false }
 fn default_max_segments_per_app() -> usize { 50 }
 fn default_max_segments_per_detail() -> usize { 20 }
+fn default_max_details_per_app() -> usize { 50 }
 fn default_minimum_tracked_seconds() -> u64 { 15 }
 fn default_candidate_retention_minutes() -> u64 { 10 }
 
@@ -69,6 +70,8 @@ pub struct LoginResponse {
     pub max_segments_per_app: usize,
     #[serde(default = "default_max_segments_per_detail")]
     pub max_segments_per_detail: usize,
+    #[serde(default = "default_max_details_per_app")]
+    pub max_details_per_app: usize,
     #[serde(default = "default_minimum_tracked_seconds")]
     pub minimum_tracked_seconds: u64,
     #[serde(default = "default_candidate_retention_minutes")]
@@ -171,6 +174,20 @@ impl ApiClient {
                     .await
                     .map_err(|e| AgentError::Network(e.to_string()))?;
                 log::info!("Login successful — session: {}", body.session_id);
+                log::info!(
+                    "Sync settings received from server: sync_interval={}s, sync_jitter={}s, timeout={}s, idle_threshold={}s, enable_details={}, enable_segments={}, max_segments_per_app={}, max_segments_per_detail={}, max_details_per_app={}, minimum_tracked={}s, candidate_retention={}m",
+                    body.sync_interval_seconds,
+                    body.sync_jitter_seconds,
+                    body.timeout_seconds,
+                    body.idle_threshold_seconds,
+                    body.enable_details,
+                    body.enable_segments,
+                    body.max_segments_per_app,
+                    body.max_segments_per_detail,
+                    body.max_details_per_app,
+                    body.minimum_tracked_seconds,
+                    body.candidate_retention_minutes
+                );
                 Ok((body, aes_key))
             }
             400 => {

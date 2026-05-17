@@ -141,6 +141,7 @@ pub struct SessionAnalytics {
     pub enable_segments: bool,
     pub max_segments_per_app: usize,
     pub max_segments_per_detail: usize,
+    pub max_details_per_app: usize,
     pub minimum_tracked_seconds: u64,
     pub candidate_retention_minutes: u64,
     /// Tick counter for periodic pruning (run every ~60 ticks ≈ 1 minute).
@@ -159,6 +160,7 @@ impl SessionAnalytics {
             enable_segments: config.enable_segments,
             max_segments_per_app: config.max_segments_per_app,
             max_segments_per_detail: config.max_segments_per_detail,
+            max_details_per_app: config.max_details_per_app,
             minimum_tracked_seconds: config.minimum_tracked_seconds,
             candidate_retention_minutes: config.candidate_retention_minutes,
             prune_counter: 0,
@@ -211,8 +213,9 @@ impl SessionAnalytics {
             if let Some(detail) = &identity.detail {
                 let details_map = app_counters.details.get_or_insert_with(HashMap::new);
 
-                // Memory bound: Cap details at 100.
-                if !details_map.contains_key(detail) && details_map.len() >= 100 {
+                // Memory bound: Cap details at 2 * max_details_per_app.
+                let mem_cap = self.max_details_per_app.saturating_mul(2);
+                if !details_map.contains_key(detail) && details_map.len() >= mem_cap {
                     let mut min_key = None;
                     let mut min_secs = u64::MAX;
                     for (k, v) in details_map.iter() {
@@ -352,9 +355,9 @@ impl SessionAnalytics {
                         None => Vec::new(),
                     };
 
-                    // Cap maximum detail entries per application to 50
+                    // Cap maximum detail entries per application
                     details.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
-                    details.truncate(50);
+                    details.truncate(self.max_details_per_app);
 
                     // Build app-level segments first, truncate to cap
                     let mut app_segments = map_segments(c.segments.as_ref());
@@ -443,6 +446,7 @@ mod tests {
             enable_segments: true,
             max_segments_per_app: 50,
             max_segments_per_detail: 20,
+            max_details_per_app: 50,
             minimum_tracked_seconds: 15,
             candidate_retention_minutes: 10,
         }
@@ -799,6 +803,54 @@ mod tests {
             analytics.apps.contains_key("MainApp"),
             "Promoted app should be preserved"
         );
+    }
+
+    #[test]
+    fn test_configurable_details_eviction() {
+        let config = RuntimeConfig {
+            max_details_per_app: 3,
+            enable_details: true,
+            minimum_tracked_seconds: 0,
+            ..test_config_all_enabled()
+        };
+        let mut analytics = SessionAnalytics::new(&config);
+
+        // Record 5 distinct details under the same app.
+        // We will make some details more active than others.
+        // Loop with at least 5 ticks so that they pass the `total_seconds >= 5` gateway in snapshot compilation.
+        for i in 1..=5 {
+            let detail_id = AppDetailIdentity {
+                title: Some(format!("Page {}", i)),
+                url: Some(format!("https://example.com/{}", i)),
+                domain: Some("example.com".to_string()),
+            };
+            let app_id = AppIdentity {
+                app_name: "Browser".to_string(),
+                detail: Some(detail_id),
+            };
+            
+            // Ticks: Page 1 = 5, Page 2 = 6, Page 3 = 7, Page 4 = 8, Page 5 = 9
+            for _ in 0..(i + 4) {
+                analytics.tick(&app_id, false);
+            }
+        }
+
+        // Snapshot details list and verify size is exactly max_details_per_app (3)
+        let payload = analytics.snapshot();
+        assert_eq!(payload.applications.len(), 1);
+        
+        let app_payload = &payload.applications[0];
+        let details = &app_payload.details;
+        assert_eq!(details.len(), 3);
+
+        // The details kept should be Page 5, Page 4, Page 3 because they had higher total seconds.
+        // Page 1 and Page 2 should have been evicted/truncated.
+        let titles: Vec<_> = details.iter().map(|d| d.title.as_ref().unwrap().as_str()).collect();
+        assert!(titles.contains(&"Page 5"));
+        assert!(titles.contains(&"Page 4"));
+        assert!(titles.contains(&"Page 3"));
+        assert!(!titles.contains(&"Page 2"));
+        assert!(!titles.contains(&"Page 1"));
     }
 
     #[test]

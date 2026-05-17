@@ -58,7 +58,10 @@ export async function syncSession(
 			return { ok: true };
 		}
 
-		const appValues = payload.applications.map((app) => ({
+		// Fix 3: Deterministic Sort to prevent Deadlocks
+		const sortedApps = [...payload.applications].sort((a, b) => a.appName.localeCompare(b.appName));
+
+		const appValues = sortedApps.map((app) => ({
 			sessionId,
 			appName: app.appName,
 			totalSeconds: app.totalSeconds,
@@ -73,9 +76,10 @@ export async function syncSession(
 			.onConflictDoUpdate({
 				target: [sessionApps.sessionId, sessionApps.appName],
 				set: {
-					totalSeconds: sql`EXCLUDED.total_seconds`,
-					activeSeconds: sql`EXCLUDED.active_seconds`,
-					idleSeconds: sql`EXCLUDED.idle_seconds`,
+					// Fix 2: Monotonicity Guard (Time-Travel Fix)
+					totalSeconds: sql`GREATEST(${sessionApps.totalSeconds}, EXCLUDED.total_seconds)`,
+					activeSeconds: sql`GREATEST(${sessionApps.activeSeconds}, EXCLUDED.active_seconds)`,
+					idleSeconds: sql`GREATEST(${sessionApps.idleSeconds}, EXCLUDED.idle_seconds)`,
 					updatedAt: sql`EXCLUDED.updated_at`
 				}
 			})
@@ -88,11 +92,18 @@ export async function syncSession(
 
 		const detailValues: any[] = [];
 
-		for (const app of payload.applications) {
+		for (const app of sortedApps) {
 			const appId = appMap.get(app.appName);
 			if (!appId || !app.details) continue;
 
-			for (const detail of app.details) {
+			// Fix 3: Sort details deterministically
+			const sortedDetails = [...app.details].sort((a, b) => {
+				const titleCmp = (a.title || '').localeCompare(b.title || '');
+				if (titleCmp !== 0) return titleCmp;
+				return (a.url || '').localeCompare(b.url || '');
+			});
+
+			for (const detail of sortedDetails) {
 				detailValues.push({
 					appId,
 					title: detail.title,
@@ -114,9 +125,10 @@ export async function syncSession(
 				.onConflictDoUpdate({
 					target: [sessionDetails.appId, sessionDetails.title, sessionDetails.url],
 					set: {
-						totalSeconds: sql`EXCLUDED.total_seconds`,
-						activeSeconds: sql`EXCLUDED.active_seconds`,
-						idleSeconds: sql`EXCLUDED.idle_seconds`,
+						// Fix 2: Monotonicity Guard
+						totalSeconds: sql`GREATEST(${sessionDetails.totalSeconds}, EXCLUDED.total_seconds)`,
+						activeSeconds: sql`GREATEST(${sessionDetails.activeSeconds}, EXCLUDED.active_seconds)`,
+						idleSeconds: sql`GREATEST(${sessionDetails.idleSeconds}, EXCLUDED.idle_seconds)`,
 						updatedAt: sql`EXCLUDED.updated_at`
 					}
 				})
@@ -137,7 +149,7 @@ export async function syncSession(
 
 		const segmentValues: any[] = [];
 
-		for (const app of payload.applications) {
+		for (const app of sortedApps) {
 			const appId = appMap.get(app.appName);
 			if (!appId) continue;
 
@@ -174,6 +186,13 @@ export async function syncSession(
 		}
 
 		if (segmentValues.length > 0) {
+			// Fix 3: Sort segments to prevent Deadlocks
+			segmentValues.sort((a, b) => {
+				if (a.appId !== b.appId) return a.appId.localeCompare(b.appId);
+				if (a.detailId !== b.detailId) return (a.detailId || '').localeCompare(b.detailId || '');
+				return a.startedAt.getTime() - b.startedAt.getTime();
+			});
+
 			// Chunk segments to avoid PostgreSQL parameter limit (65,535)
 			const CHUNK_SIZE = 5000;
 			for (let i = 0; i < segmentValues.length; i += CHUNK_SIZE) {
@@ -189,7 +208,7 @@ export async function syncSession(
 							activitySegments.startedAt
 						],
 						set: {
-							endedAt: sql`EXCLUDED.ended_at`
+							endedAt: sql`GREATEST(${activitySegments.endedAt}, EXCLUDED.ended_at)`
 						}
 					});
 			}

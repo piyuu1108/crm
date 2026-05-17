@@ -191,15 +191,14 @@ impl SessionAnalytics {
             self.apps.get_mut(&identity.app_name).unwrap()
         };
 
-        // Update last activity timestamp (for pruning)
         app_counters.last_active_at = Instant::now();
 
         app_counters.total_seconds += 1;
         if !is_idle {
             app_counters.active_seconds += 1;
 
-            // App-level segments — gated
-            if enable_segments {
+            // App-level segments — only record if details are disabled OR there is no active detail
+            if enable_segments && (!enable_details || identity.detail.is_none()) {
                 let segments = app_counters.segments.get_or_insert_with(Vec::new);
                 add_or_extend_segment(segments, now, max_seg_app);
             }

@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { labSessions, sessionApps, machines, sessionDetails, activitySegments } from '$lib/server/db/schema';
-import { eq, and, lt, sql } from 'drizzle-orm';
+import { eq, and, lt, sql, not, inArray, isNull } from 'drizzle-orm';
 import type { SyncPayload } from '$lib/server/types';
 
 /**
@@ -10,6 +10,7 @@ import type { SyncPayload } from '$lib/server/types';
  * 3. Bulk upserts application aggregates
  * 4. Bulk upserts detail aggregates
  * 5. Bulk upserts activity segments (both app-level and detail-level)
+ * 6. Symmetrically prunes segments that were evicted from the agent's buffer
  */
 export async function syncSession(
 	sessionId: string,
@@ -211,6 +212,46 @@ export async function syncSession(
 							endedAt: sql`GREATEST(${activitySegments.endedAt}, EXCLUDED.ended_at)`
 						}
 					});
+			}
+
+			// ─── Phase D: Surgical Pruning ───────────────────────────
+			// Any segment for an active app/detail that is NOT in the current 
+			// snapshot must be pruned to respect the "Rolling Window" settings.
+
+			for (const app of sortedApps) {
+				const appId = appMap.get(app.appName);
+				if (!appId) continue;
+
+				// Prune app-level segments
+				const appSegStarts = app.segments?.map((s) => new Date(s.startedAt)) || [];
+				if (appSegStarts.length > 0) {
+					await tx.delete(activitySegments).where(
+						and(
+							eq(activitySegments.sessionId, sessionId),
+							eq(activitySegments.appId, appId),
+							isNull(activitySegments.detailId),
+							not(inArray(activitySegments.startedAt, appSegStarts))
+						)
+					);
+				}
+
+				// Prune detail-level segments
+				if (app.details) {
+					for (const detail of app.details) {
+						const detailId = detailMap.get(`${appId}|${detail.title}|${detail.url ?? null}`);
+						const detailSegStarts = detail.segments?.map((s) => new Date(s.startedAt)) || [];
+						if (detailId && detailSegStarts.length > 0) {
+							await tx.delete(activitySegments).where(
+								and(
+									eq(activitySegments.sessionId, sessionId),
+									eq(activitySegments.appId, appId),
+									eq(activitySegments.detailId, detailId),
+									not(inArray(activitySegments.startedAt, detailSegStarts))
+								)
+							);
+						}
+					}
+				}
 			}
 		}
 

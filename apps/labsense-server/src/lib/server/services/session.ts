@@ -1,16 +1,14 @@
 import { db } from '$lib/server/db';
 import { labSessions, sessionApps, machines, sessionDetails, activitySegments } from '$lib/server/db/schema';
-import { eq, and, lt, sql, not, inArray, isNull } from 'drizzle-orm';
+import { eq, and, lt, sql } from 'drizzle-orm';
 import type { SyncPayload } from '$lib/server/types';
 
 /**
  * Syncs session data from the agent. Runs in a single transaction:
  * 1. Validates session exists and is active
- * 2. Updates session aggregates + machine last_seen_at
- * 3. Bulk upserts application aggregates
- * 4. Bulk upserts detail aggregates
- * 5. Bulk upserts activity segments (both app-level and detail-level)
- * 6. Symmetrically prunes segments that were evicted from the agent's buffer
+ * 2. Updates session aggregates (Monotonic) + machine last_seen
+ * 3. Bulk upserts apps, details, and segments (Monotonic)
+ * 4. Symmetric Bulk Pruning for both segments and details
  */
 export async function syncSession(
 	sessionId: string,
@@ -37,13 +35,13 @@ export async function syncSession(
 
 		const now = new Date();
 
-		// 2. Update session aggregates & machine last_seen
+		// 2. Update session aggregates (Fix 3: Monotonic Session Guard)
 		await tx
 			.update(labSessions)
 			.set({
-				totalSeconds: payload.totalSeconds,
-				activeSeconds: payload.activeSeconds,
-				idleSeconds: payload.idleSeconds,
+				totalSeconds: sql`GREATEST(${labSessions.totalSeconds}, ${payload.totalSeconds})`,
+				activeSeconds: sql`GREATEST(${labSessions.activeSeconds}, ${payload.activeSeconds})`,
+				idleSeconds: sql`GREATEST(${labSessions.idleSeconds}, ${payload.idleSeconds})`,
 				lastSyncAt: now
 			})
 			.where(eq(labSessions.id, sessionId));
@@ -59,7 +57,6 @@ export async function syncSession(
 			return { ok: true };
 		}
 
-		// Fix 3: Deterministic Sort to prevent Deadlocks
 		const sortedApps = [...payload.applications].sort((a, b) => a.appName.localeCompare(b.appName));
 
 		const appValues = sortedApps.map((app) => ({
@@ -77,7 +74,6 @@ export async function syncSession(
 			.onConflictDoUpdate({
 				target: [sessionApps.sessionId, sessionApps.appName],
 				set: {
-					// Fix 2: Monotonicity Guard (Time-Travel Fix)
 					totalSeconds: sql`GREATEST(${sessionApps.totalSeconds}, EXCLUDED.total_seconds)`,
 					activeSeconds: sql`GREATEST(${sessionApps.activeSeconds}, EXCLUDED.active_seconds)`,
 					idleSeconds: sql`GREATEST(${sessionApps.idleSeconds}, EXCLUDED.idle_seconds)`,
@@ -86,18 +82,17 @@ export async function syncSession(
 			})
 			.returning({ id: sessionApps.id, appName: sessionApps.appName });
 
-		// Map appName to database UUID
 		const appMap = new Map(upsertedApps.map((a) => [a.appName, a.id]));
 
 		// ─── Phase B: Bulk Upsert Details ────────────────────────
 
 		const detailValues: any[] = [];
+		const keepDetails: string[] = []; // For Phase E
 
 		for (const app of sortedApps) {
 			const appId = appMap.get(app.appName);
 			if (!appId || !app.details) continue;
 
-			// Fix 3: Sort details deterministically
 			const sortedDetails = [...app.details].sort((a, b) => {
 				const titleCmp = (a.title || '').localeCompare(b.title || '');
 				if (titleCmp !== 0) return titleCmp;
@@ -115,6 +110,9 @@ export async function syncSession(
 					idleSeconds: detail.idleSeconds,
 					updatedAt: now
 				});
+				// Tuple for Detail Pruning: (app_id, title, url)
+				const u = detail.url ? `'${detail.url.replace(/'/g, "''")}'` : 'NULL';
+				keepDetails.push(`('${appId}', '${detail.title.replace(/'/g, "''")}', ${u})`);
 			}
 		}
 
@@ -126,7 +124,6 @@ export async function syncSession(
 				.onConflictDoUpdate({
 					target: [sessionDetails.appId, sessionDetails.title, sessionDetails.url],
 					set: {
-						// Fix 2: Monotonicity Guard
 						totalSeconds: sql`GREATEST(${sessionDetails.totalSeconds}, EXCLUDED.total_seconds)`,
 						activeSeconds: sql`GREATEST(${sessionDetails.activeSeconds}, EXCLUDED.active_seconds)`,
 						idleSeconds: sql`GREATEST(${sessionDetails.idleSeconds}, EXCLUDED.idle_seconds)`,
@@ -140,7 +137,6 @@ export async function syncSession(
 					url: sessionDetails.url
 				});
 
-			// Map (appId|title|url) to database UUID
 			detailMap = new Map(
 				upsertedDetails.map((d) => [`${d.appId}|${d.title}|${d.url}`, d.id])
 			);
@@ -149,31 +145,32 @@ export async function syncSession(
 		// ─── Phase C: Bulk Upsert Segments ────────────────────────
 
 		const segmentValues: any[] = [];
+		const keepSegments: string[] = []; // For Phase D
 
 		for (const app of sortedApps) {
 			const appId = appMap.get(app.appName);
 			if (!appId) continue;
 
-			// App-level segments
-			if (app.segments) {
-				for (const s of app.segments) {
-					segmentValues.push({
-						sessionId,
-						appId,
-						detailId: null,
-						startedAt: new Date(s.startedAt),
-						endedAt: new Date(s.endedAt)
-					});
-				}
+			const appSegments = app.segments || [];
+			for (const s of appSegments) {
+				const start = new Date(s.startedAt).toISOString();
+				segmentValues.push({
+					sessionId,
+					appId,
+					detailId: null,
+					startedAt: new Date(s.startedAt),
+					endedAt: new Date(s.endedAt)
+				});
+				keepSegments.push(`('${appId}', NULL, '${start}'::timestamptz)`);
 			}
 
-			// Detail-level segments
 			if (app.details) {
 				for (const detail of app.details) {
 					const detailId = detailMap.get(`${appId}|${detail.title}|${detail.url ?? null}`);
 					if (!detailId || !detail.segments) continue;
 
 					for (const s of detail.segments) {
+						const start = new Date(s.startedAt).toISOString();
 						segmentValues.push({
 							sessionId,
 							appId,
@@ -181,20 +178,19 @@ export async function syncSession(
 							startedAt: new Date(s.startedAt),
 							endedAt: new Date(s.endedAt)
 						});
+						keepSegments.push(`('${appId}', '${detailId}', '${start}'::timestamptz)`);
 					}
 				}
 			}
 		}
 
 		if (segmentValues.length > 0) {
-			// Fix 3: Sort segments to prevent Deadlocks
 			segmentValues.sort((a, b) => {
 				if (a.appId !== b.appId) return a.appId.localeCompare(b.appId);
 				if (a.detailId !== b.detailId) return (a.detailId || '').localeCompare(b.detailId || '');
 				return a.startedAt.getTime() - b.startedAt.getTime();
 			});
 
-			// Chunk segments to avoid PostgreSQL parameter limit (65,535)
 			const CHUNK_SIZE = 5000;
 			for (let i = 0; i < segmentValues.length; i += CHUNK_SIZE) {
 				const chunk = segmentValues.slice(i, i + CHUNK_SIZE);
@@ -213,46 +209,36 @@ export async function syncSession(
 						}
 					});
 			}
+		}
 
-			// ─── Phase D: Surgical Pruning ───────────────────────────
-			// Any segment for an active app/detail that is NOT in the current 
-			// snapshot must be pruned to respect the "Rolling Window" settings.
+		// ─── Phase D: Null-Safe Segment Pruning (Fix 2) ──────────
+		if (keepSegments.length > 0) {
+			const keepTuples = keepSegments.join(', ');
+			await tx.execute(sql.raw(`
+				DELETE FROM activity_segments 
+				WHERE session_id = '${sessionId}' 
+				AND NOT EXISTS (
+					SELECT 1 FROM (VALUES ${keepTuples}) AS k(aid, did, s)
+					WHERE k.aid::uuid = activity_segments.app_id 
+					AND k.did::uuid IS NOT DISTINCT FROM activity_segments.detail_id
+					AND k.s = activity_segments.started_at
+				)
+			`));
+		}
 
-			for (const app of sortedApps) {
-				const appId = appMap.get(app.appName);
-				if (!appId) continue;
-
-				// Prune app-level segments
-				const appSegStarts = app.segments?.map((s) => new Date(s.startedAt)) || [];
-				if (appSegStarts.length > 0) {
-					await tx.delete(activitySegments).where(
-						and(
-							eq(activitySegments.sessionId, sessionId),
-							eq(activitySegments.appId, appId),
-							isNull(activitySegments.detailId),
-							not(inArray(activitySegments.startedAt, appSegStarts))
-						)
-					);
-				}
-
-				// Prune detail-level segments
-				if (app.details) {
-					for (const detail of app.details) {
-						const detailId = detailMap.get(`${appId}|${detail.title}|${detail.url ?? null}`);
-						const detailSegStarts = detail.segments?.map((s) => new Date(s.startedAt)) || [];
-						if (detailId && detailSegStarts.length > 0) {
-							await tx.delete(activitySegments).where(
-								and(
-									eq(activitySegments.sessionId, sessionId),
-									eq(activitySegments.appId, appId),
-									eq(activitySegments.detailId, detailId),
-									not(inArray(activitySegments.startedAt, detailSegStarts))
-								)
-							);
-						}
-					}
-				}
-			}
+		// ─── Phase E: Zombie Detail Pruning (Fix 1) ──────────────
+		if (keepDetails.length > 0) {
+			const keepDetailTuples = keepDetails.join(', ');
+			await tx.execute(sql.raw(`
+				DELETE FROM session_details
+				WHERE app_id IN (SELECT id FROM session_apps WHERE session_id = '${sessionId}')
+				AND NOT EXISTS (
+					SELECT 1 FROM (VALUES ${keepDetailTuples}) AS k(aid, t, u)
+					WHERE k.aid::uuid = session_details.app_id
+					AND k.t = session_details.title
+					AND k.u IS NOT DISTINCT FROM session_details.url
+				)
+			`));
 		}
 
 		return { ok: true };

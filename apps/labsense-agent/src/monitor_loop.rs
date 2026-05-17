@@ -89,7 +89,28 @@ pub fn start(
                         .contains(&process_lower.as_str());
 
                     let domain = if is_browser {
-                        uia::extract_browser_url(app.hwnd)
+                        let hwnd = app.hwnd;
+                        let extraction_task = tokio::task::spawn_blocking(move || {
+                            unsafe {
+                                let _ = windows::Win32::System::Com::CoInitializeEx(
+                                    None,
+                                    windows::Win32::System::Com::COINIT_MULTITHREADED,
+                                );
+                            }
+                            let url = uia::extract_browser_url(hwnd);
+                            unsafe {
+                                windows::Win32::System::Com::CoUninitialize();
+                            }
+                            url
+                        });
+
+                        match tokio::time::timeout(Duration::from_millis(200), extraction_task).await {
+                            Ok(Ok(url)) => url,
+                            _ => {
+                                log::debug!("UIA extraction timed out or failed for hwnd {}", hwnd);
+                                None
+                            }
+                        }
                     } else {
                         None
                     };

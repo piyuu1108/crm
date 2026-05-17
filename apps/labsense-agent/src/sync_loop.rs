@@ -1,8 +1,18 @@
 use crate::analytics::SharedAnalytics;
 use crate::api_client::{AgentError, ApiClient};
-use crate::session::{SharedSession, StopSignal};
+use crate::session::{SharedSession, StopSignal, SchedulingMode};
 use rand::Rng;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+/// Deterministically calculates a stable offset in seconds [0, interval) for a machine.
+fn calculate_offset(hardware_id: &str, interval: u64) -> u64 {
+    if interval == 0 { return 0; }
+    let mut hasher = DefaultHasher::new();
+    hardware_id.hash(&mut hasher);
+    hasher.finish() % interval
+}
 
 /// Starts the periodic sync loop in a background task.
 /// Runs until stop_signal is notified or the session is no longer active.
@@ -14,10 +24,12 @@ pub fn start(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         log::info!("Sync loop started");
+        
+        let hardware_id = crate::hardware::get_hardware_id();
 
         loop {
-            // Fetch AES key along with session ID
-            let (session_id, aes_key, interval, jitter) = {
+            // Fetch sync config from session
+            let (session_id, aes_key, interval, jitter, mode) = {
                 let sess = session.lock();
                 if !sess.is_active() {
                     log::info!("Sync loop: session no longer active, exiting");
@@ -29,16 +41,46 @@ pub fn start(
                     sess.session_aes_key.unwrap(),
                     config.sync_interval_seconds,
                     config.sync_jitter_seconds,
+                    config.scheduling_mode.clone(),
                 )
             };
 
-            // Sleep for interval + random jitter
-            let jitter_amount = if jitter > 0 {
-                rand::thread_rng().gen_range(0..=jitter)
-            } else {
-                0
+            // Calculate sleep duration based on scheduling mode
+            let sleep_duration = match mode {
+                SchedulingMode::DeterministicSlot => {
+                    let now_unix = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs();
+                    
+                    let offset = calculate_offset(&hardware_id, interval);
+                    
+                    // Find the next UTC-aligned second that matches our offset
+                    // If now=100, interval=30, offset=5:
+                    // 100 / 30 = 3. 3 * 30 + 5 = 95. (95 <= 100, so target=125)
+                    let mut target_unix = (now_unix / interval) * interval + offset;
+                    if target_unix <= now_unix {
+                        target_unix += interval;
+                    }
+                    
+                    let diff = target_unix - now_unix;
+                    
+                    // Add 0-1000ms micro-jitter to prevent perfect sub-second alignment
+                    // (prevents TCP handshake "thundering herds" on the Node.js event loop)
+                    let micro_jitter_ms = rand::thread_rng().gen_range(0..1000);
+                    
+                    log::debug!("Next deterministic sync slot in {}s (offset={}s, jitter={}ms)", diff, offset, micro_jitter_ms);
+                    Duration::from_millis((diff * 1000) + micro_jitter_ms)
+                }
+                SchedulingMode::RandomJitter => {
+                    let jitter_amount = if jitter > 0 {
+                        rand::thread_rng().gen_range(0..=jitter)
+                    } else {
+                        0
+                    };
+                    Duration::from_secs(interval + jitter_amount)
+                }
             };
-            let sleep_duration = Duration::from_secs(interval + jitter_amount);
 
             // Wait for either sleep to complete or stop signal
             tokio::select! {

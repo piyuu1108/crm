@@ -49,8 +49,24 @@ export const PATCH: RequestHandler = async ({ request }) => {
 		return errorResponse(validation.error, 400);
 	}
 
+	// Fix 1: Complexity Cap (Prevent OOM/Event Loop Blocking)
+	const data = validation.data;
+	const totalElements =
+		data.applications.length +
+		data.applications.reduce((acc, app) => {
+			const detailCount = app.details?.length || 0;
+			const appSegCount = app.segments?.length || 0;
+			const detailSegCount =
+				app.details?.reduce((dAcc, d) => dAcc + (d.segments?.length || 0), 0) || 0;
+			return acc + detailCount + appSegCount + detailSegCount;
+		}, 0);
+
+	if (totalElements > 2500) {
+		return errorResponse('Payload complexity exceeds safety limits', 413);
+	}
+
 	// Execute sync within transaction
-	const result = await syncSession(syncToken, validation.data);
+	const result = await syncSession(syncToken, data);
 	if (!result.ok) {
 		return errorResponse(result.error, result.status);
 	}

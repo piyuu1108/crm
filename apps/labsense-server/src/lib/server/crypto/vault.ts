@@ -3,10 +3,13 @@ import { env } from '$env/dynamic/private';
 
 // 5 minutes TTL for the in-memory cache
 const TTL_MS = 5 * 60 * 1000;
+// 12 hours hard limit for a single session key
+const MAX_SESSION_LENGTH = 12 * 60 * 60 * 1000;
 
 interface VaultEntry {
 	aesKey: Buffer;
 	expiresAt: number;
+	createdAt: number;
 }
 
 // In-memory Key Vault
@@ -16,7 +19,7 @@ const keyVault = new Map<string, VaultEntry>();
 setInterval(() => {
 	const now = Date.now();
 	for (const [token, entry] of keyVault.entries()) {
-		if (now > entry.expiresAt) {
+		if (now > entry.expiresAt || now - entry.createdAt > MAX_SESSION_LENGTH) {
 			keyVault.delete(token);
 		}
 	}
@@ -46,9 +49,11 @@ export function decryptRsaPayload(base64Payload: string): string {
 
 export function storeAesKey(syncToken: string, base64AesKey: string): void {
 	const aesKey = Buffer.from(base64AesKey, 'base64');
+	const now = Date.now();
 	keyVault.set(syncToken, {
 		aesKey,
-		expiresAt: Date.now() + TTL_MS
+		expiresAt: now + TTL_MS,
+		createdAt: now
 	});
 }
 
@@ -56,13 +61,14 @@ export function getAesKey(syncToken: string): Buffer | null {
 	const entry = keyVault.get(syncToken);
 	if (!entry) return null;
 
-	if (Date.now() > entry.expiresAt) {
+	const now = Date.now();
+	if (now > entry.expiresAt || now - entry.createdAt > MAX_SESSION_LENGTH) {
 		keyVault.delete(syncToken);
 		return null;
 	}
 
-	// Refresh TTL
-	entry.expiresAt = Date.now() + TTL_MS;
+	// Refresh TTL for inactivity
+	entry.expiresAt = now + TTL_MS;
 	return entry.aesKey;
 }
 

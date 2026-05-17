@@ -36,6 +36,7 @@
 		enableSegments: data.settings.enableSegments ?? true,
 		maxSegmentsPerApp: data.settings.maxSegmentsPerApp || 50,
 		maxSegmentsPerDetail: data.settings.maxSegmentsPerDetail || 20,
+		maxDetailsPerApp: data.settings.maxDetailsPerApp || 50,
 		minimumTrackedSeconds: data.settings.minimumTrackedSeconds || 15,
 		candidateRetentionMinutes: data.settings.candidateRetentionMinutes || 10
 	})));
@@ -226,6 +227,19 @@
 							<p class="text-muted-foreground text-xs">Max timeline segments stored per nested detail/page.</p>
 						</div>
 						<div class="space-y-2">
+							<Label for="maxDetailsPerApp" class="flex items-center gap-2">
+								Max Details / App
+							</Label>
+							<Input
+								type="number"
+								id="maxDetailsPerApp"
+								bind:value={values.maxDetailsPerApp}
+								min="1"
+								max="500"
+							/>
+							<p class="text-muted-foreground text-xs">Max sub-activities (pages/files) stored per application.</p>
+						</div>
+						<div class="space-y-2">
 							<Label for="minimumTrackedSeconds" class="flex items-center gap-2">
 								Min Tracked Activity (seconds)
 							</Label>
@@ -294,6 +308,7 @@
 			<input type="hidden" name="enableSegments" value={values.enableSegments.toString()} />
 			<input type="hidden" name="maxSegmentsPerApp" value={values.maxSegmentsPerApp} />
 			<input type="hidden" name="maxSegmentsPerDetail" value={values.maxSegmentsPerDetail} />
+			<input type="hidden" name="maxDetailsPerApp" value={values.maxDetailsPerApp} />
 			<input type="hidden" name="minimumTrackedSeconds" value={values.minimumTrackedSeconds} />
 			<input type="hidden" name="candidateRetentionMinutes" value={values.candidateRetentionMinutes} />
 

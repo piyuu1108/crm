@@ -149,7 +149,9 @@ export const systemSettings = pgTable('system_settings', {
 	enableSegments: boolean('enable_segments').notNull().default(true),
 	maxSegmentsPerApp: integer('max_segments_per_app').notNull().default(50),
 	maxSegmentsPerDetail: integer('max_segments_per_detail').notNull().default(20),
+	maxDetailsPerApp: integer('max_details_per_app').notNull().default(50),
 	minimumTrackedSeconds: integer('minimum_tracked_seconds').notNull().default(15),
 	candidateRetentionMinutes: integer('candidate_retention_minutes').notNull().default(10),
 	updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).defaultNow().notNull()
 });
+

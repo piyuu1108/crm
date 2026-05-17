@@ -31,6 +31,7 @@ async function seed() {
 				enableSegments: true,
 				maxSegmentsPerApp: 50,
 				maxSegmentsPerDetail: 20,
+				maxDetailsPerApp: 50,
 				minimumTrackedSeconds: 15,
 				candidateRetentionMinutes: 10
 			})

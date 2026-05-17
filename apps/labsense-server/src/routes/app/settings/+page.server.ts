@@ -19,6 +19,7 @@ export const load: PageServerLoad = async () => {
 			enableSegments: true,
 			maxSegmentsPerApp: 50,
 			maxSegmentsPerDetail: 20,
+			maxDetailsPerApp: 50,
 			minimumTrackedSeconds: 15,
 			candidateRetentionMinutes: 10
 		}
@@ -36,6 +37,7 @@ export const actions: Actions = {
 		const enableSegments = formData.get('enableSegments') === 'true';
 		const maxSegmentsPerApp = parseInt(formData.get('maxSegmentsPerApp') as string);
 		const maxSegmentsPerDetail = parseInt(formData.get('maxSegmentsPerDetail') as string);
+		const maxDetailsPerApp = parseInt(formData.get('maxDetailsPerApp') as string);
 		const minimumTrackedSeconds = parseInt(formData.get('minimumTrackedSeconds') as string);
 		const candidateRetentionMinutes = parseInt(formData.get('candidateRetentionMinutes') as string);
 		const confirmationPassword = formData.get('confirmationPassword') as string;
@@ -47,6 +49,7 @@ export const actions: Actions = {
 			isNaN(idleThresholdSeconds) ||
 			isNaN(maxSegmentsPerApp) ||
 			isNaN(maxSegmentsPerDetail) ||
+			isNaN(maxDetailsPerApp) ||
 			isNaN(minimumTrackedSeconds) ||
 			isNaN(candidateRetentionMinutes)
 		) {
@@ -69,6 +72,7 @@ export const actions: Actions = {
 				enableSegments,
 				maxSegmentsPerApp,
 				maxSegmentsPerDetail,
+				maxDetailsPerApp,
 				minimumTrackedSeconds,
 				candidateRetentionMinutes,
 				updatedAt: new Date()
@@ -84,6 +88,7 @@ export const actions: Actions = {
 					enableSegments,
 					maxSegmentsPerApp,
 					maxSegmentsPerDetail,
+					maxDetailsPerApp,
 					minimumTrackedSeconds,
 					candidateRetentionMinutes,
 					updatedAt: new Date()

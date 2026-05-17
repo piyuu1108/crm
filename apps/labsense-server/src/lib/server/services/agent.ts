@@ -106,6 +106,7 @@ export async function getSystemSettings(): Promise<{
 	enableSegments: boolean;
 	maxSegmentsPerApp: number;
 	maxSegmentsPerDetail: number;
+	maxDetailsPerApp: number;
 	minimumTrackedSeconds: number;
 	candidateRetentionMinutes: number;
 }> {
@@ -121,6 +122,7 @@ export async function getSystemSettings(): Promise<{
 			enableSegments: true,
 			maxSegmentsPerApp: 50,
 			maxSegmentsPerDetail: 20,
+			maxDetailsPerApp: 50,
 			minimumTrackedSeconds: 15,
 			candidateRetentionMinutes: 10
 		};
@@ -135,6 +137,7 @@ export async function getSystemSettings(): Promise<{
 		enableSegments: settings.enableSegments,
 		maxSegmentsPerApp: settings.maxSegmentsPerApp,
 		maxSegmentsPerDetail: settings.maxSegmentsPerDetail,
+		maxDetailsPerApp: settings.maxDetailsPerApp,
 		minimumTrackedSeconds: settings.minimumTrackedSeconds,
 		candidateRetentionMinutes: settings.candidateRetentionMinutes
 	};

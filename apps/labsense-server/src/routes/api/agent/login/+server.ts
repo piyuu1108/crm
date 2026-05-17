@@ -117,6 +117,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		enableSegments: settings.enableSegments,
 		maxSegmentsPerApp: settings.maxSegmentsPerApp,
 		maxSegmentsPerDetail: settings.maxSegmentsPerDetail,
+		maxDetailsPerApp: settings.maxDetailsPerApp,
 		minimumTrackedSeconds: settings.minimumTrackedSeconds,
 		candidateRetentionMinutes: settings.candidateRetentionMinutes
 	});

@@ -164,6 +164,32 @@ fn strip_timer(title: &str) -> &str {
     cleaned.trim()
 }
 
+/// Strips common browser suffixes from window titles.
+fn strip_browser_suffix(title: &str) -> &str {
+    let suffixes = [
+        " - Google Chrome",
+        " - Microsoft Edge",
+        " - Mozilla Firefox",
+        " — Mozilla Firefox",
+        " - Firefox",
+        " — Firefox",
+        " - Brave",
+        " - Opera",
+        " - Vivaldi",
+        " - Internet Explorer",
+        " - Chromium",
+    ];
+
+    let mut stripped = title;
+    for suffix in suffixes.iter() {
+        if stripped.ends_with(suffix) {
+            stripped = &stripped[..stripped.len() - suffix.len()];
+            break;
+        }
+    }
+    stripped.trim()
+}
+
 /// Sanitize URL before storage to remove tokens and query params.
 fn sanitize_url(url_str: &str) -> Option<String> {
     let mut parsed = url::Url::parse(url_str).ok()?;
@@ -271,7 +297,8 @@ fn normalize_domain(domain: &str) -> Option<&str> {
 
 /// Helper to normalize using an explicitly extracted URL/domain.
 fn normalize_by_domain(url_str: &str, title: &str) -> AppIdentity {
-    let page_title = strip_timer(title);
+    let page_title = strip_browser_suffix(title);
+    let page_title = strip_timer(page_title);
     let page_title = if page_title.is_empty() { "Active" } else { page_title };
 
     let mut url_to_parse = url_str.trim().to_string();
@@ -379,7 +406,8 @@ fn normalize_browser_title(title: &str, process: &str) -> AppIdentity {
         };
     }
 
-    let page_title = strip_timer(title);
+    let page_title = strip_browser_suffix(title);
+    let page_title = strip_timer(page_title);
     let page_title = if page_title.is_empty() { "Active" } else { page_title };
 
     let lower = page_title.to_lowercase();
@@ -496,7 +524,7 @@ mod tests {
         let id = normalize(&app, Some("https://youtube.com/watch"));
         assert_eq!(id.app_name, "YouTube");
         let detail = id.detail.unwrap();
-        assert_eq!(detail.title.unwrap(), "YouTube - Google Chrome");
+        assert_eq!(detail.title.unwrap(), "YouTube");
         assert_eq!(detail.url.unwrap(), "https://youtube.com/watch");
         assert_eq!(detail.domain.unwrap(), "youtube.com");
     }
@@ -507,7 +535,7 @@ mod tests {
         let id = normalize(&app, Some("https://chatgpt.com/"));
         assert_eq!(id.app_name, "ChatGPT");
         let detail = id.detail.unwrap();
-        assert_eq!(detail.title.unwrap(), "ChatGPT - Microsoft Edge");
+        assert_eq!(detail.title.unwrap(), "ChatGPT");
         assert_eq!(detail.domain.unwrap(), "chatgpt.com");
     }
 
@@ -517,7 +545,7 @@ mod tests {
         let id = normalize(&app, Some("https://react.dev/learn"));
         assert_eq!(id.app_name, "React");
         let detail = id.detail.unwrap();
-        assert_eq!(detail.title.unwrap(), "React docs - Getting Started - Google Chrome");
+        assert_eq!(detail.title.unwrap(), "React docs - Getting Started");
     }
 
     #[test]
@@ -570,7 +598,7 @@ mod tests {
         let id = normalize(&app, Some("https://chatgpt.com/c/12345"));
         assert_eq!(id.app_name, "ChatGPT");
         let detail = id.detail.unwrap();
-        assert_eq!(detail.title.unwrap(), "Runtime Config Architecture - ChatGPT - Google Chrome");
+        assert_eq!(detail.title.unwrap(), "Runtime Config Architecture - ChatGPT");
         assert_eq!(detail.url.unwrap(), "https://chatgpt.com/c/12345");
         assert_eq!(detail.domain.unwrap(), "chatgpt.com");
     }

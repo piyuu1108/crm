@@ -45,8 +45,8 @@ async function seed() {
     },
     {
       name: "Amit Patel",
-      email: "amitpatel@manage.com",
-      passwordRaw: "amit@1234",
+      email: "amitpatel@gmail.com",
+      passwordRaw: "hod#1122",
       role: "HOD" as const,
     },
     {

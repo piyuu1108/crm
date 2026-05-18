@@ -163,6 +163,55 @@ export default function CellAssignmentModal({
     [liveConflicts]
   );
 
+  /** Slot Status data for Instant View */
+  const slotStatus = useMemo(() => {
+    const facultyStatus: Array<{ name: string; code: string; status: "FREE" | string }> = [];
+    const labStatus: Array<{ name: string; status: "FREE" | string }> = [];
+
+    // Only show faculties that are assignable to THIS class
+    const assignableFacultyIds = new Set(classAssignments.map((a) => a.facultyId));
+    const relevantFaculties = masterData.faculties.filter((f) => assignableFacultyIds.has(f.id));
+
+    // Evaluate Faculties
+    relevantFaculties.forEach((faculty) => {
+      let isBusy = false;
+      let busyText = "";
+      for (const ct of Object.values(store.timetables)) {
+        const cell = ct.grid[day]?.[slot];
+        if (cell && cell.facultyId === faculty.id) {
+          isBusy = true;
+          busyText = `${ct.className} - ${cell.subjectShortCode}`;
+          break;
+        }
+      }
+      facultyStatus.push({
+        name: faculty.name,
+        code: faculty.code,
+        status: isBusy ? busyText : "FREE",
+      });
+    });
+
+    // Evaluate Labs
+    labRooms.forEach((lab) => {
+      let isBusy = false;
+      let busyText = "";
+      for (const ct of Object.values(store.timetables)) {
+        const cell = ct.grid[day]?.[slot];
+        if (cell && cell.isLabSession && cell.labId === lab.id) {
+          isBusy = true;
+          busyText = `${ct.className} - ${cell.subjectShortCode}`;
+          break;
+        }
+      }
+      labStatus.push({
+        name: lab.name,
+        status: isBusy ? busyText : "FREE",
+      });
+    });
+
+    return { facultyStatus, labStatus };
+  }, [masterData.faculties, labRooms, store.timetables, day, slot, classAssignments]);
+
   // ─── Handlers ──────────────────────────────────────────────────────
 
   const handleAssign = () => {
@@ -180,7 +229,7 @@ export default function CellAssignmentModal({
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Modal.Container>
-        <Modal.Dialog className="sm:max-w-md">
+        <Modal.Dialog className="sm:max-w-4xl w-full max-h-[90vh] flex flex-col">
           <Modal.CloseTrigger />
           <Modal.Header>
             <Modal.Heading>
@@ -192,8 +241,10 @@ export default function CellAssignmentModal({
               <Chip size="sm" variant="soft">{className}</Chip>
             </div>
           </Modal.Header>
-          <Modal.Body>
-            <div className="space-y-4">
+          <Modal.Body className="overflow-hidden p-0">
+            <div className="flex flex-col md:flex-row h-full">
+              {/* Left Column: Form */}
+              <div className="flex-1 p-6 space-y-4 overflow-y-auto border-r border-border/50">
               {/* Subject Selector */}
               <div>
                 <Label className="text-xs font-medium text-muted mb-1.5 block">
@@ -382,6 +433,56 @@ export default function CellAssignmentModal({
                   </div>
                 </div>
               )}
+            </div>
+            
+            {/* Right Column: Slot Status */}
+            <div className="w-full md:w-[350px] bg-surface-alt/50 flex flex-col overflow-hidden">
+              <div className="px-4 py-3 border-b border-border/50 bg-surface flex items-center justify-between">
+                <span className="text-sm font-semibold">Slot Availability</span>
+                <span className="text-xs text-muted font-mono">{dayDisplay} • {slotDisplay}</span>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-6">
+                {/* Faculty Status */}
+                <div>
+                  <h4 className="text-xs font-semibold text-muted mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                    <Icon icon="gravity-ui:person" width={14} /> Faculty Status
+                  </h4>
+                  <div className="space-y-2">
+                    {slotStatus.facultyStatus.map((f) => (
+                      <div key={f.code} className="flex flex-col justify-between text-sm py-1.5 border-b border-border/30 last:border-0">
+                        <div className="font-medium text-foreground">{f.code} <span className="text-xs text-muted font-normal ml-1">({f.name})</span></div>
+                        {f.status === "FREE" ? (
+                          <div className="text-success text-xs font-semibold mt-0.5">FREE</div>
+                        ) : (
+                          <div className="text-warning text-xs mt-0.5 truncate" title={f.status}>{f.status}</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Lab Status */}
+                <div>
+                  <h4 className="text-xs font-semibold text-muted mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                    <Icon icon="gravity-ui:flask" width={14} /> Lab Status
+                  </h4>
+                  <div className="space-y-2">
+                    {slotStatus.labStatus.map((l) => (
+                      <div key={l.name} className="flex justify-between items-center text-sm py-1.5 border-b border-border/30 last:border-0">
+                        <span className="font-medium">{l.name}</span>
+                        {l.status === "FREE" ? (
+                          <span className="text-success text-xs font-semibold bg-success/10 px-1.5 py-0.5 rounded">FREE</span>
+                        ) : (
+                          <span className="text-warning text-xs bg-warning/10 px-1.5 py-0.5 rounded truncate max-w-[150px]" title={l.status}>{l.status}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             </div>
           </Modal.Body>
           <Modal.Footer>

@@ -772,7 +772,7 @@ export default function TimetableBuilderPage() {
                       <Chip 
                         key={s.code} 
                         size="sm" 
-                        variant={isSelected ? "solid" : "soft"}
+                        variant={isSelected ? "primary" : "soft"}
                         color={isSelected ? "success" : "default"}
                         className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
                         onClick={() => {
@@ -802,7 +802,7 @@ export default function TimetableBuilderPage() {
                         <Chip 
                           key={f.id} 
                           size="sm" 
-                          variant={isSelected ? "solid" : "bordered"}
+                          variant={isSelected ? "primary" : "soft"}
                           color={isSelected ? "success" : "default"}
                           className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
                           onClick={() => {
@@ -827,7 +827,7 @@ export default function TimetableBuilderPage() {
                         <Chip 
                           key={l.id} 
                           size="sm" 
-                          variant={isSelected ? "solid" : "bordered"}
+                          variant={isSelected ? "primary" : "soft"}
                           color={isSelected ? "success" : "default"}
                           className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
                           onClick={() => {

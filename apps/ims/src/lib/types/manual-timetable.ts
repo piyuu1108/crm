@@ -8,17 +8,18 @@ import type { GenerationPayload } from "./generation";
 // ─── Cell Entry ──────────────────────────────────────────────────────────────
 /** A single lecture assignment in one timetable cell */
 export interface ManualTimetableCell {
-  assignmentId: number;
-  subjectId: number;
+  assignmentId: number | null;
+  subjectId: number | null;
   subjectShortCode: string;
   subjectName: string;
-  subjectType: string; // "Theory" | "Practical" | "Both" | ...
-  facultyId: number;
-  facultyCode: string;
-  facultyName: string;
+  subjectType: string; // "Theory" | "Practical" | "Both" | "Quiz"
+  facultyId: number | null;
+  facultyCode: string | null;
+  facultyName: string | null;
   isLabSession: boolean;
   labId: number | null;
   labName: string | null;
+  isQuiz?: boolean;
 }
 
 // ─── Class Timetable ─────────────────────────────────────────────────────────

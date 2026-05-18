@@ -34,11 +34,12 @@ export async function POST(request: NextRequest) {
           classId: Number(e.classId),
           day: String(e.day),
           slot: String(e.slot),
-          assignmentId: Number(e.assignmentId),
-          subjectId: Number(e.subjectId),
-          facultyId: Number(e.facultyId),
+          assignmentId: e.assignmentId !== null && e.assignmentId !== undefined ? Number(e.assignmentId) : null,
+          subjectId: e.subjectId !== null && e.subjectId !== undefined ? Number(e.subjectId) : null,
+          facultyId: e.facultyId !== null && e.facultyId !== undefined ? Number(e.facultyId) : null,
           isLabSession: Boolean(e.isLabSession),
           labId: e.labId ? Number(e.labId) : null,
+          isQuiz: Boolean(e.isQuiz),
         })));
       }
     });

@@ -118,14 +118,16 @@ function FilledCell({
       }}
     >
       <div className="tt-card group relative" {...attributes} {...listeners}>
-        {/* Lab badge */}
-        {cell.isLabSession && cell.labName && (
+        {/* Lab or Quiz badge */}
+        {cell.isQuiz ? (
+          <span className="tt-badge !bg-amber-500 !text-white !border-amber-600">QUIZ</span>
+        ) : cell.isLabSession && cell.labName ? (
           <span className="tt-badge">{cell.labName}</span>
-        )}
+        ) : null}
         {/* Subject */}
         <span className="tt-subject">{cell.subjectShortCode}</span>
         {/* Faculty */}
-        <span className="tt-faculty">{cell.facultyCode}</span>
+        {cell.facultyCode && <span className="tt-faculty">{cell.facultyCode}</span>}
 
         {/* Clear button */}
         <button
@@ -193,11 +195,13 @@ function DragOverlayCard({ cell, colors }: { cell: ManualTimetableCell; colors: 
         } as React.CSSProperties
       }
     >
-      {cell.isLabSession && cell.labName && (
+      {cell.isQuiz ? (
+        <span className="tt-badge !bg-amber-500 !text-white !border-amber-600">QUIZ</span>
+      ) : cell.isLabSession && cell.labName ? (
         <span className="tt-badge">{cell.labName}</span>
-      )}
+      ) : null}
       <span className="tt-subject">{cell.subjectShortCode}</span>
-      <span className="tt-faculty">{cell.facultyCode}</span>
+      {cell.facultyCode && <span className="tt-faculty">{cell.facultyCode}</span>}
     </div>
   );
 }
@@ -238,7 +242,13 @@ export default function ManualTimetableGrid({
     const map = new Map<string, (typeof PALETTE)[0]>();
     for (const dayGrid of Object.values(grid)) {
       for (const cell of Object.values(dayGrid)) {
-        if (cell) map.set(cell.subjectShortCode, PALETTE[hashStr(cell.subjectShortCode) % PALETTE.length]);
+        if (cell) {
+          if (cell.isQuiz) {
+            map.set(cell.subjectShortCode, { bg: "#fef3c7", accent: "#d97706", text: "#78350f" });
+          } else {
+            map.set(cell.subjectShortCode, PALETTE[hashStr(cell.subjectShortCode) % PALETTE.length]);
+          }
+        }
       }
     }
     return map;

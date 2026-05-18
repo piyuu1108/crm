@@ -191,11 +191,26 @@ export default function TimetableBuilderPage() {
       for (const entry of dbEntries) {
         const cId = entry.classId;
         if (newStore.timetables[cId]) {
-          const subject = subjectMap.get(entry.subjectId);
-          const faculty = facultyMap.get(entry.facultyId);
+          const subject = entry.subjectId ? subjectMap.get(entry.subjectId) : null;
+          const faculty = entry.facultyId ? facultyMap.get(entry.facultyId) : null;
           const lab = entry.labId ? labMap.get(entry.labId) : null;
 
-          if (subject && faculty) {
+          if (entry.isQuiz) {
+            newStore.timetables[cId].grid[entry.day][entry.slot] = {
+              assignmentId: null,
+              subjectId: null,
+              subjectShortCode: "QUIZ",
+              subjectName: "Quiz",
+              subjectType: "Quiz",
+              facultyId: null,
+              facultyCode: null,
+              facultyName: null,
+              isLabSession: false,
+              labId: null,
+              labName: null,
+              isQuiz: true,
+            };
+          } else if (subject && faculty) {
             newStore.timetables[cId].grid[entry.day][entry.slot] = {
               assignmentId: entry.assignmentId,
               subjectId: entry.subjectId,
@@ -208,6 +223,7 @@ export default function TimetableBuilderPage() {
               isLabSession: entry.isLabSession,
               labId: entry.labId,
               labName: lab?.name || null,
+              isQuiz: false,
             };
           }
         }
@@ -247,6 +263,7 @@ export default function TimetableBuilderPage() {
                 facultyId: cell.facultyId,
                 isLabSession: cell.isLabSession,
                 labId: cell.labId,
+                isQuiz: cell.isQuiz ?? false,
               });
             }
           }
@@ -285,8 +302,8 @@ export default function TimetableBuilderPage() {
           for (const [slot, cell] of Object.entries(slots)) {
             if (cell) {
               const classCode = ct.className;
-              const facultyCode = cell.facultyCode;
-              const subject = masterData.subjects.find(s => s.id === cell.subjectId);
+              const facultyCode = cell.facultyCode || "QUIZ";
+              const subject = cell.subjectId ? masterData.subjects.find(s => s.id === cell.subjectId) : null;
               const subjectCode = subject ? subject.code : cell.subjectShortCode;
               
               const key = `${classCode}_${facultyCode}_${subjectCode}`;

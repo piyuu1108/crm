@@ -270,14 +270,16 @@ export function calculateAllConflicts(
         const cell = dayGrid[slot];
         if (!cell) continue;
 
-        // Faculty tracking
-        const fKey = `${cell.facultyId}:${day}:${slot}`;
-        if (!facultyMap.has(fKey)) facultyMap.set(fKey, []);
-        facultyMap.get(fKey)!.push({
-          classId: ct.classId,
-          className: ct.className,
-          cell,
-        });
+        // Faculty tracking (skip if no faculty is assigned, like in generic Quiz sessions)
+        if (cell.facultyId !== null && cell.facultyId !== undefined) {
+          const fKey = `${cell.facultyId}:${day}:${slot}`;
+          if (!facultyMap.has(fKey)) facultyMap.set(fKey, []);
+          facultyMap.get(fKey)!.push({
+            classId: ct.classId,
+            className: ct.className,
+            cell,
+          });
+        }
 
         // Lab tracking
         if (cell.isLabSession && cell.labId !== null) {
@@ -311,8 +313,8 @@ export function calculateAllConflicts(
           otherClassId: b.classId,
           otherClassName: b.className,
           message: `${a.cell.facultyName} already assigned in ${b.className}`,
-          entityId: a.cell.facultyId,
-          entityName: a.cell.facultyName,
+          entityId: a.cell.facultyId!,
+          entityName: a.cell.facultyName!,
         });
         conflicts.push({
           type: "faculty",
@@ -323,8 +325,8 @@ export function calculateAllConflicts(
           otherClassId: a.classId,
           otherClassName: a.className,
           message: `${b.cell.facultyName} already assigned in ${a.className}`,
-          entityId: b.cell.facultyId,
-          entityName: b.cell.facultyName,
+          entityId: b.cell.facultyId!,
+          entityName: b.cell.facultyName!,
         });
       }
     }
@@ -403,8 +405,14 @@ export function previewConflicts(
     const existing = ct.grid[day]?.[slot];
     if (!existing) continue;
 
-    // Faculty conflict
-    if (existing.facultyId === cell.facultyId) {
+    // Faculty conflict (skip if either slot has no faculty assigned)
+    if (
+      cell.facultyId !== null &&
+      cell.facultyId !== undefined &&
+      existing.facultyId !== null &&
+      existing.facultyId !== undefined &&
+      existing.facultyId === cell.facultyId
+    ) {
       preview.push({
         type: "faculty",
         day,
@@ -415,7 +423,7 @@ export function previewConflicts(
         otherClassName: ct.className,
         message: `${cell.facultyName} already assigned in ${ct.className}`,
         entityId: cell.facultyId,
-        entityName: cell.facultyName,
+        entityName: cell.facultyName || "",
       });
     }
 

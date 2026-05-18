@@ -73,10 +73,12 @@ export default function TimetableGrid({ grid, title }: TimetableGridProps) {
         if (e) codes.add(e.subjectCode);
       }
     }
-    let idx = 0;
     for (const code of codes) {
-      map.set(code, PALETTE[hashStr(code) % PALETTE.length]);
-      idx++;
+      if (code === "QUIZ") {
+        map.set(code, { bg: "#fef3c7", accent: "#d97706", text: "#78350f" });
+      } else {
+        map.set(code, PALETTE[hashStr(code) % PALETTE.length]);
+      }
     }
     return map;
   }, [grid]);
@@ -164,11 +166,13 @@ export default function TimetableGrid({ grid, title }: TimetableGridProps) {
                       } as React.CSSProperties}
                     >
                       <div className="tt-card">
-                        {isLab && entry.room && (
+                        {entry.subjectCode === "QUIZ" ? (
+                          <span className="tt-badge !bg-amber-500 !text-white !border-amber-600">QUIZ</span>
+                        ) : isLab && entry.room ? (
                           <span className="tt-badge">{entry.room}</span>
-                        )}
+                        ) : null}
                         <span className="tt-subject">{entry.subject}</span>
-                        <span className="tt-faculty">{entry.faculty}</span>
+                        {entry.faculty && <span className="tt-faculty">{entry.faculty}</span>}
                         {isLab && span > 1 && (
                           <span className="tt-duration">{span} slots</span>
                         )}

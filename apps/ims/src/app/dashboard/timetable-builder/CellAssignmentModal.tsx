@@ -51,7 +51,13 @@ export default function CellAssignmentModal({
   useEffect(() => {
     if (isOpen) {
       if (existingCell) {
-        setSelectedAssignmentId(String(existingCell.assignmentId));
+        setSelectedAssignmentId(
+          existingCell.isQuiz
+            ? "QUIZ"
+            : existingCell.assignmentId !== null
+            ? String(existingCell.assignmentId)
+            : null
+        );
         setIsLab(existingCell.isLabSession);
         setSelectedLabId(existingCell.labId !== null ? String(existingCell.labId) : null);
       } else {
@@ -79,7 +85,7 @@ export default function CellAssignmentModal({
   /** Selected assignment details */
   const selectedAssignment = useMemo(
     () =>
-      selectedAssignmentId
+      selectedAssignmentId && selectedAssignmentId !== "QUIZ"
         ? classAssignments.find((a) => a.assignmentId === Number(selectedAssignmentId)) || null
         : null,
     [selectedAssignmentId, classAssignments]
@@ -105,6 +111,22 @@ export default function CellAssignmentModal({
 
   /** Build the cell object for preview / saving */
   const builtCell = useMemo<ManualTimetableCell | null>(() => {
+    if (selectedAssignmentId === "QUIZ") {
+      return {
+        assignmentId: null,
+        subjectId: null,
+        subjectShortCode: "QUIZ",
+        subjectName: "Quiz",
+        subjectType: "Quiz",
+        facultyId: null,
+        facultyCode: null,
+        facultyName: null,
+        isLabSession: false,
+        labId: null,
+        labName: null,
+        isQuiz: true,
+      };
+    }
     if (!selectedAssignment) return null;
     const lab = isLab && selectedLabId ? labRooms.find((r) => r.id === Number(selectedLabId)) : null;
     return {
@@ -119,8 +141,9 @@ export default function CellAssignmentModal({
       isLabSession: isLab,
       labId: lab ? lab.id : null,
       labName: lab ? lab.name : null,
+      isQuiz: false,
     };
-  }, [selectedAssignment, isLab, selectedLabId, labRooms]);
+  }, [selectedAssignmentId, selectedAssignment, isLab, selectedLabId, labRooms]);
 
   /** Live conflict preview */
   const liveConflicts = useMemo<TimetableConflict[]>(() => {
@@ -206,10 +229,38 @@ export default function CellAssignmentModal({
                           <ListBox.ItemIndicator />
                         </ListBox.Item>
                       ))}
+                      <ListBox.Item
+                        key="QUIZ"
+                        id="QUIZ"
+                        textValue="Quiz"
+                      >
+                        <div className="flex items-center justify-between w-full gap-2 py-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-sm text-amber-600">📝 Generic Quiz Session</span>
+                          </div>
+                          <span className="text-[10px] font-bold text-amber-600/80 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
+                            QUIZ
+                          </span>
+                        </div>
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
                     </ListBox>
                   </Select.Popover>
                 </Select>
               </div>
+
+              {/* Quiz info when selected */}
+              {selectedAssignmentId === "QUIZ" && (
+                <div className="bg-surface-alt rounded-lg border border-amber-200/60 bg-amber-50/20 p-3 space-y-1.5">
+                  <div className="text-sm font-semibold text-amber-700 flex items-center gap-1.5">
+                    <Icon icon="gravity-ui:shield-check" width={16} />
+                    <span>Generic Quiz Session</span>
+                  </div>
+                  <p className="text-xs text-muted">
+                    This slot will be scheduled as a Quiz. It does not require any specific subject, faculty, or lab, and can be placed anywhere without conflicts.
+                  </p>
+                </div>
+              )}
 
               {/* Subject info when selected */}
               {selectedAssignment && (

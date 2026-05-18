@@ -238,16 +238,14 @@ export const timetables = pgTable(
     day: varchar("day", { length: 20 }).notNull(),
     slot: varchar("slot", { length: 20 }).notNull(),
     assignmentId: integer("assignment_id")
-      .notNull()
       .references(() => assignments.id, { onDelete: "cascade" }),
     subjectId: integer("subject_id")
-      .notNull()
       .references(() => subjects.id, { onDelete: "cascade" }),
     facultyId: integer("faculty_id")
-      .notNull()
       .references(() => faculty.id, { onDelete: "cascade" }),
     isLabSession: boolean("is_lab_session").notNull().default(false),
     labId: integer("lab_id").references(() => rooms.id, { onDelete: "set null" }),
+    isQuiz: boolean("is_quiz").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

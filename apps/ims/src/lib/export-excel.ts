@@ -128,22 +128,35 @@ export async function exportTimetableToExcel(
           excelCell.font = { ...fontBase, size: 10 };
 
           if (cellData) {
-            const numericCode = subjectCodeMap.get(cellData.subjectId) || "";
-            const displaySubject = numericCode ? `${numericCode}-${cellData.subjectShortCode}` : cellData.subjectShortCode;
-            
-            let text = `${displaySubject} (${cellData.facultyCode})`;
-            if (cellData.isLabSession && cellData.labName) {
-              text = `${displaySubject} ${cellData.labName}\n(${cellData.facultyCode})`;
-            }
-            excelCell.value = text;
+            if (cellData.isQuiz) {
+              excelCell.value = "QUIZ";
+              const key = "QUIZ";
+              if (!uniqueSubjects.has(key)) {
+                uniqueSubjects.set(key, {
+                  code: "QUIZ",
+                  name: "Quiz Session",
+                  faculty: "N/A"
+                });
+              }
+            } else {
+              const subjectId = cellData.subjectId!;
+              const numericCode = subjectCodeMap.get(subjectId) || "";
+              const displaySubject = numericCode ? `${numericCode}-${cellData.subjectShortCode}` : cellData.subjectShortCode;
+              
+              let text = `${displaySubject} (${cellData.facultyCode})`;
+              if (cellData.isLabSession && cellData.labName) {
+                text = `${displaySubject} ${cellData.labName}\n(${cellData.facultyCode})`;
+              }
+              excelCell.value = text;
 
-            const key = `${cellData.subjectId}-${cellData.facultyCode}`;
-            if (!uniqueSubjects.has(key)) {
-              uniqueSubjects.set(key, {
-                code: numericCode || cellData.subjectShortCode,
-                name: cellData.subjectName,
-                faculty: `${cellData.facultyName} (${cellData.facultyCode})`
-              });
+              const key = `${subjectId}-${cellData.facultyCode}`;
+              if (!uniqueSubjects.has(key)) {
+                uniqueSubjects.set(key, {
+                  code: numericCode || cellData.subjectShortCode,
+                  name: cellData.subjectName,
+                  faculty: `${cellData.facultyName} (${cellData.facultyCode})`
+                });
+              }
             }
           }
         });
@@ -302,7 +315,7 @@ export async function exportFacultyScheduleToExcel(
       for (const s of timeSlots) {
         if (s.id === 'break') continue;
         const cell = ct.grid[d]?.[s.id];
-        if (cell) {
+        if (cell && cell.facultyId !== null && cell.facultyId !== undefined) {
           const fGrid = facultyGrids.get(cell.facultyId);
           if (fGrid && !fGrid[d][s.id]) {
             fGrid[d][s.id] = {

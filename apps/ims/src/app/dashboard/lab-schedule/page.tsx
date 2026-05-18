@@ -85,7 +85,7 @@ export default function LabSchedulePage() {
               className: ct.className,
               subjectCode: cell.subjectShortCode,
               subjectName: cell.subjectName,
-              facultyCode: cell.facultyCode,
+              facultyCode: cell.facultyCode!,
             };
             break; // one lab can only be in one class per slot
           }

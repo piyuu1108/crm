@@ -96,7 +96,9 @@ export default function CellAssignmentModal({
     () =>
       selectedAssignment
         ? selectedAssignment.subjectType === "Practical" ||
-          selectedAssignment.subjectType === "Both"
+          selectedAssignment.subjectType === "Both" ||
+          selectedAssignment.subjectType === "ProjectMinor" ||
+          selectedAssignment.subjectType === "ProjectMajor"
         : false,
     [selectedAssignment]
   );

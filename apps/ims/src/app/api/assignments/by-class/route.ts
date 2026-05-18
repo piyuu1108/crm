@@ -45,9 +45,15 @@ export async function GET(request: NextRequest) {
       .where(eq(assignments.classId, parseInt(classId, 10)))
       .orderBy(subjects.code);
 
-    // Filter to only Practical/Both if requested
+    // Filter to only Practical/Both/ProjectMinor/ProjectMajor if requested
     const filtered = labOnly
-      ? rows.filter((r) => r.subjectType === "Practical" || r.subjectType === "Both")
+      ? rows.filter(
+          (r) =>
+            r.subjectType === "Practical" ||
+            r.subjectType === "Both" ||
+            r.subjectType === "ProjectMinor" ||
+            r.subjectType === "ProjectMajor"
+        )
       : rows;
 
     return Response.json(filtered);

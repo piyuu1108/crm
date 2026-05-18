@@ -280,7 +280,10 @@ export async function getGenerationData(
 
     // ── Validation ──
     const needsLabConfig =
-      a.subjectType === "Practical" || a.subjectType === "Both";
+      a.subjectType === "Practical" ||
+      a.subjectType === "Both" ||
+      a.subjectType === "ProjectMinor" ||
+      a.subjectType === "ProjectMajor";
 
     if (needsLabConfig && sessions.length === 0) {
       warnings.push({

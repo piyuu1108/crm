@@ -67,6 +67,7 @@ interface FilledCellProps {
   onCellClick: (day: string, slot: string) => void;
   onCellClear: (day: string, slot: string) => void;
   isDragging: boolean;
+  isHighlighted?: boolean;
 }
 
 function FilledCell({
@@ -79,6 +80,7 @@ function FilledCell({
   onCellClick,
   onCellClear,
   isDragging,
+  isHighlighted,
 }: FilledCellProps) {
   const id = cellDndId(day, slot);
   const { attributes, listeners, setNodeRef: setDragRef } = useDraggable({ id });
@@ -96,7 +98,7 @@ function FilledCell({
   return (
     <td
       ref={setRefs}
-      className={`tt-cell ${cell.isLabSession ? "tt-cell--lab" : "tt-cell--theory"} mtt-cell--clickable ${hasConflict ? "mtt-cell--conflict" : ""} ${isDragging ? "mtt-cell--dragging" : ""} ${isOver && !isDragging ? "mtt-cell--drop-target" : ""}`}
+      className={`tt-cell ${cell.isLabSession ? "tt-cell--lab" : "tt-cell--theory"} mtt-cell--clickable ${hasConflict ? "mtt-cell--conflict" : ""} ${isDragging ? "mtt-cell--dragging" : ""} ${isOver && !isDragging ? "mtt-cell--drop-target" : ""} ${isHighlighted ? "!ring-2 !ring-success !ring-offset-1 !border-success z-10 relative" : ""}`}
       style={
         {
           "--cell-bg": colors.bg,
@@ -154,16 +156,17 @@ interface EmptyCellProps {
   day: string;
   slot: string;
   onCellClick: (day: string, slot: string) => void;
+  isHighlighted?: boolean;
 }
 
-function EmptyCell({ day, slot, onCellClick }: EmptyCellProps) {
+function EmptyCell({ day, slot, onCellClick, isHighlighted }: EmptyCellProps) {
   const id = cellDndId(day, slot);
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
     <td
       ref={setNodeRef}
-      className={`tt-cell tt-cell--empty mtt-cell--clickable ${isOver ? "mtt-cell--drop-target" : ""}`}
+      className={`tt-cell tt-cell--empty mtt-cell--clickable ${isOver ? "mtt-cell--drop-target" : ""} ${isHighlighted ? "!ring-2 !ring-success !border-success !bg-success/5 z-10 relative" : ""}`}
       onClick={() => onCellClick(day, slot)}
       role="button"
       tabIndex={0}
@@ -216,6 +219,7 @@ interface ManualTimetableGridProps {
   onCellClick: (day: string, slot: string) => void;
   onCellClear: (day: string, slot: string) => void;
   onCellMove: (fromDay: string, fromSlot: string, toDay: string, toSlot: string) => void;
+  highlightSlots?: Set<string>;
 }
 
 export default function ManualTimetableGrid({
@@ -226,6 +230,7 @@ export default function ManualTimetableGrid({
   onCellClick,
   onCellClear,
   onCellMove,
+  highlightSlots,
 }: ManualTimetableGridProps) {
   // ─── DnD state ────────────────────────────────────────────────────
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -331,6 +336,7 @@ export default function ManualTimetableGrid({
                           day={dayKey}
                           slot={slot}
                           onCellClick={onCellClick}
+                          isHighlighted={highlightSlots?.has(dndId)}
                         />
                       );
                     }
@@ -347,6 +353,7 @@ export default function ManualTimetableGrid({
                         onCellClick={onCellClick}
                         onCellClear={onCellClear}
                         isDragging={isDragging}
+                        isHighlighted={highlightSlots?.has(dndId)}
                       />
                     );
                   })}

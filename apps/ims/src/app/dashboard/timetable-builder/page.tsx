@@ -57,6 +57,9 @@ export default function TimetableBuilderPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalDay, setModalDay] = useState("");
   const [modalSlot, setModalSlot] = useState("");
+  
+  // Highlight Free Slots State
+  const [selectedFacultyId, setSelectedFacultyId] = useState<number | null>(null);
 
   // ─── Load from localStorage on mount ───────────────────────────────
   useEffect(() => {
@@ -150,6 +153,40 @@ export default function TimetableBuilderPage() {
     }
     return Array.from(counts.values()).sort((a, b) => a.code.localeCompare(b.code));
   }, [currentGrid]);
+
+  // ─── Assignable Faculties for current class ────────────────────────
+  const assignableFaculties = useMemo(() => {
+    if (!masterData || !selectedClassId) return [];
+    const classIdNum = Number(selectedClassId);
+    const classAssignments = masterData.assignments.filter((a) => a.classId === classIdNum);
+    const validFacultyIds = new Set(classAssignments.map((a) => a.facultyId));
+    return masterData.faculties.filter((f) => validFacultyIds.has(f.id));
+  }, [masterData, selectedClassId]);
+
+  // ─── Free slots globally for selected faculty ──────────────────────
+  const freeSlotsForSelectedFaculty = useMemo(() => {
+    const free = new Set<string>();
+    if (!selectedFacultyId || !store) return free;
+    
+    for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]) {
+      for (let s = 1; s <= 5; s++) {
+        const slot = `lecture${s}`;
+        let isBusy = false;
+        // Check if this faculty is busy in ANY class at this day+slot
+        for (const ct of Object.values(store.timetables)) {
+          const cell = ct.grid[day]?.[slot];
+          if (cell && cell.facultyId === selectedFacultyId) {
+            isBusy = true;
+            break;
+          }
+        }
+        if (!isBusy) {
+          free.add(`${day}:${slot}`);
+        }
+      }
+    }
+    return free;
+  }, [selectedFacultyId, store]);
 
   // ─── Fetch Fresh handler ───────────────────────────────────────────
   const handleFetchFresh = useCallback(async () => {
@@ -666,15 +703,45 @@ export default function TimetableBuilderPage() {
             )}
           </div>
 
-          {/* Subject Lecture Counts */}
-          {subjectCounts.length > 0 && (
-            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-              <span className="text-[11px] text-muted font-medium mr-1">Assigned:</span>
-              {subjectCounts.map((s) => (
-                <Chip key={s.code} size="sm" variant="soft" className="text-[11px] h-5 px-1.5">
-                  {s.code} <strong className="ml-0.5">{s.count}</strong>
-                </Chip>
-              ))}
+          {/* Subject Lecture Counts & Faculty Highlighters */}
+          {(subjectCounts.length > 0 || assignableFaculties.length > 0) && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-3">
+              {subjectCounts.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-muted font-medium mr-1">Assigned:</span>
+                  {subjectCounts.map((s) => (
+                    <Chip key={s.code} size="sm" variant="soft" className="text-[11px] h-5 px-1.5">
+                      {s.code} <strong className="ml-0.5">{s.count}</strong>
+                    </Chip>
+                  ))}
+                </div>
+              )}
+              
+              {subjectCounts.length > 0 && assignableFaculties.length > 0 && (
+                <div className="hidden sm:block w-px h-4 bg-border/60"></div>
+              )}
+              
+              {assignableFaculties.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-muted font-medium mr-1">Check Free Slots:</span>
+                  {assignableFaculties.map((f) => {
+                    const isSelected = selectedFacultyId === f.id;
+                    return (
+                      <Chip 
+                        key={f.id} 
+                        size="sm" 
+                        variant={isSelected ? "solid" : "bordered"}
+                        color={isSelected ? "success" : "default"}
+                        className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
+                        onClick={() => setSelectedFacultyId(isSelected ? null : f.id)}
+                      >
+                        <Icon icon="gravity-ui:person" width={10} className="mr-1 opacity-70" />
+                        {f.code}
+                      </Chip>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -688,6 +755,7 @@ export default function TimetableBuilderPage() {
               onCellClick={handleCellClick}
               onCellClear={handleCellClear}
               onCellMove={handleCellMove}
+              highlightSlots={freeSlotsForSelectedFaculty}
             />
           ) : (
             <Card className="text-center py-10">

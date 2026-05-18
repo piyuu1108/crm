@@ -213,8 +213,8 @@ export default function AssignmentsPage() {
           ];
 
           (data.classes || []).forEach(cls => {
-            const cell = row.cells.find(c => c.classId === cls.id);
-            rowData.push(cell?.facultyCode || '');
+            const cell = row.cells.find(c => c.divisionNumber === cls.divisionNumber);
+            rowData.push((cell && !cell.isBlocked) ? (cell.facultyCode || '') : '');
           });
 
           csvContent += rowData.map(escapeCell).join(',') + '\n';

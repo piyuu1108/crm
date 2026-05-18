@@ -175,6 +175,7 @@ export default function CellAssignmentModal({
   const slotNum = parseInt(slot.replace("lecture", ""), 10);
   const slotDisplay = `Lecture ${slotNum}`;
   const dayDisplay = DAY_LABELS[day] || day;
+  const selectKey = `${day}-${slot}-${isOpen}`;
 
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -199,6 +200,7 @@ export default function CellAssignmentModal({
                   Subject — Faculty
                 </Label>
                 <Select
+                  key={`${selectKey}-${selectedAssignmentId || "empty"}`}
                   aria-label="Select subject"
                   selectedKey={selectedAssignmentId || undefined}
                   onSelectionChange={(key) => {
@@ -321,6 +323,7 @@ export default function CellAssignmentModal({
                     Select Lab
                   </Label>
                   <Select
+                    key={`${selectKey}-${selectedLabId || "empty"}`}
                     aria-label="Select lab"
                     selectedKey={selectedLabId || undefined}
                     onSelectionChange={(key) => {

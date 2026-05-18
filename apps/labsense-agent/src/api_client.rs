@@ -198,7 +198,9 @@ impl ApiClient {
             .map_err(|e| AgentError::Network(format!("AES Encryption failed: {}", e)))?;
 
         // 6. Encrypt the Login AES Key with RSA
-        let encrypted_key = crate::crypto::encrypt_rsa_base64(&login_aes_key)
+        // We must base64 encode it first so the Server's UTF-8 toString() doesn't mangle it!
+        let encoded_login_key = general_purpose::STANDARD.encode(&login_aes_key);
+        let encrypted_key = crate::crypto::encrypt_rsa_base64(encoded_login_key.as_bytes())
             .map_err(|e| AgentError::Network(format!("RSA Encryption failed: {}", e)))?;
 
         // 7. Send Hybrid Payload

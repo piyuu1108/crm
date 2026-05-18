@@ -157,6 +157,10 @@ impl SessionAnalytics {
         }
     }
 
+    pub fn reset_sequence_number(&mut self) {
+        self.sequence_number = 0;
+    }
+
     pub fn tick(&mut self, identity: &AppIdentity, is_idle: bool) {
         let now = chrono::Utc::now();
         self.total_seconds += 1;

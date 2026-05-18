@@ -36,7 +36,7 @@ pub fn start(
         let mut cache: Option<WindowCache> = None;
         
         // Fix 2: UIA Thread Guard (Prevent Thread Pool Exhaustion)
-        let uia_in_flight = Arc::new(AtomicBool::new(false));
+        let active_uia_tasks = Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
         loop {
             // Wait ~1 second or stop signal
@@ -89,13 +89,13 @@ pub fn start(
                         .contains(&process_lower.as_str());
 
                     let domain = if is_browser {
-                        // Only spawn UIA extraction if one isn't already stuck in the thread pool
-                        if !uia_in_flight.load(Ordering::SeqCst) {
+                        // Only spawn UIA extraction if we haven't exceeded the hanging thread limit
+                        if active_uia_tasks.load(Ordering::SeqCst) < 5 {
                             let hwnd = app.hwnd;
-                            let guard = uia_in_flight.clone();
+                            let guard = active_uia_tasks.clone();
                             
                             let extraction_task = tokio::task::spawn_blocking(move || {
-                                guard.store(true, Ordering::SeqCst);
+                                guard.fetch_add(1, Ordering::SeqCst);
                                 unsafe {
                                     let _ = windows::Win32::System::Com::CoInitializeEx(
                                         None,
@@ -106,19 +106,19 @@ pub fn start(
                                 unsafe {
                                     windows::Win32::System::Com::CoUninitialize();
                                 }
-                                guard.store(false, Ordering::SeqCst);
+                                guard.fetch_sub(1, Ordering::SeqCst);
                                 url
                             });
 
                             match tokio::time::timeout(Duration::from_millis(250), extraction_task).await {
                                 Ok(Ok(url)) => url,
                                 _ => {
-                                    log::debug!("UIA extraction timed out or failed for hwnd {}. Guard active.", hwnd);
+                                    log::debug!("UIA extraction timed out or failed for hwnd {}. Active UIA tasks: {}", hwnd, active_uia_tasks.load(Ordering::SeqCst));
                                     None
                                 }
                             }
                         } else {
-                            log::debug!("Skipping UIA extraction: previous task still blocked in thread pool.");
+                            log::debug!("Skipping UIA extraction: too many hanging tasks in thread pool.");
                             None
                         }
                     } else {

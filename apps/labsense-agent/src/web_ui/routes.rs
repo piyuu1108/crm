@@ -244,8 +244,8 @@ async fn handle_logout(
 
     // Send final sync before logout — extract payload first, then drop the lock
     let final_payload = {
-        let guard = analytics.lock();
-        guard.as_ref().map(|a| a.snapshot())
+        let mut guard = analytics.lock();
+        guard.as_mut().map(|a| a.snapshot())
     };
     if let Some(payload) = final_payload {
         let _ = api_client.sync(&session_id, &aes_key, payload).await;

@@ -26,6 +26,8 @@ setInterval(() => {
 }, 60000).unref();
 
 function checkRateLimit(collegeId: string): boolean {
+	if (rateLimits.size > 10000) rateLimits.clear(); // Emergency OOM prevention
+
 	const now = Date.now();
 	let entry = rateLimits.get(collegeId);
 	

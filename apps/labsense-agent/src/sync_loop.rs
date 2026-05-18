@@ -101,8 +101,8 @@ pub fn start(
 
             // Build sync payload from cumulative analytics
             let payload = {
-                let guard = analytics.lock();
-                match guard.as_ref() {
+                let mut guard = analytics.lock();
+                match guard.as_mut() {
                     Some(a) => a.snapshot(),
                     None => {
                         log::warn!("Sync loop: no analytics data, skipping");
@@ -161,6 +161,10 @@ pub fn start(
                                     let mut sess = session.lock();
                                     sess.session_id = Some(resp.session_id.clone());
                                     sess.session_aes_key = Some(new_aes_key);
+                                    
+                                    if let Some(a) = analytics.lock().as_mut() {
+                                        a.reset_sequence_number();
+                                    }
                                     
                                     current_session_id = resp.session_id;
                                     current_aes_key = new_aes_key;

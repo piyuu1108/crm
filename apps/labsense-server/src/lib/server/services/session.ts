@@ -97,6 +97,10 @@ export async function syncSession(
 		const detailValues: any[] = [];
 		const keepDetails: string[] = []; // For Phase E
 
+function escapeSqlString(str: string): string {
+	return str.replace(/\\/g, '\\\\').replace(/'/g, "''").replace(/\0/g, '');
+}
+
 		for (const app of sortedApps) {
 			const appId = appMap.get(app.appName);
 			if (!appId || !app.details) continue;
@@ -118,8 +122,8 @@ export async function syncSession(
 					idleSeconds: detail.idleSeconds,
 					updatedAt: now
 				});
-				const u = detail.url ? `'${detail.url.replace(/'/g, "''")}'` : 'NULL';
-				keepDetails.push(`('${appId}', '${detail.title.replace(/'/g, "''")}', ${u})`);
+				const u = detail.url ? `'${escapeSqlString(detail.url)}'` : 'NULL';
+				keepDetails.push(`('${appId}', '${escapeSqlString(detail.title ?? '')}', ${u})`);
 			}
 		}
 

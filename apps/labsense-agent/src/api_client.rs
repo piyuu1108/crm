@@ -137,7 +137,7 @@ impl ApiClient {
     }
 
     /// POST /api/agent/login — authenticate student and create session.
-    pub async fn login(&self, mut req: LoginRequest) -> Result<(LoginResponse, [u8; 32]), AgentError> {
+    pub async fn login(&self, req: LoginRequest) -> Result<(LoginResponse, [u8; 32]), AgentError> {
         let url = format!("{}/api/agent/login", self.base_url);
         log::info!("POST {} (student: {})", url, req.college_id);
 

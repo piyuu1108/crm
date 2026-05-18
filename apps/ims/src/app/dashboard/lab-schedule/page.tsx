@@ -110,6 +110,27 @@ export default function LabSchedulePage() {
     return { total, occupied };
   }, [labGrid]);
 
+  // ─── Unique Classes in Selected Lab ────────────────────────────────
+  const uniqueClasses = useMemo(() => {
+    if (!labGrid) return [];
+    const classes = new Set<string>();
+    for (const row of labGrid) {
+      for (const cell of row) {
+        if (cell?.className) {
+          classes.add(cell.className);
+        }
+      }
+    }
+    return Array.from(classes).sort();
+  }, [labGrid]);
+
+  const [highlightedClass, setHighlightedClass] = useState<string | null>(null);
+
+  // Reset highlight when selected lab changes
+  useEffect(() => {
+    setHighlightedClass(null);
+  }, [selectedLabId]);
+
   // ─── Lab API operations ────────────────────────────────────────────
   const fetchLabs = async () => {
     try {
@@ -287,6 +308,47 @@ export default function LabSchedulePage() {
         </div>
       )}
 
+      {/* Unique Classes Chips Series */}
+      {selectedLab && uniqueClasses.length > 0 && (
+        <div className="mb-6 p-4 bg-white border border-border rounded-xl shadow-sm flex flex-col gap-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded bg-accent-light/35 text-accent flex items-center justify-center">
+                <Icon icon="gravity-ui:shield-check" width={16} />
+              </span>
+              <span className="text-sm font-semibold text-primary">Classes Scheduled in this Lab</span>
+            </div>
+            {highlightedClass && (
+              <Button
+                size="sm"
+                variant="tertiary"
+                className="h-7 text-xs text-muted hover:text-danger hover:bg-danger-light/10"
+                onPress={() => setHighlightedClass(null)}
+              >
+                Clear Highlight
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2 items-center">
+            {uniqueClasses.map((cls) => {
+              const isHighlighted = highlightedClass === cls;
+              return (
+                <Chip
+                  key={cls}
+                  size="sm"
+                  variant={isHighlighted ? "primary" : "soft"}
+                  color={isHighlighted ? "accent" : "default"}
+                  className="cursor-pointer transition-all hover:scale-105 active:scale-95"
+                  onClick={() => setHighlightedClass(isHighlighted ? null : cls)}
+                >
+                  <Chip.Label>{cls}</Chip.Label>
+                </Chip>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Timetable Grid */}
       {labs.length === 0 ? (
         <div className="text-center py-12 text-muted text-sm border border-dashed border-border rounded-lg">
@@ -325,28 +387,41 @@ export default function LabSchedulePage() {
                     <td className="px-4 py-3 font-semibold text-sm text-muted bg-surface-alt border-b border-r border-border sticky left-0 z-10">
                       Lecture {rowIdx + 1}
                     </td>
-                    {row.map((cell, colIdx) => (
-                      <td
-                        key={colIdx}
-                        className="px-3 py-3 border-b border-r border-border last:border-r-0 align-top h-[76px] transition-colors group-hover:bg-surface-alt/30"
-                      >
-                        {cell ? (
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-semibold text-sm text-primary">
-                              {cell.className}
-                            </span>
-                            <span className="text-xs text-muted">
-                              {cell.subjectCode}
-                              {cell.facultyCode ? ` (${cell.facultyCode})` : ""}
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-xs text-muted/40 italic select-none">
-                            —
-                          </div>
-                        )}
-                      </td>
-                    ))}
+                    {row.map((cell, colIdx) => {
+                      const isHighlighted = highlightedClass
+                        ? cell?.className === highlightedClass
+                        : false;
+                      const hasHighlightActive = highlightedClass !== null;
+
+                      return (
+                        <td
+                          key={colIdx}
+                          className={`px-3 py-3 border-b border-r border-border last:border-r-0 align-top h-[76px] transition-all duration-200 ${
+                            isHighlighted
+                              ? "bg-accent-light/35 ring-2 ring-accent ring-inset"
+                              : hasHighlightActive
+                              ? "opacity-35"
+                              : "group-hover:bg-surface-alt/30"
+                          }`}
+                        >
+                          {cell ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-sm text-primary">
+                                {cell.className}
+                              </span>
+                              <span className="text-xs text-muted">
+                                {cell.subjectCode}
+                                {cell.facultyCode ? ` (${cell.facultyCode})` : ""}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-xs text-muted/40 italic select-none">
+                              —
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))}
               </tbody>

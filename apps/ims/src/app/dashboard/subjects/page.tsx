@@ -62,9 +62,9 @@ export default function SubjectsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div><h1 className="text-xl font-bold">Subjects</h1><p className="text-sm text-muted mt-1">Manage subjects with credits and types</p></div>
-        <Button size="sm" onPress={openAdd}><Icon icon="gravity-ui:plus" width={14} />Add Subject</Button>
+        <Button size="sm" className="w-full sm:w-auto" onPress={openAdd}><Icon icon="gravity-ui:plus" width={14} />Add Subject</Button>
       </div>
       <Table>
         <Table.ScrollContainer>

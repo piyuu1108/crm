@@ -218,14 +218,14 @@ export default function LabSchedulePage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold">Lab Schedule</h1>
           <p className="text-sm text-muted mt-1">
             View lab occupancy from Timetable Builder (localStorage)
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Button size="sm" variant="secondary" onPress={refreshStore}>
             <Icon icon="gravity-ui:arrows-rotate-right" width={14} />
             Refresh
@@ -237,8 +237,8 @@ export default function LabSchedulePage() {
       </div>
 
       {/* Lab Selector + Actions */}
-      <div className="flex items-end gap-3 mb-6">
-        <div className="w-[260px]">
+      <div className="flex flex-wrap items-end gap-3 mb-6">
+        <div className="w-full sm:w-[260px]">
           <Select
             className="w-full"
             aria-label="Select LAB"
@@ -289,7 +289,7 @@ export default function LabSchedulePage() {
 
         {/* Occupancy stats */}
         {selectedLab && labGrid && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="sm:ml-auto flex items-center gap-2 w-full sm:w-auto">
             <Chip size="sm" variant="soft" color={stats.occupied > 0 ? "accent" : "default"}>
               {stats.occupied}/{stats.total} slots occupied
             </Chip>

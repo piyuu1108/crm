@@ -498,12 +498,12 @@ export default function AssignmentsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-bold">Assignment Matrix</h1>
           <p className="text-sm text-muted mt-0.5">Assign faculty to subject-class cells</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <Select
             className="w-[130px]"
             aria-label="Semester"
@@ -550,8 +550,8 @@ export default function AssignmentsPage() {
       {isSaving && <div className="text-right pb-2 text-primary text-xs font-medium animate-pulse">Saving matrix...</div>}
 
       {data && !loading && (
-        <div className="flex gap-4 items-start">
-          <div className="flex-1 overflow-hidden min-w-0">
+        <div className="flex flex-col lg:flex-row gap-4 items-start">
+          <div className="flex-1 overflow-hidden min-w-0 w-full">
             <Table>
               <Table.ScrollContainer>
                 <Table.Content aria-label="Assignment Matrix" className="min-w-[1072px]">
@@ -639,7 +639,7 @@ export default function AssignmentsPage() {
             </div>
           </div>
 
-          <div className="w-[300px] shrink-0 border border-border rounded-xl bg-white shadow-sm overflow-hidden flex flex-col max-h-[calc(100vh-200px)] sticky top-4">
+          <div className="w-full lg:w-[300px] shrink-0 border border-border rounded-xl bg-white shadow-sm overflow-hidden flex flex-col max-h-[calc(100vh-200px)] lg:sticky top-4">
             <div className="p-3 bg-neutral-50 border-b border-border font-semibold text-sm text-foreground">Faculty Load Summary</div>
             <div className="overflow-y-auto p-0 flex flex-col">
               <div className="flex bg-neutral-50/50 sticky top-0 z-10 border-b border-border">

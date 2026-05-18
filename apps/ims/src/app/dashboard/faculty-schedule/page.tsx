@@ -163,14 +163,14 @@ export default function FacultySchedulePage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold">Faculty Schedule</h1>
           <p className="text-sm text-muted mt-1">
             View per-faculty timetable from Timetable Builder (localStorage)
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {masterData && store && (
             <Button size="sm" variant="secondary" onPress={handleExportExcel}>
               <Icon icon="gravity-ui:file-arrow-down" width={14} />
@@ -185,8 +185,8 @@ export default function FacultySchedulePage() {
       </div>
 
       {/* Faculty Selector */}
-      <div className="flex items-end gap-3 mb-6">
-        <div className="w-[300px]">
+      <div className="flex flex-wrap items-end gap-3 mb-6">
+        <div className="w-full sm:w-[300px]">
           <Select
             className="w-full"
             aria-label="Select Faculty"
@@ -224,7 +224,7 @@ export default function FacultySchedulePage() {
 
         {/* Stats */}
         {selectedFaculty && facultyGrid && (
-          <div className="ml-auto flex items-center gap-2">
+          <div className="sm:ml-auto flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Chip size="sm" variant="soft" color={stats.occupied > 0 ? "accent" : "default"}>
               {stats.occupied}/{stats.total} slots
             </Chip>

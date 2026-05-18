@@ -40,7 +40,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { courseId, setCourseId, courses } = useDataContext();
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   // Fetch admin info
   useEffect(() => {
@@ -82,12 +88,20 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden bg-background relative">
+      {/* Mobile backdrop */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/40 z-40 md:hidden transition-opacity"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
-        className={`flex flex-col border-r border-border bg-sidebar-bg transition-all duration-200 ${
-          sidebarCollapsed ? "w-16" : "w-56"
-        }`}
+        className={`fixed md:relative flex flex-col h-full border-r border-border bg-sidebar-bg transition-transform duration-300 z-50 ${
+          mobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        } ${sidebarCollapsed ? "w-16" : "w-56"}`}
       >
         {/* Brand */}
         <div className="flex items-center gap-2.5 px-4 py-4">
@@ -128,11 +142,21 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden w-full">
         {/* Top bar */}
-        <header className="flex items-center justify-between px-5 py-4 bg-background">
-          <div className="flex items-center gap-4">
-            <h2 className="text-sm font-semibold text-muted uppercase tracking-wider">
+        <header className="flex flex-wrap items-center justify-between px-4 sm:px-5 py-3 sm:py-4 bg-background gap-3 border-b border-border md:border-b-0 min-h-[60px]">
+          <div className="flex items-center gap-3">
+            <Button
+              isIconOnly
+              variant="ghost"
+              className="md:hidden -ml-2 text-muted"
+              onPress={() => setMobileMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              <Icon icon="gravity-ui:bars" width={22} />
+            </Button>
+            
+            <h2 className="text-sm font-semibold text-muted uppercase tracking-wider line-clamp-1">
               {NAV_ITEMS.find((i) =>
                 i.href === "/dashboard"
                   ? pathname === "/dashboard"
@@ -189,6 +213,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
               variant="ghost"
               onPress={handleLogout}
               aria-label="Log out"
+              size="sm"
             >
               <Icon icon="gravity-ui:arrow-right-from-square" width={18} className="text-muted" />
             </Button>
@@ -196,8 +221,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto bg-background p-5">
-          <div className="max-w-[1400px] mx-auto w-full">
+        <main className="flex-1 overflow-auto bg-background p-3 sm:p-5">
+          <div className="max-w-[1400px] mx-auto w-full pb-10">
             {children}
           </div>
         </main>

@@ -463,14 +463,14 @@ export default function TimetableBuilderPage() {
   return (
     <div>
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 mb-5">
         <div>
           <h1 className="text-xl font-bold">Timetable Builder</h1>
           <p className="text-sm text-muted mt-0.5">
             Manually assign lectures — conflicts detected in realtime
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
           {/* Conflict Summary */}
           {totalConflicts > 0 && (
             <Tooltip>
@@ -540,7 +540,7 @@ export default function TimetableBuilderPage() {
               </>
             )}
           </Button>
-
+{/* 
           <Button
             size="sm"
             // color="success"
@@ -559,7 +559,7 @@ export default function TimetableBuilderPage() {
                 <span className="ml-1">{isPending ? "Publishing…" : "Publish to ERP"}</span>
               </>
             )}
-          </Button>
+          </Button> */}
         </div>
       </div>
 
@@ -602,7 +602,7 @@ export default function TimetableBuilderPage() {
                 {isSaving ? "Saving..." : "Save Timetable"}
               </Button>
             </div>
-            <div className="mt-4 flex justify-center">
+            {/* <div className="mt-4 flex justify-center">
               <Button
                 variant="primary"
                 size="lg"
@@ -612,7 +612,7 @@ export default function TimetableBuilderPage() {
                 <Icon icon="gravity-ui:rocket" width={18} />
                 {isPublishing ? "Publishing..." : "Publish to ERP"}
               </Button>
-            </div>
+            </div> */}
           </Card.Content>
         </Card>
       )}
@@ -621,9 +621,9 @@ export default function TimetableBuilderPage() {
       {masterData && (
         <div>
           {/* Class Filter Row */}
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex flex-wrap items-center gap-3 mb-4 w-full">
             <Select
-              className="w-[240px]"
+              className="w-full sm:w-[240px]"
               aria-label="Select class"
               selectedKey={selectedClassId || undefined}
               onSelectionChange={(key) => {

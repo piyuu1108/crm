@@ -52,9 +52,9 @@ export default function FacultyPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div><h1 className="text-xl font-bold">Faculty</h1><p className="text-sm text-muted mt-1">Manage faculty members and view their workloads</p></div>
-        <Button size="sm" onPress={openAdd}><Icon icon="gravity-ui:plus" width={14} />Add Faculty</Button>
+        <Button size="sm" className="w-full sm:w-auto" onPress={openAdd}><Icon icon="gravity-ui:plus" width={14} />Add Faculty</Button>
       </div>
       <Table
         aria-label="Faculty list"

@@ -60,6 +60,8 @@ export default function TimetableBuilderPage() {
   
   // Highlight Free Slots State
   const [selectedFacultyId, setSelectedFacultyId] = useState<number | null>(null);
+  const [selectedLabId, setSelectedLabId] = useState<number | null>(null);
+  const [selectedSubjectCode, setSelectedSubjectCode] = useState<string | null>(null);
 
   // ─── Load from localStorage on mount ───────────────────────────────
   useEffect(() => {
@@ -187,6 +189,61 @@ export default function TimetableBuilderPage() {
     }
     return free;
   }, [selectedFacultyId, store]);
+
+  // ─── Assignable Labs (all labs) ──────────────────────────────────
+  const assignableLabs = useMemo(() => {
+    if (!masterData) return [];
+    return masterData.rooms.filter((r) => r.isLab);
+  }, [masterData]);
+
+  // ─── Free slots globally for selected lab ──────────────────────────
+  const freeSlotsForSelectedLab = useMemo(() => {
+    const free = new Set<string>();
+    if (!selectedLabId || !store) return free;
+    
+    for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]) {
+      for (let s = 1; s <= 5; s++) {
+        const slot = `lecture${s}`;
+        let isBusy = false;
+        // Check if this lab is busy in ANY class at this day+slot
+        for (const ct of Object.values(store.timetables)) {
+          const cell = ct.grid[day]?.[slot];
+          if (cell && cell.isLabSession && cell.labId === selectedLabId) {
+            isBusy = true;
+            break;
+          }
+        }
+        if (!isBusy) {
+          free.add(`${day}:${slot}`);
+        }
+      }
+    }
+    return free;
+  }, [selectedLabId, store]);
+
+  // ─── Combined Highlight Slots ──────────────────────────────────────
+  const highlightSlots = useMemo(() => {
+    if (selectedFacultyId) return freeSlotsForSelectedFaculty;
+    if (selectedLabId) return freeSlotsForSelectedLab;
+    
+    const slots = new Set<string>();
+    if (selectedSubjectCode && store && selectedClassId) {
+      const cId = Number(selectedClassId);
+      const grid = store.timetables[cId]?.grid;
+      if (grid) {
+        for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]) {
+          for (let s = 1; s <= 5; s++) {
+            const slot = `lecture${s}`;
+            const cell = grid[day]?.[slot];
+            if (cell && cell.subjectShortCode === selectedSubjectCode) {
+              slots.add(`${day}:${slot}`);
+            }
+          }
+        }
+      }
+    }
+    return slots;
+  }, [selectedFacultyId, selectedLabId, selectedSubjectCode, freeSlotsForSelectedFaculty, freeSlotsForSelectedLab, store, selectedClassId]);
 
   // ─── Fetch Fresh handler ───────────────────────────────────────────
   const handleFetchFresh = useCallback(async () => {
@@ -703,45 +760,89 @@ export default function TimetableBuilderPage() {
             )}
           </div>
 
-          {/* Subject Lecture Counts & Faculty Highlighters */}
-          {(subjectCounts.length > 0 || assignableFaculties.length > 0) && (
+          {/* Subject Lecture Counts & Highlighters */}
+          {(subjectCounts.length > 0 || assignableFaculties.length > 0 || assignableLabs.length > 0) && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-3">
               {subjectCounts.length > 0 && (
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] text-muted font-medium mr-1">Assigned:</span>
-                  {subjectCounts.map((s) => (
-                    <Chip key={s.code} size="sm" variant="soft" className="text-[11px] h-5 px-1.5">
-                      {s.code} <strong className="ml-0.5">{s.count}</strong>
-                    </Chip>
-                  ))}
-                </div>
-              )}
-              
-              {subjectCounts.length > 0 && assignableFaculties.length > 0 && (
-                <div className="hidden sm:block w-px h-4 bg-border/60"></div>
-              )}
-              
-              {assignableFaculties.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[11px] text-muted font-medium mr-1">Check Free Slots:</span>
-                  {assignableFaculties.map((f) => {
-                    const isSelected = selectedFacultyId === f.id;
+                  {subjectCounts.map((s) => {
+                    const isSelected = selectedSubjectCode === s.code;
                     return (
                       <Chip 
-                        key={f.id} 
+                        key={s.code} 
                         size="sm" 
-                        variant={isSelected ? "solid" : "bordered"}
+                        variant={isSelected ? "solid" : "soft"}
                         color={isSelected ? "success" : "default"}
                         className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
-                        onClick={() => setSelectedFacultyId(isSelected ? null : f.id)}
+                        onClick={() => {
+                          setSelectedSubjectCode(isSelected ? null : s.code);
+                          setSelectedFacultyId(null);
+                          setSelectedLabId(null);
+                        }}
                       >
-                        <Icon icon="gravity-ui:person" width={10} className="mr-1 opacity-70" />
-                        {f.code}
+                        {s.code} <strong className="ml-0.5">{s.count}</strong>
                       </Chip>
                     );
                   })}
                 </div>
               )}
+              
+              {subjectCounts.length > 0 && (assignableFaculties.length > 0 || assignableLabs.length > 0) && (
+                <div className="hidden sm:block w-px h-4 bg-border/60"></div>
+              )}
+              
+              <div className="flex flex-wrap items-center gap-4">
+                {assignableFaculties.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] text-muted font-medium mr-1">Faculty</span>
+                    {assignableFaculties.map((f) => {
+                      const isSelected = selectedFacultyId === f.id;
+                      return (
+                        <Chip 
+                          key={f.id} 
+                          size="sm" 
+                          variant={isSelected ? "solid" : "bordered"}
+                          color={isSelected ? "success" : "default"}
+                          className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
+                          onClick={() => {
+                            setSelectedFacultyId(isSelected ? null : f.id);
+                            setSelectedLabId(null); // Clear lab selection
+                          }}
+                        >
+                          <Icon icon="gravity-ui:person" width={10} className="mr-1 opacity-70" />
+                          {f.code}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {assignableLabs.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] text-muted font-medium mr-1">Labs:</span>
+                    {assignableLabs.map((l) => {
+                      const isSelected = selectedLabId === l.id;
+                      return (
+                        <Chip 
+                          key={l.id} 
+                          size="sm" 
+                          variant={isSelected ? "solid" : "bordered"}
+                          color={isSelected ? "success" : "default"}
+                          className={`text-[11px] h-5 px-1.5 cursor-pointer transition-colors ${isSelected ? "shadow-sm shadow-success/20" : "hover:bg-surface-alt"}`}
+                          onClick={() => {
+                            setSelectedLabId(isSelected ? null : l.id);
+                            setSelectedFacultyId(null); // Clear faculty selection
+                          }}
+                        >
+                          <Icon icon="gravity-ui:flask" width={10} className="mr-1 opacity-70" />
+                          {l.name}
+                        </Chip>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -755,7 +856,7 @@ export default function TimetableBuilderPage() {
               onCellClick={handleCellClick}
               onCellClear={handleCellClear}
               onCellMove={handleCellMove}
-              highlightSlots={freeSlotsForSelectedFaculty}
+              highlightSlots={highlightSlots}
             />
           ) : (
             <Card className="text-center py-10">

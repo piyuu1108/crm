@@ -15,7 +15,7 @@ interface VaultEntry {
 // In-memory Key Vault
 const keyVault = new Map<string, VaultEntry>();
 
-// Clean up expired keys periodically
+// Clean up expired keys and nonces periodically
 setInterval(() => {
 	const now = Date.now();
 	for (const [token, entry] of keyVault.entries()) {
@@ -23,7 +23,28 @@ setInterval(() => {
 			keyVault.delete(token);
 		}
 	}
+	for (const [nonce, expiresAt] of nonces.entries()) {
+		if (now > expiresAt) {
+			nonces.delete(nonce);
+		}
+	}
 }, 60000).unref();
+
+// In-memory Challenge Nonces (TTL: 30s)
+const nonces = new Map<string, number>();
+
+export function generateChallenge(): string {
+	const challenge = crypto.randomBytes(16).toString('hex');
+	nonces.set(challenge, Date.now() + 30000);
+	return challenge;
+}
+
+export function consumeChallenge(challenge: string): boolean {
+	const expiresAt = nonces.get(challenge);
+	if (!expiresAt) return false;
+	nonces.delete(challenge);
+	return Date.now() <= expiresAt;
+}
 
 export function getPrivateKey(): string {
 	const pk = env.RSA_PRIVATE_KEY;
@@ -75,7 +96,10 @@ export function getAesKey(syncToken: string): Buffer | null {
 export function decryptAesGcmPayload(syncToken: string, base64Payload: string): string | null {
 	const key = getAesKey(syncToken);
 	if (!key) return null;
+	return decryptAesGcmWithKey(key, base64Payload);
+}
 
+export function decryptAesGcmWithKey(key: Buffer, base64Payload: string): string | null {
 	const payloadBuf = Buffer.from(base64Payload, 'base64');
 	// Nonce is 12 bytes
 	// Auth Tag is 16 bytes (appended to ciphertext)

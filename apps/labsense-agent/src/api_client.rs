@@ -13,20 +13,27 @@ pub struct ApiClient {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RsaLoginPayload {
-    pub college_id: String,
-    pub password: String,
-    pub session_aes_key: String,
+pub struct HybridLoginPayload {
+    pub encrypted_key: String,
+    pub payload: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HandshakeResponse {
+    pub challenge: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LoginPayload {
-    pub payload: String,
+pub struct InnerLoginJson {
+    pub college_id: String,
+    pub password: String,
     pub hardware_id: String,
     pub pc_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lab_name: Option<String>,
+    pub session_aes_key: String,
+    pub nonce: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -136,30 +143,68 @@ impl ApiClient {
         }
     }
 
+    /// GET /api/agent/handshake — request challenge nonce
+    pub async fn handshake(&self) -> Result<String, AgentError> {
+        let url = format!("{}/api/agent/handshake", self.base_url);
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| AgentError::Network(e.to_string()))?;
+
+        let status = resp.status().as_u16();
+        if status == 200 {
+            let body = resp
+                .json::<HandshakeResponse>()
+                .await
+                .map_err(|e| AgentError::Network(e.to_string()))?;
+            Ok(body.challenge)
+        } else {
+            Err(AgentError::Network(format!("Handshake failed with HTTP {}", status)))
+        }
+    }
+
     /// POST /api/agent/login — authenticate student and create session.
     pub async fn login(&self, req: LoginRequest) -> Result<(LoginResponse, [u8; 32]), AgentError> {
+        // 1. Fetch challenge nonce
+        let nonce = self.handshake().await?;
+        
         let url = format!("{}/api/agent/login", self.base_url);
         log::info!("POST {} (student: {})", url, req.college_id);
 
-        let aes_key = crate::crypto::generate_aes_key();
+        // 2. Generate Session AES Key (for future patches)
+        let session_aes_key = crate::crypto::generate_aes_key();
         use base64::{engine::general_purpose, Engine as _};
-        let encoded_aes_key = general_purpose::STANDARD.encode(aes_key);
+        let encoded_session_key = general_purpose::STANDARD.encode(session_aes_key);
         
-        let rsa_payload = RsaLoginPayload {
+        // 3. Construct inner JSON payload
+        let inner = InnerLoginJson {
             college_id: req.college_id.clone(),
             password: req.password.clone(),
-            session_aes_key: encoded_aes_key,
-        };
-
-        let json_str = serde_json::to_string(&rsa_payload).unwrap();
-        let encrypted = crate::crypto::encrypt_rsa_base64(json_str.as_bytes())
-            .map_err(|e| AgentError::Network(format!("RSA Encryption failed: {}", e)))?;
-
-        let payload = LoginPayload {
-            payload: encrypted,
             hardware_id: req.hardware_id.clone(),
             pc_name: req.pc_name.clone(),
             lab_name: req.lab_name.clone(),
+            session_aes_key: encoded_session_key,
+            nonce,
+        };
+        let json_str = serde_json::to_string(&inner).unwrap();
+
+        // 4. Generate Login AES Key (for this request only)
+        let login_aes_key = crate::crypto::generate_aes_key();
+
+        // 5. Encrypt JSON with AES
+        let encrypted_payload = crate::crypto::encrypt_aes_gcm_base64(&login_aes_key, json_str.as_bytes())
+            .map_err(|e| AgentError::Network(format!("AES Encryption failed: {}", e)))?;
+
+        // 6. Encrypt the Login AES Key with RSA
+        let encrypted_key = crate::crypto::encrypt_rsa_base64(&login_aes_key)
+            .map_err(|e| AgentError::Network(format!("RSA Encryption failed: {}", e)))?;
+
+        // 7. Send Hybrid Payload
+        let payload = HybridLoginPayload {
+            encrypted_key,
+            payload: encrypted_payload,
         };
 
         let resp = self
@@ -193,7 +238,7 @@ impl ApiClient {
                     body.minimum_tracked_seconds,
                     body.candidate_retention_minutes
                 );
-                Ok((body, aes_key))
+                Ok((body, session_aes_key))
             }
             400 => {
                 let body = resp.json::<ErrorResponse>().await.unwrap_or(ErrorResponse {

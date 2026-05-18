@@ -1,13 +1,13 @@
 import type { RequestHandler } from './$types';
 import { corsPreflightResponse, jsonResponse, errorResponse } from '$lib/server/cors';
-import { parseJsonBody, validateLoginPayload } from '$lib/server/validation/validation';
+import { validateLoginPayload } from '$lib/server/validation/validation';
 import {
 	authenticateStudent,
 	upsertMachine,
 	createLabSession,
 	getSystemSettings
 } from '$lib/server/services/agent';
-import { decryptRsaPayload, storeAesKey } from '$lib/server/crypto/vault';
+import { decryptRsaPayload, decryptAesGcmWithKey, storeAesKey, consumeChallenge } from '$lib/server/crypto/vault';
 
 // Simple in-memory rate limiter for login
 interface RateLimitEntry {
@@ -49,33 +49,56 @@ export const OPTIONS: RequestHandler = async () => {
 /**
  * POST /api/agent/login
  *
- * Receives RSA encrypted payload, authenticates a student, upserts the machine, creates a new session,
- * and returns the session ID + sync configuration from system_settings.
+ * Receives Hybrid encrypted payload (AES key encrypted by RSA, payload encrypted by AES).
  */
 export const POST: RequestHandler = async ({ request }) => {
-	// Parse body looking for encrypted payload
-	const body = await parseJsonBody(request) as any;
-	if (body === null || typeof body.payload !== 'string') {
-		return errorResponse('Invalid payload format. Expected { payload: string }', 400);
+	// Restrict payload size to prevent OOM
+	const bodyText = await request.text();
+	if (bodyText.length > 8192) {
+		return errorResponse('Payload too large', 413);
+	}
+
+	let body: any;
+	try {
+		body = JSON.parse(bodyText);
+	} catch (e) {
+		return errorResponse('Invalid JSON body', 400);
+	}
+
+	if (!body || typeof body.encryptedKey !== 'string' || typeof body.payload !== 'string') {
+		return errorResponse('Invalid payload format. Expected { encryptedKey: string, payload: string }', 400);
+	}
+
+	let loginAesKey: Buffer;
+	try {
+		const decryptedKeyText = decryptRsaPayload(body.encryptedKey);
+		loginAesKey = Buffer.from(decryptedKeyText, 'base64');
+		if (loginAesKey.length !== 32) throw new Error('Invalid AES key length');
+	} catch (e) {
+		return errorResponse('RSA Decryption failed', 400);
+	}
+
+	const decryptedText = decryptAesGcmWithKey(loginAesKey, body.payload);
+	if (!decryptedText) {
+		return errorResponse('AES Decryption failed', 400);
 	}
 
 	let decryptedJson: any;
 	try {
-		const decryptedText = decryptRsaPayload(body.payload);
 		decryptedJson = JSON.parse(decryptedText);
 	} catch (e) {
-		return errorResponse('Decryption failed', 400);
+		return errorResponse('Invalid JSON in decrypted payload', 400);
 	}
 
-	const combinedPayload = {
-		...body,
-		...decryptedJson
-	};
+	// Validate challenge nonce
+	if (!decryptedJson.nonce || typeof decryptedJson.nonce !== 'string' || !consumeChallenge(decryptedJson.nonce)) {
+		return errorResponse('Replay attack detected: invalid or expired challenge nonce', 400);
+	}
 
-	const sessionAesKey = combinedPayload.sessionAesKey;
+	const sessionAesKey = decryptedJson.sessionAesKey;
 
 	// Validate payload
-	const validation = validateLoginPayload(combinedPayload);
+	const validation = validateLoginPayload(decryptedJson);
 	if (!validation.ok) {
 		return errorResponse(validation.error, 400);
 	}

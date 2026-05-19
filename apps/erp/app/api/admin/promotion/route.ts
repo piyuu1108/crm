@@ -99,29 +99,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Resolve academic year for the target semester ──────────────────
-    const [targetSemester] = await db
-      .select({ academicYearId: semesters.academicYearId })
-      .from(semesters)
-      .where(eq(semesters.id, targetDivision.semesterId))
-      .limit(1);
-
-    let academicYearId = targetSemester?.academicYearId;
-
-    // Fallback: use current academic year if semester has no year linked
-    if (!academicYearId) {
-      const [currentYear] = await db
-        .select({ id: academicYears.id })
-        .from(academicYears)
-        .where(eq(academicYears.isCurrent, true))
-        .limit(1);
-      academicYearId = currentYear?.id ?? null;
-    }
-
-    if (!academicYearId) {
-      return err("No academic year found. Create an academic year first.", 400);
-    }
-
     // ── Fetch students to promote ─────────────────────────────────────
     let studentsToPromote: { id: number; fullName: string }[];
 
@@ -198,9 +175,6 @@ export async function POST(req: NextRequest) {
           studentId: s.id,
           semesterId: targetDivision.semesterId,
           divisionId: targetDivisionId,
-          academicYearId: academicYearId!,
-          semesterNo: targetDivision.semesterNo,
-          divisionName: targetDivision.displayName,
           status: "active",
         }))
       );

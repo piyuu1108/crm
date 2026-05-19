@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { divisions, students, counselorDivisionAssignments } from "@/app/lib/schema";
+import { divisions, students, counselorDivisionAssignments, faculty } from "@/app/lib/schema";
 import { eq, count, sql } from "drizzle-orm";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -87,9 +87,10 @@ export async function GET(
     // Counselor for this division
     const counselors = await db
       .select({
-        facultyName: counselorDivisionAssignments.facultyName,
+        facultyName: faculty.name,
       })
       .from(counselorDivisionAssignments)
+      .innerJoin(faculty, eq(counselorDivisionAssignments.facultyId, faculty.id))
       .where(eq(counselorDivisionAssignments.divisionId, id));
 
     return ok({

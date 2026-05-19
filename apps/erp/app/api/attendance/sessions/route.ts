@@ -11,6 +11,8 @@ import {
   students,
   divisions,
   semesters,
+  faculty,
+  subjects,
 } from "@/app/lib/schema";
 import { eq, and, sql, inArray } from "drizzle-orm";
 
@@ -69,9 +71,9 @@ export async function GET(req: NextRequest) {
           dayOfWeek: timetableEntries.dayOfWeek,
           startTime: timetableEntries.startTime,
           endTime: timetableEntries.endTime,
-          subjectName: timetableEntries.subjectName,
-          facultyName: timetableEntries.facultyName,
-          divisionName: timetableEntries.divisionName,
+          subjectName: subjects.name,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
           divisionId: timetableEntries.divisionId,
           semesterId: timetableEntries.semesterId,
           assignmentId: timetableEntries.assignmentId,
@@ -82,6 +84,9 @@ export async function GET(req: NextRequest) {
           facultySubjectAssignments,
           eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
         )
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(eq(facultySubjectAssignments.facultyId, payload.userId));
 
       // Filter by day of week for the selected date
@@ -154,10 +159,11 @@ export async function GET(req: NextRequest) {
         const assignments = await db
           .select({
             divisionId: counselorDivisionAssignments.divisionId,
-            divisionName: counselorDivisionAssignments.divisionName,
+            divisionName: divisions.displayName,
             semesterId: counselorDivisionAssignments.semesterId,
           })
           .from(counselorDivisionAssignments)
+          .innerJoin(divisions, eq(counselorDivisionAssignments.divisionId, divisions.id))
           .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
 
         if (assignments.length === 0) {
@@ -207,14 +213,22 @@ export async function GET(req: NextRequest) {
             id: attendanceSessions.id,
             timetableId: attendanceSessions.timetableId,
             date: attendanceSessions.date,
-            subjectName: attendanceSessions.subjectName,
-            facultyName: attendanceSessions.facultyName,
-            divisionName: attendanceSessions.divisionName,
+            subjectName: subjects.name,
+            facultyName: faculty.name,
+            divisionName: divisions.displayName,
             isCancelled: attendanceSessions.isCancelled,
             startTime: attendanceSessions.startTime,
             endTime: attendanceSessions.endTime,
           })
           .from(attendanceSessions)
+          .innerJoin(divisions, eq(attendanceSessions.divisionId, divisions.id))
+          .leftJoin(timetableEntries, eq(attendanceSessions.timetableId, timetableEntries.id))
+          .leftJoin(
+            facultySubjectAssignments,
+            eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+          )
+          .leftJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+          .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
           .where(
             and(
               eq(attendanceSessions.divisionId, divId),
@@ -234,6 +248,8 @@ export async function GET(req: NextRequest) {
 
           sessions.push({
             ...s,
+            subjectName: s.subjectName || "",
+            facultyName: s.facultyName || "",
             totalStudents: Number(counts[0]?.total ?? 0),
             presentCount: Number(counts[0]?.present ?? 0),
           });
@@ -298,9 +314,6 @@ export async function POST(req: NextRequest) {
         semesterId: timetableEntries.semesterId,
         startTime: timetableEntries.startTime,
         endTime: timetableEntries.endTime,
-        subjectName: timetableEntries.subjectName,
-        facultyName: timetableEntries.facultyName,
-        divisionName: timetableEntries.divisionName,
         assignmentId: timetableEntries.assignmentId,
       })
       .from(timetableEntries)
@@ -369,9 +382,6 @@ export async function POST(req: NextRequest) {
         date,
         startTime: entry.startTime,
         endTime: entry.endTime,
-        subjectName: entry.subjectName,
-        facultyName: entry.facultyName,
-        divisionName: entry.divisionName,
         markedByFacultyId: payload.userId,
       })
       .returning({ id: attendanceSessions.id });

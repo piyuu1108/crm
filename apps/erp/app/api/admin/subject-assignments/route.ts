@@ -83,16 +83,18 @@ export async function GET(req: NextRequest) {
         divisionId: facultySubjectAssignments.divisionId,
         subjectId: facultySubjectAssignments.subjectId,
         facultyId: facultySubjectAssignments.facultyId,
-        divisionName: facultySubjectAssignments.divisionName,
-        subjectName: facultySubjectAssignments.subjectName,
+        divisionName: divisions.displayName,
+        subjectName: subjects.name,
         subjectType: facultySubjectAssignments.subjectType,
-        facultyName: facultySubjectAssignments.facultyName,
-        courseCode: facultySubjectAssignments.courseCode,
+        facultyName: faculty.name,
+        courseCode: divisions.courseCode,
       })
       .from(facultySubjectAssignments)
       .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+      .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
       .where(baseWhere)
-      .orderBy(facultySubjectAssignments.divisionName, facultySubjectAssignments.subjectName)
+      .orderBy(divisions.displayName, subjects.name)
       .limit(limit)
       .offset(offset);
 
@@ -181,20 +183,24 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Insert assignment
-    const [assignment] = await db
+    const [inserted] = await db
       .insert(facultySubjectAssignments)
       .values({
         semesterId,
         facultyId: fac.id,
         subjectId: sub.id,
         divisionId: div.id,
-        facultyName: fac.name,
-        subjectName: sub.name,
         subjectType: sub.subjectType,
-        divisionName: div.displayName,
-        courseCode: div.courseCode,
       })
       .returning();
+
+    const assignment = {
+      ...inserted,
+      facultyName: fac.name,
+      subjectName: sub.name,
+      divisionName: div.displayName,
+      courseCode: div.courseCode,
+    };
 
     return ok(assignment, 201);
   } catch (error) {

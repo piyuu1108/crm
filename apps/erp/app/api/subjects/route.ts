@@ -29,19 +29,6 @@ async function authenticate() {
   return verifyToken(token);
 }
 
-// ─── Shared columns we select from faculty_subject_assignments ────────────────
-
-const assignmentCols = {
-  subjectId: facultySubjectAssignments.subjectId,
-  subjectName: facultySubjectAssignments.subjectName,
-  subjectType: facultySubjectAssignments.subjectType,
-  facultyName: facultySubjectAssignments.facultyName,
-  divisionName: facultySubjectAssignments.divisionName,
-  courseCode: facultySubjectAssignments.courseCode,
-  divisionId: facultySubjectAssignments.divisionId,
-  facultyId: facultySubjectAssignments.facultyId,
-};
-
 // ─── GET /api/subjects — Mode-filtered subject list ───────────────────────────
 
 export async function GET(req: NextRequest) {
@@ -80,12 +67,23 @@ export async function GET(req: NextRequest) {
 
       // Enrich with assignment info — scoped to each division's current semester
       const assignments = await db
-        .select(assignmentCols)
+        .select({
+          subjectId: facultySubjectAssignments.subjectId,
+          subjectName: subjects.name,
+          subjectType: facultySubjectAssignments.subjectType,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
+          courseCode: divisions.courseCode,
+          divisionId: facultySubjectAssignments.divisionId,
+          facultyId: facultySubjectAssignments.facultyId,
+        })
         .from(facultySubjectAssignments)
         .innerJoin(divisions, and(
           eq(facultySubjectAssignments.divisionId, divisions.id),
           eq(facultySubjectAssignments.semesterId, divisions.semesterId)
-        ));
+        ))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id));
 
       const assignmentsBySubjectId = new Map<number, typeof assignments>();
       for (const a of assignments) {
@@ -125,12 +123,23 @@ export async function GET(req: NextRequest) {
 
       // Get subject assignments for those divisions — scoped to each division's current semester
       const rows = await db
-        .select(assignmentCols)
+        .select({
+          subjectId: facultySubjectAssignments.subjectId,
+          subjectName: subjects.name,
+          subjectType: facultySubjectAssignments.subjectType,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
+          courseCode: divisions.courseCode,
+          divisionId: facultySubjectAssignments.divisionId,
+          facultyId: facultySubjectAssignments.facultyId,
+        })
         .from(facultySubjectAssignments)
         .innerJoin(divisions, and(
           eq(facultySubjectAssignments.divisionId, divisions.id),
           eq(facultySubjectAssignments.semesterId, divisions.semesterId)
         ))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
 
       // Deduplicate by subjectId and enrich with subject master data
@@ -175,12 +184,23 @@ export async function GET(req: NextRequest) {
     if (activeRole === "faculty") {
       // Get assignments scoped to each division's current semester
       const rows = await db
-        .select(assignmentCols)
+        .select({
+          subjectId: facultySubjectAssignments.subjectId,
+          subjectName: subjects.name,
+          subjectType: facultySubjectAssignments.subjectType,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
+          courseCode: divisions.courseCode,
+          divisionId: facultySubjectAssignments.divisionId,
+          facultyId: facultySubjectAssignments.facultyId,
+        })
         .from(facultySubjectAssignments)
         .innerJoin(divisions, and(
           eq(facultySubjectAssignments.divisionId, divisions.id),
           eq(facultySubjectAssignments.semesterId, divisions.semesterId)
         ))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .where(eq(facultySubjectAssignments.facultyId, payload.userId));
 
       const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
@@ -241,8 +261,20 @@ export async function GET(req: NextRequest) {
       if (!div) return ok({ role: activeRole, subjects: [] });
 
       const rows = await db
-        .select(assignmentCols)
+        .select({
+          subjectId: facultySubjectAssignments.subjectId,
+          subjectName: subjects.name,
+          subjectType: facultySubjectAssignments.subjectType,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
+          courseCode: divisions.courseCode,
+          divisionId: facultySubjectAssignments.divisionId,
+          facultyId: facultySubjectAssignments.facultyId,
+        })
         .from(facultySubjectAssignments)
+        .innerJoin(divisions, eq(divisions.id, facultySubjectAssignments.divisionId))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .where(
           and(
             eq(facultySubjectAssignments.divisionId, student.currentDivisionId),

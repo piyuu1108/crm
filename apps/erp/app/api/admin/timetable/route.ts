@@ -68,14 +68,20 @@ export async function GET(req: NextRequest) {
         dayOfWeek: timetableEntries.dayOfWeek,
         startTime: timetableEntries.startTime,
         endTime: timetableEntries.endTime,
-        subjectName: timetableEntries.subjectName,
-        facultyName: timetableEntries.facultyName,
+        subjectName: subjects.name,
+        facultyName: faculty.name,
         assignmentId: timetableEntries.assignmentId,
         color: timetableEntries.color,
         isLab: timetableEntries.isLab,
         labId: timetableEntries.labId,
       })
       .from(timetableEntries)
+      .innerJoin(
+        facultySubjectAssignments,
+        eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+      )
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+      .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
       .where(
         and(
           eq(timetableEntries.divisionId, divId),
@@ -90,11 +96,13 @@ export async function GET(req: NextRequest) {
         id: facultySubjectAssignments.id,
         facultyId: facultySubjectAssignments.facultyId,
         subjectId: facultySubjectAssignments.subjectId,
-        facultyName: facultySubjectAssignments.facultyName,
-        subjectName: facultySubjectAssignments.subjectName,
+        facultyName: faculty.name,
+        subjectName: subjects.name,
         subjectType: facultySubjectAssignments.subjectType,
       })
       .from(facultySubjectAssignments)
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+      .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
       .where(
         and(
           eq(facultySubjectAssignments.divisionId, divId),
@@ -122,13 +130,13 @@ export async function GET(req: NextRequest) {
       facultyConflicts = await db
         .select({
           facultyId: facultySubjectAssignments.facultyId,
-          facultyName: facultySubjectAssignments.facultyName,
+          facultyName: faculty.name,
           dayOfWeek: timetableEntries.dayOfWeek,
           startTime: timetableEntries.startTime,
           endTime: timetableEntries.endTime,
           divisionId: timetableEntries.divisionId,
-          divisionName: timetableEntries.divisionName,
-          subjectName: timetableEntries.subjectName,
+          divisionName: divisions.displayName,
+          subjectName: subjects.name,
           assignmentId: timetableEntries.assignmentId,
         })
         .from(timetableEntries)
@@ -136,6 +144,9 @@ export async function GET(req: NextRequest) {
           facultySubjectAssignments,
           eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
         )
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(
           and(
             inArray(facultySubjectAssignments.facultyId, divisionFacultyIds),
@@ -152,10 +163,16 @@ export async function GET(req: NextRequest) {
         startTime: timetableEntries.startTime,
         endTime: timetableEntries.endTime,
         divisionId: timetableEntries.divisionId,
-        divisionName: timetableEntries.divisionName,
-        subjectName: timetableEntries.subjectName,
+        divisionName: divisions.displayName,
+        subjectName: subjects.name,
       })
       .from(timetableEntries)
+      .innerJoin(
+        facultySubjectAssignments,
+        eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+      )
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+      .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
       .where(
         and(
           eq(timetableEntries.isLab, true),
@@ -236,10 +253,6 @@ export async function POST(req: NextRequest) {
     const validAssignments = await db
       .select({
         id: facultySubjectAssignments.id,
-        facultyName: facultySubjectAssignments.facultyName,
-        subjectName: facultySubjectAssignments.subjectName,
-        subjectType: facultySubjectAssignments.subjectType,
-        courseCode: facultySubjectAssignments.courseCode,
       })
       .from(facultySubjectAssignments)
       .where(
@@ -250,10 +263,10 @@ export async function POST(req: NextRequest) {
         )
       );
 
-    const validAssignmentMap = new Map(validAssignments.map((a) => [a.id, a]));
+    const validAssignmentSet = new Set(validAssignments.map((a) => a.id));
 
     for (const aId of assignmentIds) {
-      if (!validAssignmentMap.has(aId as number)) {
+      if (!validAssignmentSet.has(aId as number)) {
         return err(`Assignment ${aId} is not valid for this division`, 400);
       }
     }
@@ -294,7 +307,6 @@ export async function POST(req: NextRequest) {
           isLab?: boolean;
           labId?: string | null;
         }) => {
-          const assignment = validAssignmentMap.get(entry.assignmentId)!;
           const resolvedSlotId = slotMap.get(`${entry.startTime}-${entry.endTime}`) ?? null;
           return {
             semesterId: division.semesterId,
@@ -304,10 +316,6 @@ export async function POST(req: NextRequest) {
             startTime: entry.startTime,
             endTime: entry.endTime,
             slotId: resolvedSlotId,
-            subjectName: assignment.subjectName,
-            facultyName: assignment.facultyName,
-            divisionName: division.displayName,
-            courseCode: assignment.courseCode,
             color: entry.color || "#6366f1",
             isLab: entry.isLab || false,
             labId: entry.isLab ? entry.labId : null,

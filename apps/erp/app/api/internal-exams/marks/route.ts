@@ -9,6 +9,7 @@ import {
   counselorDivisionAssignments,
   students,
   subjects,
+  divisions,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -99,12 +100,14 @@ export async function GET(req: NextRequest) {
       .select({
         id: facultySubjectAssignments.id,
         subjectId: facultySubjectAssignments.subjectId,
-        subjectName: facultySubjectAssignments.subjectName,
+        subjectName: subjects.name,
         subjectType: facultySubjectAssignments.subjectType,
         divisionId: facultySubjectAssignments.divisionId,
-        divisionName: facultySubjectAssignments.divisionName,
+        divisionName: divisions.displayName,
       })
       .from(facultySubjectAssignments)
+      .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
       .where(eq(facultySubjectAssignments.id, assignmentId))
       .limit(1);
 

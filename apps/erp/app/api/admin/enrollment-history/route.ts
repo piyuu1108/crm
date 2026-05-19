@@ -6,6 +6,7 @@ import {
   studentEnrollmentHistory,
   academicYears,
   semesters,
+  divisions,
 } from "@/app/lib/schema";
 import { eq, asc } from "drizzle-orm";
 
@@ -63,8 +64,8 @@ export async function GET(req: NextRequest) {
         studentId: studentEnrollmentHistory.studentId,
         semesterId: studentEnrollmentHistory.semesterId,
         divisionId: studentEnrollmentHistory.divisionId,
-        semesterNo: studentEnrollmentHistory.semesterNo,
-        divisionName: studentEnrollmentHistory.divisionName,
+        semesterNo: divisions.semesterNo,
+        divisionName: divisions.displayName,
         status: studentEnrollmentHistory.status,
         enrolledAt: studentEnrollmentHistory.enrolledAt,
         archivedAt: studentEnrollmentHistory.archivedAt,
@@ -73,15 +74,19 @@ export async function GET(req: NextRequest) {
       })
       .from(studentEnrollmentHistory)
       .innerJoin(
-        academicYears,
-        eq(studentEnrollmentHistory.academicYearId, academicYears.id)
-      )
-      .innerJoin(
         semesters,
         eq(studentEnrollmentHistory.semesterId, semesters.id)
       )
+      .innerJoin(
+        academicYears,
+        eq(semesters.academicYearId, academicYears.id)
+      )
+      .innerJoin(
+        divisions,
+        eq(studentEnrollmentHistory.divisionId, divisions.id)
+      )
       .where(eq(studentEnrollmentHistory.studentId, studentId))
-      .orderBy(asc(studentEnrollmentHistory.semesterNo));
+      .orderBy(asc(divisions.semesterNo));
 
     return ok({
       studentId,

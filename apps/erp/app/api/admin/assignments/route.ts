@@ -64,11 +64,12 @@ export async function GET() {
       .select({
         id: counselorDivisionAssignments.id,
         facultyId: counselorDivisionAssignments.facultyId,
-        facultyName: counselorDivisionAssignments.facultyName,
+        facultyName: faculty.name,
         divisionId: counselorDivisionAssignments.divisionId,
         semesterId: counselorDivisionAssignments.semesterId,
       })
       .from(counselorDivisionAssignments)
+      .innerJoin(faculty, eq(counselorDivisionAssignments.facultyId, faculty.id))
       .innerJoin(divisions, and(
         eq(counselorDivisionAssignments.divisionId, divisions.id),
         eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
@@ -140,16 +141,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Insert
-    const [assignment] = await db
+    const [inserted] = await db
       .insert(counselorDivisionAssignments)
       .values({
         semesterId,
         facultyId: fac.id,
         divisionId: div.id,
-        facultyName: fac.name,
-        divisionName: div.displayName,
       })
       .returning();
+
+    const assignment = {
+      ...inserted,
+      facultyName: fac.name,
+      divisionName: div.displayName,
+    };
 
     return ok(assignment, 201);
   } catch (error) {

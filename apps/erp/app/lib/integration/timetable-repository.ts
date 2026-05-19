@@ -105,11 +105,7 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
           facultyId: f.id,
           subjectId: s.id,
           divisionId: c.id,
-          facultyName: f.name,
-          subjectName: s.name,
           subjectType: s.type, 
-          divisionName: c.code,
-          courseCode: c.code, 
         };
       });
 
@@ -133,7 +129,6 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
             facultyId: facultySubjectAssignments.facultyId,
             subjectId: facultySubjectAssignments.subjectId,
             divisionId: facultySubjectAssignments.divisionId,
-            courseCode: facultySubjectAssignments.courseCode,
           }).from(facultySubjectAssignments).where(
             inArray(facultySubjectAssignments.divisionId, divisionIds)
           )
@@ -169,10 +164,6 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
             dayOfWeek: l.day.charAt(0) + l.day.slice(1).toLowerCase(), // e.g. "Monday"
             startTime: times.start,
             endTime: times.end,
-            subjectName: s.name,
-            facultyName: f.name,
-            divisionName: c.code,
-            courseCode: assignment.courseCode,
             isLab: !!l.lab,
             labId: l.lab || null,
             isActive: true,

@@ -12,6 +12,7 @@ import {
   timetableEntries,
   attendance,
   attendanceSessions,
+  subjects,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
 import { redis } from "@/app/lib/redis";
@@ -377,10 +378,10 @@ async function buildFacultyDashboard(facultyId: number) {
     db
       .select({
         id: facultySubjectAssignments.id,
-        subjectName: facultySubjectAssignments.subjectName,
-        subjectType: facultySubjectAssignments.subjectType,
-        divisionName: facultySubjectAssignments.divisionName,
-        courseCode: facultySubjectAssignments.courseCode,
+        subjectName: subjects.name,
+        subjectType: subjects.subjectType,
+        divisionName: divisions.displayName,
+        courseCode: divisions.courseCode,
         divisionId: facultySubjectAssignments.divisionId,
       })
       .from(facultySubjectAssignments)
@@ -391,6 +392,7 @@ async function buildFacultyDashboard(facultyId: number) {
           eq(facultySubjectAssignments.semesterId, divisions.semesterId)
         )
       )
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
       .where(eq(facultySubjectAssignments.facultyId, facultyId)),
     db
       .select({
@@ -437,7 +439,7 @@ async function buildCounselorDashboard(facultyId: number) {
   const assignedDivisionRows = await db
     .select({
       id: counselorDivisionAssignments.divisionId,
-      divisionName: counselorDivisionAssignments.divisionName,
+      divisionName: divisions.displayName,
     })
     .from(counselorDivisionAssignments)
     .innerJoin(
@@ -552,12 +554,18 @@ async function getTodayTimetableForDivision(
       dayOfWeek: timetableEntries.dayOfWeek,
       startTime: timetableEntries.startTime,
       endTime: timetableEntries.endTime,
-      subjectName: timetableEntries.subjectName,
-      facultyName: timetableEntries.facultyName,
-      divisionName: timetableEntries.divisionName,
+      subjectName: subjects.name,
+      facultyName: faculty.name,
+      divisionName: divisions.displayName,
     })
     .from(timetableEntries)
     .innerJoin(divisions, eq(divisions.id, timetableEntries.divisionId))
+    .innerJoin(
+      facultySubjectAssignments,
+      eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+    )
+    .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+    .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
     .where(and(...filters))
     .orderBy(timetableEntries.startTime);
 }
@@ -572,11 +580,18 @@ async function getTodayTimetableForAssignments(assignmentIds: number[]) {
       dayOfWeek: timetableEntries.dayOfWeek,
       startTime: timetableEntries.startTime,
       endTime: timetableEntries.endTime,
-      subjectName: timetableEntries.subjectName,
-      facultyName: timetableEntries.facultyName,
-      divisionName: timetableEntries.divisionName,
+      subjectName: subjects.name,
+      facultyName: faculty.name,
+      divisionName: divisions.displayName,
     })
     .from(timetableEntries)
+    .innerJoin(
+      facultySubjectAssignments,
+      eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+    )
+    .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+    .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+    .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
     .where(
       and(
         eq(timetableEntries.dayOfWeek, today),

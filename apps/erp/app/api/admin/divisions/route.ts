@@ -102,9 +102,10 @@ export async function GET(req: NextRequest) {
       const counselors = await db
         .select({
           divisionId: counselorDivisionAssignments.divisionId,
-          facultyName: counselorDivisionAssignments.facultyName,
+          facultyName: faculty.name,
         })
         .from(counselorDivisionAssignments)
+        .innerJoin(faculty, eq(counselorDivisionAssignments.facultyId, faculty.id))
         .where(inArray(counselorDivisionAssignments.divisionId, divisionIds));
 
       for (const c of counselors) {
@@ -117,8 +118,8 @@ export async function GET(req: NextRequest) {
       const divisionAssignments = await db
         .select({
           divisionId: facultySubjectAssignments.divisionId,
-          facultyName: facultySubjectAssignments.facultyName,
-          subjectName: facultySubjectAssignments.subjectName,
+          facultyName: faculty.name,
+          subjectName: subjects.name,
           facultyCode: faculty.facultyCode,
           subjectShortCode: subjects.shortCode,
           subjectCode: subjects.code,
@@ -135,10 +136,10 @@ export async function GET(req: NextRequest) {
           assignmentsMap[a.divisionId] = [];
         }
         assignmentsMap[a.divisionId].push({
-          subjectName: a.subjectName,
-          facultyName: a.facultyName,
-          subjectShortCode: a.subjectShortCode || a.subjectName.substring(0, 3).toUpperCase(),
-          facultyCode: a.facultyCode || a.facultyName.split(' ').map(n => n[0]).join(''),
+          subjectName: a.subjectName || "",
+          facultyName: a.facultyName || "",
+          subjectShortCode: a.subjectShortCode || (a.subjectName ? a.subjectName.substring(0, 3).toUpperCase() : ""),
+          facultyCode: a.facultyCode || (a.facultyName ? a.facultyName.split(' ').map(n => n[0]).join('') : ""),
           subjectCode: a.subjectCode,
           subjectType: a.subjectType,
           subjectCredit: a.subjectCredit,

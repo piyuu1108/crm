@@ -9,6 +9,7 @@ import {
   marks,
   facultySubjectAssignments,
   counselorDivisionAssignments,
+  faculty,
 } from "@/app/lib/schema";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -61,9 +62,9 @@ export async function GET(
     const allAssignments = await db
       .select({
         id: facultySubjectAssignments.id,
-        facultyName: facultySubjectAssignments.facultyName,
-        divisionName: facultySubjectAssignments.divisionName,
-        courseCode: facultySubjectAssignments.courseCode,
+        facultyName: faculty.name,
+        divisionName: divisions.displayName,
+        courseCode: divisions.courseCode,
         divisionId: facultySubjectAssignments.divisionId,
         facultyId: facultySubjectAssignments.facultyId,
         semesterId: facultySubjectAssignments.semesterId,
@@ -73,6 +74,7 @@ export async function GET(
         eq(facultySubjectAssignments.divisionId, divisions.id),
         eq(facultySubjectAssignments.semesterId, divisions.semesterId)
       ))
+      .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
       .where(eq(facultySubjectAssignments.subjectId, subject.id));
 
     // ── Access control ──────────────────────────────────────────────

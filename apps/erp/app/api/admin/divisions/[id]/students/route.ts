@@ -128,35 +128,13 @@ export async function POST(
           }))
         ).returning({ id: students.id, email: students.email });
 
-        // Step 2: Resolve academic year for enrollment history
-        const [sem] = await tx
-          .select({ academicYearId: semesters.academicYearId })
-          .from(semesters)
-          .where(eq(semesters.id, division.semesterId))
-          .limit(1);
-
-        let academicYearId = sem?.academicYearId;
-
-        // Fallback: use current academic year
-        if (!academicYearId) {
-          const [currentYear] = await tx
-            .select({ id: academicYears.id })
-            .from(academicYears)
-            .where(eq(academicYears.isCurrent, true))
-            .limit(1);
-          academicYearId = currentYear?.id ?? null;
-        }
-
-        // Step 3: Insert enrollment history rows (only if academic year exists)
-        if (academicYearId && insertedStudents.length > 0) {
+        // Step 2: Insert enrollment history rows
+        if (insertedStudents.length > 0) {
           await tx.insert(studentEnrollmentHistory).values(
             insertedStudents.map((s) => ({
               studentId: s.id,
               semesterId: division.semesterId,
               divisionId: division.id,
-              academicYearId: academicYearId!,
-              semesterNo: division.semesterNo,
-              divisionName: division.displayName,
               status: "active",
             }))
           );

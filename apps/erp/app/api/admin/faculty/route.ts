@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
       const facultyAssignments = await db
         .select({
           facultyId: facultySubjectAssignments.facultyId,
-          subjectName: facultySubjectAssignments.subjectName,
+          subjectName: subjects.name,
           divisionName: divisions.displayName,
           subjectShortCode: subjects.shortCode,
           subjectCode: subjects.code,

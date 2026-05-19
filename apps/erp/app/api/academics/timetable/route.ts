@@ -8,7 +8,8 @@ import {
   divisions,
   faculty,
   counselorDivisionAssignments,
-  facultySubjectAssignments
+  facultySubjectAssignments,
+  subjects,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -71,14 +72,21 @@ export async function GET(req: NextRequest) {
           dayOfWeek: timetableEntries.dayOfWeek,
           startTime: timetableEntries.startTime,
           endTime: timetableEntries.endTime,
-          subjectName: timetableEntries.subjectName,
-          facultyName: timetableEntries.facultyName,
-          divisionName: timetableEntries.divisionName,
+          subjectName: subjects.name,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
           color: timetableEntries.color,
           isLab: timetableEntries.isLab,
           labId: timetableEntries.labId,
         })
         .from(timetableEntries)
+        .innerJoin(
+          facultySubjectAssignments,
+          eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+        )
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(
           and(
             eq(timetableEntries.divisionId, student.divisionId),
@@ -96,9 +104,9 @@ export async function GET(req: NextRequest) {
           dayOfWeek: timetableEntries.dayOfWeek,
           startTime: timetableEntries.startTime,
           endTime: timetableEntries.endTime,
-          subjectName: timetableEntries.subjectName,
-          facultyName: timetableEntries.facultyName,
-          divisionName: timetableEntries.divisionName,
+          subjectName: subjects.name,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
           color: timetableEntries.color,
           isLab: timetableEntries.isLab,
           labId: timetableEntries.labId,
@@ -108,6 +116,9 @@ export async function GET(req: NextRequest) {
           facultySubjectAssignments,
           eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
         )
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(
           and(
             eq(facultySubjectAssignments.facultyId, payload.userId),
@@ -115,12 +126,17 @@ export async function GET(req: NextRequest) {
           )
         );
 
-      return ok({ role: "faculty", entries });
+      return ok({ role: activeRole, entries });
 
     } else if (activeRole === "counselor") {
       const assignments = await db
-        .select({ divisionId: counselorDivisionAssignments.divisionId, semesterId: counselorDivisionAssignments.semesterId, divisionName: counselorDivisionAssignments.divisionName })
+        .select({
+          divisionId: counselorDivisionAssignments.divisionId,
+          semesterId: counselorDivisionAssignments.semesterId,
+          divisionName: divisions.displayName,
+        })
         .from(counselorDivisionAssignments)
+        .innerJoin(divisions, eq(counselorDivisionAssignments.divisionId, divisions.id))
         .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
 
       if (assignments.length === 0) {
@@ -136,14 +152,21 @@ export async function GET(req: NextRequest) {
           dayOfWeek: timetableEntries.dayOfWeek,
           startTime: timetableEntries.startTime,
           endTime: timetableEntries.endTime,
-          subjectName: timetableEntries.subjectName,
-          facultyName: timetableEntries.facultyName,
-          divisionName: timetableEntries.divisionName,
+          subjectName: subjects.name,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
           color: timetableEntries.color,
           isLab: timetableEntries.isLab,
           labId: timetableEntries.labId,
         })
         .from(timetableEntries)
+        .innerJoin(
+          facultySubjectAssignments,
+          eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+        )
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(
           and(
             sql`${timetableEntries.divisionId} IN (${sql.join(divisionIds.map(id => sql`${id}`), sql`, `)})`,

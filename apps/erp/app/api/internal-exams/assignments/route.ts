@@ -6,6 +6,8 @@ import {
   facultySubjectAssignments,
   counselorDivisionAssignments,
   divisions,
+  subjects,
+  faculty,
 } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -57,13 +59,13 @@ export async function GET(req: NextRequest) {
     const selectCols = {
       id: facultySubjectAssignments.id,
       subjectId: facultySubjectAssignments.subjectId,
-      subjectName: facultySubjectAssignments.subjectName,
+      subjectName: subjects.name,
       subjectType: facultySubjectAssignments.subjectType,
       divisionId: facultySubjectAssignments.divisionId,
-      divisionName: facultySubjectAssignments.divisionName,
+      divisionName: divisions.displayName,
       facultyId: facultySubjectAssignments.facultyId,
-      facultyName: facultySubjectAssignments.facultyName,
-      courseCode: facultySubjectAssignments.courseCode,
+      facultyName: faculty.name,
+      courseCode: divisions.courseCode,
     };
 
     let assignments;
@@ -75,20 +77,24 @@ export async function GET(req: NextRequest) {
           .select(selectCols)
           .from(facultySubjectAssignments)
           .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+          .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+          .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
           .where(
             and(
               eq(facultySubjectAssignments.divisionId, parseInt(divisionIdParam)),
               eq(facultySubjectAssignments.semesterId, divisions.semesterId)
             )
           )
-          .orderBy(facultySubjectAssignments.subjectName);
+          .orderBy(subjects.name);
       } else {
         assignments = await db
           .select(selectCols)
           .from(facultySubjectAssignments)
           .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+          .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+          .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
           .where(eq(facultySubjectAssignments.semesterId, divisions.semesterId))
-          .orderBy(facultySubjectAssignments.divisionName, facultySubjectAssignments.subjectName);
+          .orderBy(divisions.displayName, subjects.name);
       }
     } else if (resolvedRole === "faculty") {
       // Faculty sees only their own assignments
@@ -96,13 +102,15 @@ export async function GET(req: NextRequest) {
         .select(selectCols)
         .from(facultySubjectAssignments)
         .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .where(
           and(
             eq(facultySubjectAssignments.facultyId, payload.userId),
             eq(facultySubjectAssignments.semesterId, divisions.semesterId)
           )
         )
-        .orderBy(facultySubjectAssignments.subjectName);
+        .orderBy(subjects.name);
     } else {
       // Counselor sees assignments for their assigned divisions
       const counselorDivs = await db
@@ -131,6 +139,8 @@ export async function GET(req: NextRequest) {
         .select(selectCols)
         .from(facultySubjectAssignments)
         .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .where(
           and(
             eq(facultySubjectAssignments.semesterId, divisions.semesterId),
@@ -140,7 +150,7 @@ export async function GET(req: NextRequest) {
               : [] // if multiple, no extra filter — all counselor divs
           )
         )
-        .orderBy(facultySubjectAssignments.divisionName, facultySubjectAssignments.subjectName);
+        .orderBy(divisions.displayName, subjects.name);
 
       // Filter in JS for multiple div IDs (SQL IN not easy with Drizzle without raw SQL)
       if (targetDivIds.length > 1) {

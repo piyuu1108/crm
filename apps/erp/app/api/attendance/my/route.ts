@@ -6,6 +6,10 @@ import {
   attendance,
   attendanceSessions,
   students,
+  timetableEntries,
+  facultySubjectAssignments,
+  subjects as subjectsTable,
+  faculty,
 } from "@/app/lib/schema";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 
@@ -56,7 +60,7 @@ export async function GET(req: NextRequest) {
       conditions.push(lte(attendanceSessions.date, dateTo));
     }
     if (subjectFilter) {
-      conditions.push(eq(attendanceSessions.subjectName, subjectFilter));
+      conditions.push(eq(subjectsTable.name, subjectFilter));
     }
 
     const records = await db
@@ -64,8 +68,8 @@ export async function GET(req: NextRequest) {
         id: attendance.id,
         status: attendance.status,
         date: attendanceSessions.date,
-        subjectName: attendanceSessions.subjectName,
-        facultyName: attendanceSessions.facultyName,
+        subjectName: subjectsTable.name,
+        facultyName: faculty.name,
         startTime: attendanceSessions.startTime,
         endTime: attendanceSessions.endTime,
       })
@@ -74,21 +78,34 @@ export async function GET(req: NextRequest) {
         attendanceSessions,
         eq(attendanceSessions.id, attendance.attendanceSessionId)
       )
+      .leftJoin(timetableEntries, eq(attendanceSessions.timetableId, timetableEntries.id))
+      .leftJoin(
+        facultySubjectAssignments,
+        eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+      )
+      .leftJoin(subjectsTable, eq(facultySubjectAssignments.subjectId, subjectsTable.id))
+      .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
       .where(and(...conditions))
       .orderBy(sql`${attendanceSessions.date} DESC, ${attendanceSessions.startTime} ASC`);
 
     // Get unique subjects for filter dropdown
     const subjectsResult = await db
-      .select({ subjectName: attendanceSessions.subjectName })
+      .select({ subjectName: subjectsTable.name })
       .from(attendance)
       .innerJoin(
         attendanceSessions,
         eq(attendanceSessions.id, attendance.attendanceSessionId)
       )
+      .leftJoin(timetableEntries, eq(attendanceSessions.timetableId, timetableEntries.id))
+      .leftJoin(
+        facultySubjectAssignments,
+        eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+      )
+      .leftJoin(subjectsTable, eq(facultySubjectAssignments.subjectId, subjectsTable.id))
       .where(eq(attendance.studentId, payload.userId))
-      .groupBy(attendanceSessions.subjectName);
+      .groupBy(subjectsTable.name);
 
-    const subjects = subjectsResult.map((s) => s.subjectName);
+    const subjects = subjectsResult.map((s) => s.subjectName).filter(Boolean);
 
     // Summary stats
     const totalPresent = records.filter((r) => r.status === "present").length;

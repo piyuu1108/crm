@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+export const dynamic = "force-dynamic";
+
+import React, { useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Button,
@@ -11,7 +13,7 @@ import {
 import { Eye, EyeSlash, Lock } from "@gravity-ui/icons";
 import { fetchWithTimeout } from "@/app/lib/http";
 
-export default function SetPasswordPage() {
+function SetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -207,5 +209,17 @@ export default function SetPasswordPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function SetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Spinner size="lg" />
+      </div>
+    }>
+      <SetPasswordContent />
+    </Suspense>
   );
 }

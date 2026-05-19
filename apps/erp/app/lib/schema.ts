@@ -216,16 +216,12 @@ export const studentEnrollmentHistory = pgTable("student_enrollment_history", {
   studentId: integer("student_id").notNull().references(() => students.id),
   semesterId: integer("semester_id").notNull().references(() => semesters.id),
   divisionId: integer("division_id").notNull().references(() => divisions.id),
-  academicYearId: integer("academic_year_id").notNull().references(() => academicYears.id),
-  semesterNo: integer("semester_no").notNull(),                   // 1-6 denormalized
-  divisionName: varchar("division_name", { length: 50 }).notNull(), // denormalized snapshot
   status: varchar("status", { length: 20 }).notNull().default("active"), // active | archived | graduated
   enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
   archivedAt: timestamp("archived_at"),
 }, (t) => [
   uniqueIndex("seh_student_semester_idx").on(t.studentId, t.semesterId),
   index("seh_student_status_idx").on(t.studentId, t.status),
-  index("seh_acad_year_idx").on(t.academicYearId),
   index("seh_division_idx").on(t.divisionId),
 ]);
 
@@ -255,12 +251,7 @@ export const facultySubjectAssignments = pgTable("faculty_subject_assignments", 
   facultyId: integer("faculty_id").notNull().references(() => faculty.id),
   subjectId: integer("subject_id").notNull().references(() => subjects.id),
   divisionId: integer("division_id").notNull().references(() => divisions.id),
-
-  facultyName: varchar("faculty_name", { length: 100 }).notNull(),
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
   subjectType: varchar("subject_type", { length: 20 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
-  courseCode: varchar("course_code", { length: 20 }).notNull(),
 }, (t) => [
   uniqueIndex("fsa_sem_fac_sub_div_idx").on(t.semesterId, t.facultyId, t.subjectId, t.divisionId)
 ]);
@@ -270,9 +261,6 @@ export const counselorDivisionAssignments = pgTable("counselor_division_assignme
   semesterId: integer("semester_id").notNull().references(() => semesters.id),
   facultyId: integer("faculty_id").notNull().references(() => faculty.id),
   divisionId: integer("division_id").notNull().references(() => divisions.id),
-
-  facultyName: varchar("faculty_name", { length: 100 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
 }, (t) => [
   uniqueIndex("cda_sem_fac_div_idx").on(t.semesterId, t.facultyId, t.divisionId)
 ]);
@@ -300,10 +288,6 @@ export const timetableEntries = pgTable("timetable_entries", {
   endTime: time("end_time").notNull(),
   slotId: integer("slot_id").references(() => timetableSlots.id), // nullable for backward compat
 
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
-  facultyName: varchar("faculty_name", { length: 100 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
-  courseCode: varchar("course_code", { length: 20 }).notNull(),
   color: varchar("color", { length: 20 }).default("#6366f1"), // optional color for visual grouping
   isLab: boolean("is_lab").notNull().default(false),
   labId: varchar("lab_id", { length: 20 }), // LAB1, LAB2, LAB3, LAB4
@@ -331,9 +315,6 @@ export const attendanceSessions = pgTable("attendance_sessions", {
 
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
-  facultyName: varchar("faculty_name", { length: 100 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
   markedByFacultyId: integer("marked_by_faculty_id").references(() => faculty.id),
 }, (t) => [
   index("as_timetable_date_idx").on(t.timetableId, t.date),

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { divisions, courses, semesters, students, counselorDivisionAssignments, facultySubjectAssignments, faculty, subjects } from "@/app/lib/schema";
+import { divisions, courses, semesters, students, counselorDivisionAssignments, facultySubjectAssignments, faculty, subjects, academicYears } from "@/app/lib/schema";
 import { eq, and, count, asc, desc, sql, max, inArray } from "drizzle-orm";
 import { redis } from "@/app/lib/redis";
 
@@ -217,6 +217,33 @@ export async function POST(req: NextRequest) {
     // Semester name: "Sem X (YYYY)" where X = semesterNo, YYYY = batchYear.
     const semesterName = `Sem ${semesterNo} (${batchYear})`;
 
+    // ── Auto-resolve academic year ────────────────────────────────────
+    // Academic year format: "YYYY-YY" (e.g., "2026-27")
+    // batchYear 2026 → academic year "2026-27"
+    const academicYearName = `${batchYear}-${String(batchYear + 1).slice(-2)}`;
+    let academicYearId: number;
+
+    const [existingAcademicYear] = await db
+      .select({ id: academicYears.id })
+      .from(academicYears)
+      .where(eq(academicYears.name, academicYearName))
+      .limit(1);
+
+    if (existingAcademicYear) {
+      academicYearId = existingAcademicYear.id;
+    } else {
+      const [newAcademicYear] = await db
+        .insert(academicYears)
+        .values({
+          name: academicYearName,
+          startYear: batchYear,
+          endYear: batchYear + 1,
+          isCurrent: true,
+        })
+        .returning({ id: academicYears.id });
+      academicYearId = newAcademicYear.id;
+    }
+
     let semesterId: number;
 
     // Try to find existing semester with this name
@@ -228,6 +255,12 @@ export async function POST(req: NextRequest) {
 
     if (existingSemester) {
       semesterId = existingSemester.id;
+
+      // Ensure semester is linked to academic year (backfill if needed)
+      await db
+        .update(semesters)
+        .set({ academicYearId })
+        .where(eq(semesters.id, semesterId));
     } else {
       // Auto-create semester with reasonable defaults
       const startDate = new Date(batchYear, (semesterNo - 1) * 2, 1) // approximate
@@ -244,6 +277,7 @@ export async function POST(req: NextRequest) {
           startDate,
           endDate,
           isActive: true, // kept for backward compat; not used by APIs
+          academicYearId,
         })
         .returning({ id: semesters.id });
 

@@ -16,6 +16,15 @@ import {
 
 // -- CORE LOOKUP / MASTER TABLES --
 
+export const academicYears = pgTable("academic_years", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 20 }).notNull().unique(),
+  startYear: integer("start_year").notNull(),
+  endYear: integer("end_year").notNull(),
+  isCurrent: boolean("is_current").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const courses = pgTable("courses", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
@@ -29,6 +38,7 @@ export const semesters = pgTable("semesters", {
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   isActive: boolean("is_active").notNull().default(false),
+  academicYearId: integer("academic_year_id").references(() => academicYears.id),
 });
 
 export const subjects = pgTable("subjects", {
@@ -198,6 +208,26 @@ export const students = pgTable("students", {
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+// -- STUDENT ENROLLMENT HISTORY --
+
+export const studentEnrollmentHistory = pgTable("student_enrollment_history", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => students.id),
+  semesterId: integer("semester_id").notNull().references(() => semesters.id),
+  divisionId: integer("division_id").notNull().references(() => divisions.id),
+  academicYearId: integer("academic_year_id").notNull().references(() => academicYears.id),
+  semesterNo: integer("semester_no").notNull(),                   // 1-6 denormalized
+  divisionName: varchar("division_name", { length: 50 }).notNull(), // denormalized snapshot
+  status: varchar("status", { length: 20 }).notNull().default("active"), // active | archived | graduated
+  enrolledAt: timestamp("enrolled_at").notNull().defaultNow(),
+  archivedAt: timestamp("archived_at"),
+}, (t) => [
+  uniqueIndex("seh_student_semester_idx").on(t.studentId, t.semesterId),
+  index("seh_student_status_idx").on(t.studentId, t.status),
+  index("seh_acad_year_idx").on(t.academicYearId),
+  index("seh_division_idx").on(t.divisionId),
+]);
 
 export const studentDocuments = pgTable("student_documents", {
   id: serial("id").primaryKey(),

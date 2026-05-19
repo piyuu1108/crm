@@ -1,0 +1,329 @@
+# College ERP: Architecture & Scalability Audit Report
+
+This report presents a deep-dive, future-oriented architectural audit of the College ERP system. It is based directly on the actual codebase structure, Drizzle schemas, Next.js App Router API routes, Zustand stores, and state-management patterns analyzed during the discovery phase.
+
+---
+
+## 1. Executive Summary
+
+### Overall Health & Architectural Maturity
+The system is currently configured as a **specialized academic scheduling and operations engine** rather than a full-scale institutional ERP. It effectively manages basic structures like courses, divisions, student profiles, timetables, and internal evaluation marks. 
+
+However, from an enterprise perspective, the architectural maturity is **Low-to-Medium (4/10)**. While the frontend follows modern React/Next.js practices with clear state-management boundaries, the backend exhibits severe architectural vulnerabilities—primarily around database transactional safety, data integrity, auditability, and integration readiness.
+
+### Core Strengths
+*   **Decoupled Frontend Business Logic:** Excellent separation of concerns. UI components do not handle data fetching directly; they rely on custom TanStack Query hooks mapped inside `app/lib/queries/`.
+*   **Sleek, Responsive UI Stack:** Built using Tailwind CSS v4 and HeroUI v3 (Beta) components, yielding a premium look-and-feel with mobile-responsive sidebar and off-canvas layouts.
+*   **Edge-Level Security & Rate Limiting:** Leveraging Next.js middleware with Upstash Redis for sliding-window rate limiting on login/API requests, alongside edge-level JWT verification.
+*   **Lightweight UI State:** Zustand is properly scoped strictly to ephemeral UI states (e.g., sidebar collapsed, active role selection) avoiding bloated client-side cache stores.
+
+### Critical Institutional Risks
+1.  **Multi-Query Transaction Failures:** Almost all batch mutations (e.g., saving attendance sessions, bulk updating timetables, finalizing marks) execute multiple sequential writes outside of database transactions. A single network hiccup or database constraint failure will corrupt institutional data.
+2.  **Destructive Student Promotion:** Semesters are promoted in-place by mutating the `students.currentDivisionId` and `students.currentSemesterNo`. The system does not maintain a historical audit of which divisions or cohorts a student belonged to in past semesters.
+3.  **Inefficient Double Cryptography:** The edge middleware decrypts and verifies the JWT, then passes details downstream. However, every single API route handler performs a redundant `verifyToken` call, repeating CPU-intensive cryptography on every request.
+4.  **Absence of Audit Trail Implementation:** Although the `auditLogs` table is declared in the Drizzle schema, it is completely absent from all write paths in the API routes. Grade changes, attendance updates, and timetable changes happen silently.
+5.  **Hardcoded Domain Rules:** Student CSV onboarding logic hardcodes `entryType: "fresh"`. When HODs onboard lateral/direct entry students (joining at Semester 3 or 5), the system records them incorrectly, violating academic reporting guidelines.
+
+---
+
+## 2. Backend Architecture Review
+
+### Folder & Bounded Context Segregation
+The backend uses Next.js App Router API routes under `app/api/`. While routes are organized neatly by directory (e.g., `/api/attendance`, `/api/internal-exams`), the boundaries between these contexts are purely folder-level. There is no service layer or repository layer abstracts; API handlers write SQL and interact with the database client directly.
+
+### Transactional Safety Gaps
+An analysis of mutations reveals a systemic lack of database transactions. For example:
+*   **Timetable Saving ([route.ts](file:///p:/02_projects/mono/apps/erp/app/api/admin/timetable/route.ts)):**
+    ```typescript
+    // 1. Mark existing entries as inactive
+    await db.update(timetableEntries).set({ isActive: false }).where(...);
+    // 2. Insert new entries
+    await db.insert(timetableEntries).values(inserts);
+    // 3. Update division status
+    await db.update(divisions).set({ publishStatus: "draft" }).where(...);
+    ```
+    These are three separate queries executed sequentially without `db.transaction()`. If the insert fails because of a duplicate key or validation error, the existing timetable is deactivated, leaving the division with a blank timetable and a corrupted publish status.
+*   **Attendance Saving ([route.ts](file:///p:/02_projects/mono/apps/erp/app/api/attendance/save/route.ts)):**
+    Similar behavior. Raw SQL bulk upserts of student attendance are followed by metadata updates to `attendance_sessions`. A failure in the second update leaves orphan attendance records without an updated session status.
+
+### Concurrency & Locking Behaviors
+*   **Timetable Overlaps:** Check warning pop-ups are calculated dynamically by fetching conflicting entries and doing overlap logic. There is no table-level locking or optimistic lock versioning. Two concurrent timetable modifications by HODs can lead to dirty reads or double-booking of physical labs/faculty.
+*   **Database Client Pooling:** `app/lib/db.ts` instantiates a standard `postgres(process.env.DATABASE_URL!)` connection. It lacks configuration for maximum pool sizes or idle timeouts. In a serverless deployment, this will rapidly exhaust Postgres connections.
+
+### Missing Tables for Bounded Contexts
+To support upcoming features detailed in `NEW_FEATURES.md`, the backend lacks several critical tables:
+*   **Leave & Proxy:** No tables for leave requests, slot-level availability, or proxy delegation mapping.
+*   **Exam Seating:** No seating arrangement grids, room coordinate mappings, or candidate-to-bench assignments.
+*   **Exam Security:** No tables for storing encrypted examination question papers, HOD approval logs, or print tracking.
+
+---
+
+## 3. Database & Schema Review
+
+### Redundant Denormalization
+The schema (`app/lib/schema.ts`) uses aggressive denormalization:
+*   `facultySubjectAssignments` contains redundant text columns: `facultyName`, `subjectName`, `subjectType`, `divisionName`, `courseCode`.
+*   `timetableEntries` and `attendanceSessions` duplicate these values as text.
+*   *Integrity Threat:* If a faculty member's legal name is updated, or a subject name is corrected, the system must trigger cascading updates across millions of rows in `timetableEntries` and `attendanceSessions`. If this update chain is not run, data becomes desynchronized and reports will contain conflicting names.
+
+### Normalization and Referential Integrity
+*   **ID System:** The database uses auto-incrementing integers (`serial("id")`) for primary keys. This is a bottleneck for distributed operations, data migrations, or multi-campus databases, as merging records creates ID collisions.
+*   **Missing Historical History:** The `students` table has no junction table to track previous semesters. 
+    ```
+    [students] --(1:1)--> [currentDivisionId]
+    ```
+    Once a student is promoted, the reference to their Sem 1 division is deleted. 
+
+### Recommended Schema Refactoring
+1.  **Introduce Student Enrollment History:**
+    Create a `student_enrollment_history` table to capture the snapshot of a student's division, semester, and academic year at the end of each term:
+    ```sql
+    CREATE TABLE student_enrollment_history (
+      id SERIAL PRIMARY KEY,
+      student_id INT REFERENCES students(id),
+      semester_id INT REFERENCES semesters(id),
+      division_id INT REFERENCES divisions(id),
+      semester_no INT,
+      academic_year INT,
+      promoted_at TIMESTAMP DEFAULT NOW()
+    );
+    ```
+2.  **Convert Denormalization into Read-Only Snapshots:**
+    If strings are duplicated for performance, they must be treated as **immutable snapshots**. The database must block update cascades on these fields once a semester is closed.
+
+---
+
+## 4. Frontend Architecture Review
+
+### Routing & Navigation
+*   Next.js App Router handles all routing. The layout is managed by a nested `DashboardLayout` in `app/app/layout.tsx`.
+*   **Sidebar Role Filtering:** The navigation menu is generated dynamically from `config/navigation.ts` using `useMemo` based on the user's `activeRole`. This provides a highly clean developer experience when adding new pages or restricted tabs.
+
+### UI & Logic Separation
+*   Excellent separation of concerns. Page components (like `/app/admin/divisions/[id]/page.tsx`) call React Query hooks (like `useDivisionDetailQuery` and `useUploadStudentsMutation`) rather than directly orchestrating raw `fetch` calls.
+*   **Client-Side Validation:** The CSV uploader parses, validates student IDs via regex, and checks for local duplicates before making network requests, minimizing API traffic.
+
+### Scalability of Component Libraries
+*   Uses HeroUI v3 (Beta) and Tailwind CSS v4. The layouts scale fluidly.
+*   *Warning:* Since HeroUI v3 is in Beta, upgrading packages in the future carries a risk of breaking compound UI APIs (e.g., `Tooltip.Trigger` vs `Tooltip`).
+
+---
+
+## 5. State Management Review
+
+### Zustand vs. TanStack Query Boundaries
+The division of labor between state managers is correctly implemented:
+*   **Zustand:** Used exclusively for client-only UI states:
+    *   `useAuthStore`: Tracks user sessions, active role selection, and hydration states.
+    *   `useLayoutStore`: Tracks sidebar collapse and mobile drawer toggles.
+*   **TanStack Query:** Caches all server entities (divisions, student details, timetable conflicts). This ensures server data has clear TTLs (staleTime: 5 min) and avoids sync issues where client stores mismatch the database.
+
+### Auth Hydration & Cookie Persistence
+`useAuthStore` persists user credentials to `localStorage` under `erp-auth` and syncs the active role to an un-encrypted cookie `active_role`. This allows Next.js Edge Middleware to read the cookie and inject the appropriate `X-Active-Role` header for downstream API access.
+*   *Redux Toolkit Assessment:* Redux Toolkit is **not recommended** for this project. Zustand + TanStack Query is significantly lighter, easier to maintain, and fits the Next.js App Router paradigms perfectly.
+
+---
+
+## 6. Security & Integrity Review
+
+### Double JWT Cryptographic Overhead
+The middleware (`middleware.ts`) verifies the JWT:
+```typescript
+const payload = await verifyToken(token);
+if (payload) {
+  requestHeaders.set("x-user-id", payload.userId.toString());
+}
+```
+However, the downstream API route handler immediately repeats this verification:
+```typescript
+const cookieStore = await cookies();
+const token = cookieStore.get("auth_token")?.value;
+const payload = await verifyToken(token); // Redundant decrypt!
+```
+Decrypting a JWT twice per API request wastes CPU cycles, increasing request latency.
+
+### CSV Onboarding Integrity Flaws
+In `app/api/admin/divisions/[id]/students/route.ts`, the duplicate verification checks against the database but **fails to check for duplicate entries inside the uploaded payload itself**.
+If a CSV contains two identical student ID rows, both will pass the pre-existence database checks, and then both will be sent in `db.insert(students).values(...)`. This triggers a database unique constraint violation and returns a `500 Internal Server Error`, crashing the entire upload batch.
+
+### Missing Audit Trails
+The `auditLogs` table in `schema.ts` has columns for `action`, `entityName`, `entityId`, `oldValues`, and `newValues`. However, there is **zero implementation** of audit logging across any API routes. A HOD can modify marks or change student divisions with absolutely no record left in `auditLogs`.
+
+---
+
+## 7. Workflow & Domain Modeling Review
+
+### 1. Leave & Proxy Management
+*   **Slot Collision Math:** Timetable entries use raw `time` columns. To find a "free" faculty member, the backend must calculate overlaps on time boundaries, which is CPU-heavy and error-prone in SQL.
+*   **Proxy Timetable Updates:** Timetable entries are tied to `facultySubjectAssignments`. If a proxy is assigned, the timetable entry itself cannot be mutated directly without altering the base schedule. A separate proxy override layer is required.
+
+### 2. Examination Seating & Eligibility
+*   **Eligibility Thresholds:** Eligibility requires `attendanceSessions` tracking. However, since the database does not enforce transactions on attendance sessions, calculations are prone to inaccuracies if session tallies fail to sync.
+*   **Anti-Cheat Seat Allocation:** Allocating students sequentially so no two students of the same semester/subject sit together requires a bipartite matching algorithm. The current DB lacks room coordinate schemas to represent seat positions (rows, columns, benches).
+
+### 3. Secure Paper Generation
+*   **File Encryption:** Storing exam papers securely requires encrypting the upload buffer with a symmetric key (AES-256) derived from the HOD's security credentials, rather than storing raw file links in S3.
+*   **OTP Verification:** The system must restrict HOD paper unlock events using a separate token verification table.
+
+### 4. V1/V2 Internal Evaluations
+*   **Immutable Layer Lack:** Currently, `internalEvaluations` stores a single set of marks. To preserve V1 (Immutable calculated score) and support V2 (Moderated/Published score), the table must be split or support explicit version columns.
+
+---
+
+## 8. Scalability & Maintainability Review
+
+### Database Growth Projections
+*   **Attendance Scaling:** If an institution has 2,000 students taking 4 lectures per day, the `attendance` table will grow by **8,000 rows daily** (~2.4 million rows per academic year).
+*   **Query Slowdowns:** Without table partitioning, queries fetching student attendance history or calculating eligibility will slow down drastically as index sizes swell.
+
+### Suggested Partitioning Strategy
+Partition the `attendance` and `internal_exam_marks` tables by `semester_id` using Postgres range/list partitioning:
+```sql
+CREATE TABLE attendance (
+  id SERIAL,
+  student_id INT,
+  session_id INT,
+  status VARCHAR(20),
+  semester_id INT,
+  PRIMARY KEY (id, semester_id)
+) PARTITION BY LIST (semester_id);
+```
+
+---
+
+## 9. Technical Debt Assessment
+
+### Priority Matrix
+
+| Code Asset / Issue | Priority | Structural Impact |
+| :--- | :--- | :--- |
+| **Missing DB Transaction Blocks** | **Critical** | Prevents concurrent state corruption and orphaned database records on bulk edits. |
+| **Redundant JWT Decryptions** | **Medium** | Eliminates CPU overhead on API routes by consuming headers injected by middleware. |
+| **Hardcoded admission defaults** | **Medium** | Prevents incorrect student profiles (`entryType: "fresh"`) for lateral/direct entries. |
+| **No Audit Logging Activity** | **Medium** | Re-establishes institutional compliance and accountability for grade changes. |
+| **camelCase to snake_case mismatches** | **Low** | Improves database developer readability but has no runtime impact. |
+
+---
+
+## 10. Immediate Refactoring Recommendations
+
+Before proceeding to build future modules, you must apply the following structural refactorings:
+
+### 1. Implement API Transaction Wrappers
+Refactor all multi-write API endpoints to run inside Drizzle transaction blocks. Example for `/api/admin/timetable/route.ts`:
+```typescript
+await db.transaction(async (tx) => {
+  await tx.update(timetableEntries).set({ isActive: false }).where(...);
+  if (inserts.length > 0) {
+    await tx.insert(timetableEntries).values(inserts);
+  }
+  if (division.publishStatus === "published") {
+    await tx.update(divisions).set({ publishStatus: "draft" }).where(...);
+  }
+});
+```
+
+### 2. Optimize Auth Downstream Handlers
+Update API routes to trust and consume the headers injected by `middleware.ts` (`x-user-id`, `x-user-roles`, `x-faculty-code`, `x-active-role`), completely bypassing the redundant `verifyToken` call:
+```typescript
+export async function POST(req: NextRequest) {
+  const userId = req.headers.get("x-user-id");
+  const roles = JSON.parse(req.headers.get("x-user-roles") || "[]");
+  if (!userId) return err("Unauthorized", 401);
+  // Proceed with business logic...
+}
+```
+
+### 3. Payload Duplicate Checks in Student Upload
+Refactor student bulk onboarding to filter out internal duplicates in the CSV payload before writing to the database:
+```typescript
+const uniqueIncomingIds = Array.from(new Set(studentRows.map((s) => s.id)));
+const uniqueIncomingEmails = Array.from(new Set(studentRows.map((s) => s.email)));
+// Proceed with DB check against unique arrays...
+```
+
+---
+
+## 11. Future Feature Readiness Analysis
+
+### Leaves & Proxy (Difficulty: 7/10)
+*   **Prerequisites:** Add `faculty_leaves` and `proxy_assignments` tables.
+*   **Availability Calculation:** Move timetable slots to discrete period references (e.g., Slot 1: 9:00-10:00) rather than comparing raw times.
+
+### Exam Seating & Eligibility (Difficulty: 9/10)
+*   **Prerequisites:** Add `exam_eligible_students`, `room_seating_configs` (rows, cols), and `exam_seats` tables.
+*   **Algorithm:** Write a grid-allocation algorithm that reads exam subjects, groups students, and maps them to a coordinates array avoiding adjacent matching-subject IDs.
+
+### Secure Question Paper Gen (Difficulty: 6/10)
+*   **Prerequisites:** Create `exam_papers` table with fields: `encryptedBlob`, `verificationHash`, `passcodeSalt`, and `isUnlocked`.
+
+### Dual-Layer Results V1/V2 (Difficulty: 5/10)
+*   **Prerequisites:** Update `internal_evaluations` table schema to separate V1 and V2 marks:
+    ```typescript
+    finalTheoryMarksV1: integer("final_theory_marks_v1"),
+    finalTheoryMarksV2: integer("final_theory_marks_v2"),
+    finalPracticalMarksV1: integer("final_practical_marks_v1"),
+    finalPracticalMarksV2: integer("final_practical_marks_v2"),
+    ```
+
+---
+
+## 12. Architecture Scorecard
+
+| Criterion | Score | Detail |
+| :--- | :--- | :--- |
+| **Scalability** | **5/10** | Good frontend-to-cache boundaries but lacks table partitioning or DB pooling configurations. |
+| **Maintainability** | **6/10** | Well-segregated components and hooks; let down by denormalized text cascades. |
+| **Backend Architecture** | **4/10** | Lacks service separation; database calls are highly coupled directly inside Next.js routes. |
+| **Modularity** | **5/10** | Good directory structure, but bounded contexts are bypassed via cross-table joins. |
+| **Workflow Safety** | **3/10** | Severe lack of transactions; database operations are highly vulnerable to partial write failures. |
+| **Auditability** | **1/10** | Audit logs table is defined in schema but completely empty in practice. |
+| **ERP Readiness** | **3/10** | Lacks integration layers, service accounts, and API token capabilities for external SIS/HR. |
+| **Security** | **6/10** | Decent edge middleware protection, but suffers from cryptographic overhead. |
+| **Developer Experience** | **7/10** | Type-safe queries via Drizzle and excellent React Query hook structure. |
+| **Future Extensibility** | **4/10** | Database is unprepared for planned leave, seating, paper security, and V1/V2 features. |
+
+**Overall Score: 4.4 / 10**
+
+---
+
+## 13. Summaries & Phased Roadmap
+
+### Top 10 Most Important Improvements
+1.  **Wrap multi-query mutations in transactions.**
+2.  **Bypass redundant JWT decryption in API routes** using middleware-injected headers.
+3.  **Activate audit logging** on all grade, timetable, and student promotion events.
+4.  **Add a student enrollment history table** to track promotions.
+5.  **Clean up denormalized text columns** by resolving names via relational joins.
+6.  **Add connection pool limits and timeouts** in the Drizzle configuration.
+7.  **Filter CSV payloads for internal duplicates** before database insertion.
+8.  **Differentiate student entry types** during CSV onboarding (lateral, direct, fresh).
+9.  **Partition attendance and exam marks tables** by semester.
+10. **Implement Long-lived Service Tokens** in the middleware for programmatic integrations.
+
+### Phased Refactoring Roadmap
+
+```mermaid
+graph TD
+    A[Phase 1: Integrity & Safety] --> B[Phase 2: Audit & Performance]
+    B --> C[Phase 3: Schema Decoupling]
+    C --> D[Phase 4: Future Features Integration]
+    
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style B fill:#bbf,stroke:#333,stroke-width:2px
+    style C fill:#bfb,stroke:#333,stroke-width:2px
+    style D fill:#fbb,stroke:#333,stroke-width:2px
+```
+
+*   **Phase 1: Integrity & Safety (Immediate):**
+    *   Introduce `db.transaction()` around all write APIs.
+    *   Add validation for internal duplicate records in CSV payloads.
+    *   Resolve student entry types (fresh vs lateral vs direct) during bulk upload.
+*   **Phase 2: Audit & Performance (Short-Term):**
+    *   Integrate audit logging writes into all grade updates and promotions.
+    *   Migrate API routes to use edge-decrypted headers, reducing cryptographical overhead.
+    *   Configure connection pool limits on the database client.
+*   **Phase 3: Schema Decoupling (Medium-Term):**
+    *   Implement the `student_enrollment_history` table.
+    *   Establish table partitioning on `attendance` and `marks`.
+    *   Integrate API-based Bearer token support for external ERP synchronization.

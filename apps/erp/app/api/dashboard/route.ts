@@ -17,7 +17,6 @@ import { eq, and, or, count, sql } from "drizzle-orm";
 import { redis } from "@/app/lib/redis";
 import { RequestProfiler } from "@/app/lib/profiler";
 
-// ─── Role priority order (used for default selection) ─────────────────────────
 const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
 type Role = (typeof ROLE_PRIORITY)[number];
 

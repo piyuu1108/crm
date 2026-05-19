@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
-import { students, divisions } from "@/app/lib/schema";
+import { students, divisions, semesters, academicYears, studentEnrollmentHistory } from "@/app/lib/schema";
 import { eq, or, sql, max, inArray } from "drizzle-orm";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -109,9 +109,10 @@ export async function POST(
       results.push({ id: studentId, name, email, status: "success" });
     }
 
-    // Bulk insert valid students
+    // Bulk insert valid students + enrollment history
     if (validStudents.length > 0) {
-      await db.insert(students).values(
+      // Insert students
+      const insertedStudents = await db.insert(students).values(
         validStudents.map((s) => ({
           studentId: s.studentId,
           fullName: s.fullName,
@@ -124,7 +125,41 @@ export async function POST(
           currentDivisionName: division.displayName,
           status: "incomplete", // profile not submitted yet
         }))
-      );
+      ).returning({ id: students.id, email: students.email });
+
+      // Resolve academic year for enrollment history
+      const [sem] = await db
+        .select({ academicYearId: semesters.academicYearId })
+        .from(semesters)
+        .where(eq(semesters.id, division.semesterId))
+        .limit(1);
+
+      let academicYearId = sem?.academicYearId;
+
+      // Fallback: use current academic year
+      if (!academicYearId) {
+        const [currentYear] = await db
+          .select({ id: academicYears.id })
+          .from(academicYears)
+          .where(eq(academicYears.isCurrent, true))
+          .limit(1);
+        academicYearId = currentYear?.id ?? null;
+      }
+
+      // Insert enrollment history rows (only if academic year exists)
+      if (academicYearId && insertedStudents.length > 0) {
+        await db.insert(studentEnrollmentHistory).values(
+          insertedStudents.map((s) => ({
+            studentId: s.id,
+            semesterId: division.semesterId,
+            divisionId: division.id,
+            academicYearId: academicYearId!,
+            semesterNo: division.semesterNo,
+            divisionName: division.displayName,
+            status: "active",
+          }))
+        );
+      }
     }
 
     return NextResponse.json(

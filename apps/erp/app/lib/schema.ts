@@ -515,3 +515,33 @@ export const internalEvaluations = pgTable("internal_evaluations", {
   uniqueIndex("iev_assign_student_sem_idx").on(t.assignmentId, t.studentId, t.semesterId),
   index("iev_assign_sem_idx").on(t.assignmentId, t.semesterId)
 ]);
+
+export const attendanceSessionLedger = pgTable("attendance_session_ledger", {
+  id: serial("id").primaryKey(),
+  semesterId: integer("semester_id").notNull().references(() => semesters.id),
+  divisionId: integer("division_id").notNull().references(() => divisions.id),
+  facultyId: integer("faculty_id").notNull().references(() => faculty.id),
+  date: date("date").notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  subjectName: varchar("subject_name", { length: 100 }).notNull(),
+  absentStudentIds: integer("absent_student_ids").array().notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("asl_absent_ids_gin_idx").using("gin", t.absentStudentIds),
+  index("asl_div_date_idx").on(t.divisionId, t.date),
+]);
+
+export const attendanceAnalyticsSummary = pgTable("attendance_analytics_summary", {
+  studentId: integer("student_id").notNull().references(() => students.id),
+  divisionId: integer("division_id").notNull().references(() => divisions.id),
+  semesterId: integer("semester_id").notNull().references(() => semesters.id),
+  presentCount: integer("present_count").notNull().default(0),
+  totalLectures: integer("total_lectures").notNull().default(0),
+  attendancePercentage: decimal("attendance_percentage", { precision: 5, scale: 2 }).notNull().default("0.00"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.studentId, t.divisionId, t.semesterId] }),
+  index("aas_div_pct_idx").on(t.divisionId, t.attendancePercentage),
+]);
+

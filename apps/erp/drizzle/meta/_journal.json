@@ -57,6 +57,13 @@
       "when": 1778394800979,
       "tag": "0007_mysterious_lenny_balinger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1779211147851,
+      "tag": "0008_attendance_cqrs",
+      "breakpoints": true
     }
   ]
 }

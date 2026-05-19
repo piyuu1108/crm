@@ -3,12 +3,9 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
 import {
-  attendance,
-  attendanceSessions,
+  attendanceSessionLedger,
+  studentEnrollmentHistory,
   students,
-  timetableEntries,
-  facultySubjectAssignments,
-  subjects as subjectsTable,
   faculty,
 } from "@/app/lib/schema";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
@@ -26,11 +23,7 @@ function err(message: string, status: number) {
 /**
  * GET /api/attendance/my
  *
- * Student self-view: fetch own attendance records.
- * Query params:
- *   - dateFrom (YYYY-MM-DD, optional)
- *   - dateTo (YYYY-MM-DD, optional)
- *   - subject (subject name filter, optional)
+ * Student self-view: fetch own attendance records from session ledger.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -50,64 +43,71 @@ export async function GET(req: NextRequest) {
     const dateTo = req.nextUrl.searchParams.get("dateTo");
     const subjectFilter = req.nextUrl.searchParams.get("subject");
 
-    // Build conditions
-    const conditions = [eq(attendance.studentId, payload.userId)];
-
+    // Build query conditions
+    const conditions = [];
     if (dateFrom) {
-      conditions.push(gte(attendanceSessions.date, dateFrom));
+      conditions.push(gte(attendanceSessionLedger.date, dateFrom));
     }
     if (dateTo) {
-      conditions.push(lte(attendanceSessions.date, dateTo));
+      conditions.push(lte(attendanceSessionLedger.date, dateTo));
     }
     if (subjectFilter) {
-      conditions.push(eq(subjectsTable.name, subjectFilter));
+      conditions.push(eq(attendanceSessionLedger.subjectName, subjectFilter));
     }
 
+    // Query records where student is/was in the division for the session
     const records = await db
       .select({
-        id: attendance.id,
-        status: attendance.status,
-        date: attendanceSessions.date,
-        subjectName: subjectsTable.name,
+        id: attendanceSessionLedger.id,
+        status: sql<string>`case when ${payload.userId} = any(${attendanceSessionLedger.absentStudentIds}) then 'absent' else 'present' end`,
+        date: attendanceSessionLedger.date,
+        subjectName: attendanceSessionLedger.subjectName,
         facultyName: faculty.name,
-        startTime: attendanceSessions.startTime,
-        endTime: attendanceSessions.endTime,
+        startTime: attendanceSessionLedger.startTime,
+        endTime: attendanceSessionLedger.endTime,
       })
-      .from(attendance)
-      .innerJoin(
-        attendanceSessions,
-        eq(attendanceSessions.id, attendance.attendanceSessionId)
-      )
-      .leftJoin(timetableEntries, eq(attendanceSessions.timetableId, timetableEntries.id))
+      .from(attendanceSessionLedger)
+      .innerJoin(faculty, eq(attendanceSessionLedger.facultyId, faculty.id))
       .leftJoin(
-        facultySubjectAssignments,
-        eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+        studentEnrollmentHistory,
+        and(
+          eq(studentEnrollmentHistory.studentId, payload.userId),
+          eq(studentEnrollmentHistory.divisionId, attendanceSessionLedger.divisionId),
+          eq(studentEnrollmentHistory.semesterId, attendanceSessionLedger.semesterId)
+        )
       )
-      .leftJoin(subjectsTable, eq(facultySubjectAssignments.subjectId, subjectsTable.id))
-      .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-      .where(and(...conditions))
-      .orderBy(sql`${attendanceSessions.date} DESC, ${attendanceSessions.startTime} ASC`);
+      .leftJoin(students, eq(students.id, payload.userId))
+      .where(
+        and(
+          sql`(${studentEnrollmentHistory.id} is not null or ${students.currentDivisionId} = ${attendanceSessionLedger.divisionId})`,
+          ...conditions
+        )
+      )
+      .orderBy(sql`${attendanceSessionLedger.date} DESC, ${attendanceSessionLedger.startTime} ASC`);
 
-    // Get unique subjects for filter dropdown
+    // Get unique subjects list for frontend filter dropdown
     const subjectsResult = await db
-      .select({ subjectName: subjectsTable.name })
-      .from(attendance)
-      .innerJoin(
-        attendanceSessions,
-        eq(attendanceSessions.id, attendance.attendanceSessionId)
-      )
-      .leftJoin(timetableEntries, eq(attendanceSessions.timetableId, timetableEntries.id))
+      .select({ subjectName: attendanceSessionLedger.subjectName })
+      .from(attendanceSessionLedger)
       .leftJoin(
-        facultySubjectAssignments,
-        eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
+        studentEnrollmentHistory,
+        and(
+          eq(studentEnrollmentHistory.studentId, payload.userId),
+          eq(studentEnrollmentHistory.divisionId, attendanceSessionLedger.divisionId),
+          eq(studentEnrollmentHistory.semesterId, attendanceSessionLedger.semesterId)
+        )
       )
-      .leftJoin(subjectsTable, eq(facultySubjectAssignments.subjectId, subjectsTable.id))
-      .where(eq(attendance.studentId, payload.userId))
-      .groupBy(subjectsTable.name);
+      .leftJoin(students, eq(students.id, payload.userId))
+      .where(
+        and(
+          sql`(${studentEnrollmentHistory.id} is not null or ${students.currentDivisionId} = ${attendanceSessionLedger.divisionId})`
+        )
+      )
+      .groupBy(attendanceSessionLedger.subjectName);
 
     const subjects = subjectsResult.map((s) => s.subjectName).filter(Boolean);
 
-    // Summary stats
+    // Calculate summary statistics
     const totalPresent = records.filter((r) => r.status === "present").length;
     const totalAbsent = records.filter((r) => r.status === "absent").length;
     const total = records.length;

@@ -303,34 +303,6 @@ export const timetableEntries = pgTable("timetable_entries", {
   index("te_slot_idx").on(t.slotId),
 ]);
 
-// -- ATTENDANCE --
-
-export const attendanceSessions = pgTable("attendance_sessions", {
-  id: serial("id").primaryKey(),
-  timetableId: integer("timetable_id").references(() => timetableEntries.id, { onDelete: "set null" }),
-  semesterId: integer("semester_id").notNull().references(() => semesters.id),
-  divisionId: integer("division_id").notNull().references(() => divisions.id),
-  date: date("date").notNull(),
-  isCancelled: boolean("is_cancelled").notNull().default(false),
-
-  startTime: time("start_time").notNull(),
-  endTime: time("end_time").notNull(),
-  markedByFacultyId: integer("marked_by_faculty_id").references(() => faculty.id),
-}, (t) => [
-  index("as_timetable_date_idx").on(t.timetableId, t.date),
-  index("as_div_date_sem_idx").on(t.divisionId, t.date, t.semesterId),
-  index("as_sem_date_idx").on(t.semesterId, t.date)
-]);
-
-export const attendance = pgTable("attendance", {
-  id: serial("id").primaryKey(),
-  attendanceSessionId: integer("attendance_session_id").notNull().references(() => attendanceSessions.id),
-  studentId: integer("student_id").notNull().references(() => students.id),
-  status: varchar("status", { length: 10 }).notNull(), // "present" | "absent"
-}, (t) => [
-  uniqueIndex("att_sess_student_idx").on(t.attendanceSessionId, t.studentId),
-  index("att_student_sess_idx").on(t.studentId, t.attendanceSessionId)
-]);
 
 // -- MARKS --
 

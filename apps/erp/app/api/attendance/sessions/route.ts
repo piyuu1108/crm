@@ -3,8 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
 import {
-  attendanceSessions,
-  attendance,
+  attendanceSessionLedger,
   timetableEntries,
   facultySubjectAssignments,
   counselorDivisionAssignments,
@@ -14,7 +13,8 @@ import {
   faculty,
   subjects,
 } from "@/app/lib/schema";
-import { eq, and, sql, inArray } from "drizzle-orm";
+import { eq, and, sql, count } from "drizzle-orm";
+import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,12 +29,7 @@ function err(message: string, status: number) {
 /**
  * GET /api/attendance/sessions
  *
- * Fetch attendance sessions for a division + date (or the faculty's today schedule).
- *
- * Query params:
- *   - divisionId (required for counselor/hod)
- *   - date (YYYY-MM-DD, defaults to today)
- *   - mode: "faculty-today" | "browse" (defaults based on role)
+ * Fetch attendance sessions from ledger for a division + date (or the faculty's today schedule).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -62,9 +57,8 @@ export async function GET(req: NextRequest) {
     const today = new Date().toISOString().split("T")[0];
     const date = dateParam || today;
 
-    // ── Faculty: Get today's timetable entries with session status ──
+    // ── Faculty: Get today's timetable entries with session status from ledger ──
     if (resolvedRole === "faculty") {
-      // Get all timetable entries for this faculty
       const entries = await db
         .select({
           timetableId: timetableEntries.id,
@@ -89,7 +83,6 @@ export async function GET(req: NextRequest) {
         .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(eq(facultySubjectAssignments.facultyId, payload.userId));
 
-      // Filter by day of week for the selected date
       const dayOfWeek = new Date(date + "T00:00:00")
         .toLocaleDateString("en-US", { weekday: "long" })
         .toLowerCase();
@@ -97,29 +90,35 @@ export async function GET(req: NextRequest) {
         (e) => e.dayOfWeek.toLowerCase() === dayOfWeek
       );
 
-      // Check which sessions already exist for this date
-      const timetableIds = todaysEntries.map((e) => e.timetableId);
-      let existingSessions: { id: number; timetableId: number | null; isCancelled: boolean }[] = [];
-      if (timetableIds.length > 0) {
+      let existingSessions: { id: number; divisionId: number; startTime: string; endTime: string }[] = [];
+      if (todaysEntries.length > 0) {
         existingSessions = await db
           .select({
-            id: attendanceSessions.id,
-            timetableId: attendanceSessions.timetableId,
-            isCancelled: attendanceSessions.isCancelled,
+            id: attendanceSessionLedger.id,
+            divisionId: attendanceSessionLedger.divisionId,
+            startTime: attendanceSessionLedger.startTime,
+            endTime: attendanceSessionLedger.endTime,
           })
-          .from(attendanceSessions)
+          .from(attendanceSessionLedger)
           .where(
             and(
-              sql`${attendanceSessions.timetableId} IN (${sql.join(timetableIds.map((id) => sql`${id}`), sql`, `)})`,
-              eq(attendanceSessions.date, date)
+              eq(attendanceSessionLedger.date, date),
+              sql`(${attendanceSessionLedger.divisionId}, ${attendanceSessionLedger.startTime}, ${attendanceSessionLedger.endTime}) IN (${
+                sql.join(
+                  todaysEntries.map(e => sql`(${e.divisionId}, ${e.startTime}, ${e.endTime})`),
+                  sql`, `
+                )
+              })`
             )
           );
       }
 
-      const sessionMap = new Map(existingSessions.map((s) => [s.timetableId, s]));
+      const sessionMap = new Map(
+        existingSessions.map((s) => [`${s.divisionId}_${s.startTime}_${s.endTime}`, s])
+      );
 
       const slots = todaysEntries.map((entry) => {
-        const session = sessionMap.get(entry.timetableId);
+        const session = sessionMap.get(`${entry.divisionId}_${entry.startTime}_${entry.endTime}`);
         return {
           timetableId: entry.timetableId,
           startTime: entry.startTime,
@@ -131,7 +130,7 @@ export async function GET(req: NextRequest) {
           isLab: entry.isLab,
           sessionId: session?.id ?? null,
           sessionExists: !!session,
-          isCancelled: session?.isCancelled ?? false,
+          isCancelled: false,
         };
       });
 
@@ -140,11 +139,9 @@ export async function GET(req: NextRequest) {
 
     // ── Counselor / HOD: Browse sessions by division + date ──
     if (resolvedRole === "counselor" || resolvedRole === "hod") {
-      // Get available divisions
       let availableDivisions: { id: number; displayName: string; semesterId: number }[];
 
       if (resolvedRole === "hod") {
-        // HOD sees all divisions in active semesters
         availableDivisions = await db
           .select({
             id: divisions.id,
@@ -155,7 +152,6 @@ export async function GET(req: NextRequest) {
           .innerJoin(semesters, eq(semesters.id, divisions.semesterId))
           .where(eq(semesters.isActive, true));
       } else {
-        // Counselor sees only assigned divisions
         const assignments = await db
           .select({
             divisionId: counselorDivisionAssignments.divisionId,
@@ -181,7 +177,6 @@ export async function GET(req: NextRequest) {
           .where(sql`${divisions.id} IN (${sql.join(divIds.map((id) => sql`${id}`), sql`, `)})`);
       }
 
-      // If a specific division is selected, fetch its sessions
       let sessions: {
         id: number;
         timetableId: number | null;
@@ -200,7 +195,6 @@ export async function GET(req: NextRequest) {
         const divId = parseInt(divisionIdParam, 10);
         if (isNaN(divId)) return err("Invalid divisionId", 400);
 
-        // Validate access
         if (
           resolvedRole === "counselor" &&
           !availableDivisions.some((d) => d.id === divId)
@@ -210,48 +204,44 @@ export async function GET(req: NextRequest) {
 
         const rawSessions = await db
           .select({
-            id: attendanceSessions.id,
-            timetableId: attendanceSessions.timetableId,
-            date: attendanceSessions.date,
-            subjectName: subjects.name,
+            id: attendanceSessionLedger.id,
+            date: attendanceSessionLedger.date,
+            subjectName: attendanceSessionLedger.subjectName,
             facultyName: faculty.name,
             divisionName: divisions.displayName,
-            isCancelled: attendanceSessions.isCancelled,
-            startTime: attendanceSessions.startTime,
-            endTime: attendanceSessions.endTime,
+            startTime: attendanceSessionLedger.startTime,
+            endTime: attendanceSessionLedger.endTime,
+            absentStudentIds: attendanceSessionLedger.absentStudentIds,
           })
-          .from(attendanceSessions)
-          .innerJoin(divisions, eq(attendanceSessions.divisionId, divisions.id))
-          .leftJoin(timetableEntries, eq(attendanceSessions.timetableId, timetableEntries.id))
-          .leftJoin(
-            facultySubjectAssignments,
-            eq(timetableEntries.assignmentId, facultySubjectAssignments.id)
-          )
-          .leftJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-          .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+          .from(attendanceSessionLedger)
+          .innerJoin(divisions, eq(attendanceSessionLedger.divisionId, divisions.id))
+          .innerJoin(faculty, eq(attendanceSessionLedger.facultyId, faculty.id))
           .where(
             and(
-              eq(attendanceSessions.divisionId, divId),
-              eq(attendanceSessions.date, date)
+              eq(attendanceSessionLedger.divisionId, divId),
+              eq(attendanceSessionLedger.date, date)
             )
           );
 
-        // Get counts for each session
-        for (const s of rawSessions) {
-          const counts = await db
-            .select({
-              total: sql<number>`count(*)`,
-              present: sql<number>`count(*) filter (where ${attendance.status} = 'present')`,
-            })
-            .from(attendance)
-            .where(eq(attendance.attendanceSessionId, s.id));
+        const [studentCountRow] = await db
+          .select({ count: count() })
+          .from(students)
+          .where(eq(students.currentDivisionId, divId));
+        const totalStudents = Number(studentCountRow?.count ?? 0);
 
+        for (const s of rawSessions) {
           sessions.push({
-            ...s,
-            subjectName: s.subjectName || "",
-            facultyName: s.facultyName || "",
-            totalStudents: Number(counts[0]?.total ?? 0),
-            presentCount: Number(counts[0]?.present ?? 0),
+            id: s.id,
+            timetableId: null,
+            date: s.date,
+            subjectName: s.subjectName,
+            facultyName: s.facultyName,
+            divisionName: s.divisionName,
+            isCancelled: false,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            totalStudents,
+            presentCount: Math.max(0, totalStudents - s.absentStudentIds.length),
           });
         }
       }
@@ -274,8 +264,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/attendance/sessions
  *
- * Create a new attendance session (or return existing one).
- * Body: { timetableEntryId, date }
+ * Create a new attendance session ledger entry (or return existing one).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -287,9 +276,7 @@ export async function POST(req: NextRequest) {
     if (!payload) return err("Unauthorized: invalid session", 401);
 
     const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole =
-      req.headers.get("X-Active-Role") ??
-      null;
+    const activeRole = req.headers.get("X-Active-Role") ?? null;
     const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
     const resolvedRole = activeRole && rolesArray.includes(activeRole)
       ? activeRole
@@ -322,17 +309,26 @@ export async function POST(req: NextRequest) {
 
     if (!entry) return err("Timetable entry not found", 404);
 
-    // RBAC: Faculty must own the assignment
-    if (resolvedRole === "faculty") {
-      const [assignment] = await db
-        .select({ facultyId: facultySubjectAssignments.facultyId })
-        .from(facultySubjectAssignments)
-        .where(eq(facultySubjectAssignments.id, entry.assignmentId))
-        .limit(1);
+    // Fetch assignment details for subject name & faculty ID
+    const [entryDetails] = await db
+      .select({
+        facultyId: facultySubjectAssignments.facultyId,
+        subjectName: subjects.name,
+      })
+      .from(timetableEntries)
+      .innerJoin(
+        facultySubjectAssignments,
+        eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+      )
+      .innerJoin(subjects, eq(subjects.id, facultySubjectAssignments.subjectId))
+      .where(eq(timetableEntries.id, timetableEntryId))
+      .limit(1);
 
-      if (!assignment || assignment.facultyId !== payload.userId) {
-        return err("Forbidden: not assigned to this subject", 403);
-      }
+    if (!entryDetails) return err("Assignment details not found", 404);
+
+    // RBAC: Faculty must own the assignment
+    if (resolvedRole === "faculty" && entryDetails.facultyId !== payload.userId) {
+      return err("Forbidden: not assigned to this subject", 403);
     }
 
     // RBAC: Counselor must own the division
@@ -347,46 +343,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check for existing session
+    // Check for existing ledger entry
     const [existing] = await db
-      .select({ id: attendanceSessions.id })
-      .from(attendanceSessions)
+      .select({
+        id: attendanceSessionLedger.id,
+        absentStudentIds: attendanceSessionLedger.absentStudentIds,
+      })
+      .from(attendanceSessionLedger)
       .where(
         and(
-          eq(attendanceSessions.timetableId, timetableEntryId),
-          eq(attendanceSessions.date, date)
+          eq(attendanceSessionLedger.divisionId, entry.divisionId),
+          eq(attendanceSessionLedger.semesterId, entry.semesterId),
+          eq(attendanceSessionLedger.date, date),
+          eq(attendanceSessionLedger.startTime, entry.startTime),
+          eq(attendanceSessionLedger.endTime, entry.endTime)
         )
       )
       .limit(1);
 
-    if (existing) {
-      // Return existing session with its records
-      const records = await db
-        .select({
-          studentId: attendance.studentId,
-          status: attendance.status,
-        })
-        .from(attendance)
-        .where(eq(attendance.attendanceSessionId, existing.id));
+    const studentsInDivision = await db
+      .select({ id: students.id })
+      .from(students)
+      .where(eq(students.currentDivisionId, entry.divisionId));
 
+    if (existing) {
+      const records = studentsInDivision.map((s) => ({
+        studentId: s.id,
+        status: existing.absentStudentIds.includes(s.id) ? "absent" : "present",
+      }));
       return ok({ sessionId: existing.id, isNew: false, records });
     }
 
-    // Create new session
-    const [newSession] = await db
-      .insert(attendanceSessions)
-      .values({
-        timetableId: timetableEntryId,
-        semesterId: entry.semesterId,
-        divisionId: entry.divisionId,
-        date,
-        startTime: entry.startTime,
-        endTime: entry.endTime,
-        markedByFacultyId: payload.userId,
-      })
-      .returning({ id: attendanceSessions.id });
+    // Create a new ledger session (everyone present by default)
+    const newSessionId = await submitAttendanceCQRS({
+      semesterId: entry.semesterId,
+      divisionId: entry.divisionId,
+      facultyId: entryDetails.facultyId,
+      date,
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+      subjectName: entryDetails.subjectName,
+      absentStudentIds: [],
+    });
 
-    return ok({ sessionId: newSession.id, isNew: true, records: [] });
+    const records = studentsInDivision.map((s) => ({
+      studentId: s.id,
+      status: "present",
+    }));
+
+    return ok({ sessionId: newSessionId, isNew: true, records });
   } catch (error) {
     console.error("[POST /api/attendance/sessions]", error);
     return err("Internal server error", 500);

@@ -10,8 +10,7 @@ import {
   counselorDivisionAssignments,
   studentRequests,
   timetableEntries,
-  attendance,
-  attendanceSessions,
+  attendanceAnalyticsSummary,
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
@@ -283,44 +282,28 @@ async function buildStudentDashboard(studentId: number) {
     semesterId = div?.semesterId ?? null;
   }
 
-  const [attRows, totalRows] = await Promise.all([
-    db
-      .select({ count: count() })
-      .from(attendance)
-      .innerJoin(
-        attendanceSessions,
-        eq(attendance.attendanceSessionId, attendanceSessions.id)
-      )
-      .where(
-        and(
-          eq(attendance.studentId, studentId),
-          eq(attendance.status, "present"),
-          eq(attendanceSessions.isCancelled, false),
-          ...(semesterId ? [eq(attendanceSessions.semesterId, semesterId)] : [])
+  // Query summary statistics from our read-optimized cache
+  const [summary] = profile?.currentDivisionId && semesterId
+    ? await db
+        .select({
+          presentCount: attendanceAnalyticsSummary.presentCount,
+          totalLectures: attendanceAnalyticsSummary.totalLectures,
+          attendancePercentage: attendanceAnalyticsSummary.attendancePercentage,
+        })
+        .from(attendanceAnalyticsSummary)
+        .where(
+          and(
+            eq(attendanceAnalyticsSummary.studentId, studentId),
+            eq(attendanceAnalyticsSummary.divisionId, profile.currentDivisionId),
+            eq(attendanceAnalyticsSummary.semesterId, semesterId)
+          )
         )
-      ),
-    db
-      .select({ count: count() })
-      .from(attendance)
-      .innerJoin(
-        attendanceSessions,
-        eq(attendance.attendanceSessionId, attendanceSessions.id)
-      )
-      .where(
-        and(
-          eq(attendance.studentId, studentId),
-          eq(attendanceSessions.isCancelled, false),
-          ...(semesterId ? [eq(attendanceSessions.semesterId, semesterId)] : [])
-        )
-      ),
-  ]);
+        .limit(1)
+    : [null];
 
-  const presentCount = attRows[0]?.count ?? 0;
-  const totalSessions = totalRows[0]?.count ?? 0;
-  const percentage =
-    totalSessions > 0
-      ? Math.round((Number(presentCount) / Number(totalSessions)) * 100)
-      : 0;
+  const presentCount = summary?.presentCount ?? 0;
+  const totalSessions = summary?.totalLectures ?? 0;
+  const percentage = summary ? Math.round(Number(summary.attendancePercentage)) : 0;
 
   const pendingRows = await db
     .select({ count: count() })

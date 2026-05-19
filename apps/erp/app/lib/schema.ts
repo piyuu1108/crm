@@ -279,6 +279,16 @@ export const counselorDivisionAssignments = pgTable("counselor_division_assignme
 
 // -- TIMETABLE --
 
+export const timetableSlots = pgTable("timetable_slots", {
+  id: serial("id").primaryKey(),
+  slotNumber: integer("slot_number").notNull().unique(),    // 1, 2, 3...
+  label: varchar("label", { length: 30 }).notNull(),        // "Slot 1", "Break"
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  isBreak: boolean("is_break").notNull().default(false),    // true for recess/lunch
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const timetableEntries = pgTable("timetable_entries", {
   id: serial("id").primaryKey(),
   semesterId: integer("semester_id").notNull().references(() => semesters.id),
@@ -288,6 +298,7 @@ export const timetableEntries = pgTable("timetable_entries", {
   dayOfWeek: varchar("day_of_week", { length: 10 }).notNull(),
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
+  slotId: integer("slot_id").references(() => timetableSlots.id), // nullable for backward compat
 
   subjectName: varchar("subject_name", { length: 100 }).notNull(),
   facultyName: varchar("faculty_name", { length: 100 }).notNull(),
@@ -304,7 +315,8 @@ export const timetableEntries = pgTable("timetable_entries", {
 }, (t) => [
   index("te_div_day_start_sem_idx").on(t.divisionId, t.dayOfWeek, t.startTime, t.semesterId),
   index("te_assign_sem_idx").on(t.assignmentId, t.semesterId),
-  index("te_active_idx").on(t.isActive)
+  index("te_active_idx").on(t.isActive),
+  index("te_slot_idx").on(t.slotId),
 ]);
 
 // -- ATTENDANCE --

@@ -4,6 +4,7 @@ import { verifyToken } from "@/app/lib/auth";
 import { db } from "@/app/lib/db";
 import {
   timetableEntries,
+  timetableSlots,
   divisions,
   facultySubjectAssignments,
   faculty,
@@ -257,60 +258,74 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Delete existing timetable entries for this division/semester.
-    // ON DELETE SET NULL on attendance_sessions.timetable_id preserves
-    // all attendance history — sessions just lose the timetable reference.
-    // Instead of deleting, logically deprecate to keep history like IMS integration
-    await db
-      .update(timetableEntries)
-      .set({ isActive: false })
-      .where(
-        and(
-          eq(timetableEntries.divisionId, divId),
-          eq(timetableEntries.semesterId, division.semesterId)
-        )
-      );
+    // ── Pre-load slot map for auto-resolution ──────────────────────────
+    const allSlots = await db
+      .select()
+      .from(timetableSlots)
+      .where(eq(timetableSlots.isBreak, false));
 
-    // Insert new entries
-    if (newEntries.length > 0) {
-      const inserts = newEntries.map((entry: {
-        dayOfWeek: string;
-        startTime: string;
-        endTime: string;
-        assignmentId: number;
-        color?: string;
-        isLab?: boolean;
-        labId?: string | null;
-      }) => {
-        const assignment = validAssignmentMap.get(entry.assignmentId)!;
-        return {
-          semesterId: division.semesterId,
-          divisionId: divId,
-          assignmentId: entry.assignmentId,
-          dayOfWeek: entry.dayOfWeek,
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          subjectName: assignment.subjectName,
-          facultyName: assignment.facultyName,
-          divisionName: division.displayName,
-          courseCode: assignment.courseCode,
-          color: entry.color || "#6366f1",
-          isLab: entry.isLab || false,
-          labId: entry.isLab ? entry.labId : null,
-          isActive: true,
-        };
-      });
+    const slotMap = new Map(
+      allSlots.map((s) => [`${s.startTime}-${s.endTime}`, s.id])
+    );
 
-      await db.insert(timetableEntries).values(inserts);
-    }
+    // ── Execute all writes in a single transaction ────────────────────
+    await db.transaction(async (tx) => {
+      // Step 1: Deactivate existing timetable entries for this division/semester
+      // ON DELETE SET NULL on attendance_sessions.timetable_id preserves
+      // all attendance history — sessions just lose the timetable reference.
+      await tx
+        .update(timetableEntries)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(timetableEntries.divisionId, divId),
+            eq(timetableEntries.semesterId, division.semesterId)
+          )
+        );
 
-    // If division was published, revert to draft (edit after publish → draft)
-    if (division.publishStatus === "published") {
-      await db
-        .update(divisions)
-        .set({ publishStatus: "draft" })
-        .where(eq(divisions.id, divId));
-    }
+      // Step 2: Insert new entries with auto-resolved slotId
+      if (newEntries.length > 0) {
+        const inserts = newEntries.map((entry: {
+          dayOfWeek: string;
+          startTime: string;
+          endTime: string;
+          assignmentId: number;
+          color?: string;
+          isLab?: boolean;
+          labId?: string | null;
+        }) => {
+          const assignment = validAssignmentMap.get(entry.assignmentId)!;
+          const resolvedSlotId = slotMap.get(`${entry.startTime}-${entry.endTime}`) ?? null;
+          return {
+            semesterId: division.semesterId,
+            divisionId: divId,
+            assignmentId: entry.assignmentId,
+            dayOfWeek: entry.dayOfWeek,
+            startTime: entry.startTime,
+            endTime: entry.endTime,
+            slotId: resolvedSlotId,
+            subjectName: assignment.subjectName,
+            facultyName: assignment.facultyName,
+            divisionName: division.displayName,
+            courseCode: assignment.courseCode,
+            color: entry.color || "#6366f1",
+            isLab: entry.isLab || false,
+            labId: entry.isLab ? entry.labId : null,
+            isActive: true,
+          };
+        });
+
+        await tx.insert(timetableEntries).values(inserts);
+      }
+
+      // Step 3: If division was published, revert to draft (edit after publish → draft)
+      if (division.publishStatus === "published") {
+        await tx
+          .update(divisions)
+          .set({ publishStatus: "draft" })
+          .where(eq(divisions.id, divId));
+      }
+    });
 
     return ok({ saved: newEntries.length, status: "draft" });
   } catch (error) {

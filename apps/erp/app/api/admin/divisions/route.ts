@@ -212,119 +212,117 @@ export async function POST(req: NextRequest) {
       return err("No course configured in the system. Please create a course first.", 400);
     }
 
-    // ── Auto-create or find semester ──────────────────────────────────
-    // Each division gets a semester record — no global active semester needed.
-    // Semester name: "Sem X (YYYY)" where X = semesterNo, YYYY = batchYear.
+    // ── All creation logic wrapped in a single transaction ────────────
+    // Prevents orphaned semesters/academic years if division insert fails.
     const semesterName = `Sem ${semesterNo} (${batchYear})`;
-
-    // ── Auto-resolve academic year ────────────────────────────────────
-    // Academic year format: "YYYY-YY" (e.g., "2026-27")
-    // batchYear 2026 → academic year "2026-27"
     const academicYearName = `${batchYear}-${String(batchYear + 1).slice(-2)}`;
-    let academicYearId: number;
 
-    const [existingAcademicYear] = await db
-      .select({ id: academicYears.id })
-      .from(academicYears)
-      .where(eq(academicYears.name, academicYearName))
-      .limit(1);
+    const created = await db.transaction(async (tx) => {
+      // Step 1: Resolve or create academic year
+      let academicYearId: number;
 
-    if (existingAcademicYear) {
-      academicYearId = existingAcademicYear.id;
-    } else {
-      const [newAcademicYear] = await db
-        .insert(academicYears)
+      const [existingAcademicYear] = await tx
+        .select({ id: academicYears.id })
+        .from(academicYears)
+        .where(eq(academicYears.name, academicYearName))
+        .limit(1);
+
+      if (existingAcademicYear) {
+        academicYearId = existingAcademicYear.id;
+      } else {
+        const [newAcademicYear] = await tx
+          .insert(academicYears)
+          .values({
+            name: academicYearName,
+            startYear: batchYear,
+            endYear: batchYear + 1,
+            isCurrent: true,
+          })
+          .returning({ id: academicYears.id });
+        academicYearId = newAcademicYear.id;
+      }
+
+      // Step 2: Resolve or create semester
+      let semesterId: number;
+
+      const [existingSemester] = await tx
+        .select({ id: semesters.id })
+        .from(semesters)
+        .where(eq(semesters.name, semesterName))
+        .limit(1);
+
+      if (existingSemester) {
+        semesterId = existingSemester.id;
+
+        await tx
+          .update(semesters)
+          .set({ academicYearId })
+          .where(eq(semesters.id, semesterId));
+      } else {
+        const startDate = new Date(batchYear, (semesterNo - 1) * 2, 1)
+          .toISOString()
+          .split("T")[0];
+        const endDate = new Date(batchYear, (semesterNo - 1) * 2 + 6, 0)
+          .toISOString()
+          .split("T")[0];
+
+        const [newSemester] = await tx
+          .insert(semesters)
+          .values({
+            name: semesterName,
+            startDate,
+            endDate,
+            isActive: true,
+            academicYearId,
+          })
+          .returning({ id: semesters.id });
+
+        semesterId = newSemester.id;
+      }
+
+      // Step 3: Auto-assign next division number (global per batch year)
+      const [maxResult] = await tx
+        .select({ maxDivNo: max(divisions.divisionNo) })
+        .from(divisions)
+        .where(eq(divisions.batchYear, batchYear));
+
+      const nextDivNo = (maxResult?.maxDivNo ?? 0) + 1;
+
+      // Step 4: Generate permanent division name
+      const yy = String(batchYear).slice(-2);
+      const specCode = SPECIALIZATION_CODES[specialization] || specialization;
+      const displayName = `${yy}${course.code}${specCode}DIV${nextDivNo}`;
+
+      // Step 5: Create division
+      const [division] = await tx
+        .insert(divisions)
         .values({
-          name: academicYearName,
-          startYear: batchYear,
-          endYear: batchYear + 1,
-          isCurrent: true,
+          semesterId,
+          courseId: course.id,
+          courseCode: course.code,
+          courseName: course.name,
+          specialization,
+          batchYear,
+          semesterNo,
+          divisionNo: nextDivNo,
+          displayName,
         })
-        .returning({ id: academicYears.id });
-      academicYearId = newAcademicYear.id;
-    }
+        .returning({
+          id: divisions.id,
+          displayName: divisions.displayName,
+          specialization: divisions.specialization,
+          batchYear: divisions.batchYear,
+          semesterNo: divisions.semesterNo,
+          divisionNo: divisions.divisionNo,
+          courseCode: divisions.courseCode,
+          maxCapacity: divisions.maxCapacity,
+          createdAt: divisions.createdAt,
+        });
 
-    let semesterId: number;
+      return division;
+    });
 
-    // Try to find existing semester with this name
-    const [existingSemester] = await db
-      .select({ id: semesters.id })
-      .from(semesters)
-      .where(eq(semesters.name, semesterName))
-      .limit(1);
-
-    if (existingSemester) {
-      semesterId = existingSemester.id;
-
-      // Ensure semester is linked to academic year (backfill if needed)
-      await db
-        .update(semesters)
-        .set({ academicYearId })
-        .where(eq(semesters.id, semesterId));
-    } else {
-      // Auto-create semester with reasonable defaults
-      const startDate = new Date(batchYear, (semesterNo - 1) * 2, 1) // approximate
-        .toISOString()
-        .split("T")[0];
-      const endDate = new Date(batchYear, (semesterNo - 1) * 2 + 6, 0)
-        .toISOString()
-        .split("T")[0];
-
-      const [newSemester] = await db
-        .insert(semesters)
-        .values({
-          name: semesterName,
-          startDate,
-          endDate,
-          isActive: true, // kept for backward compat; not used by APIs
-          academicYearId,
-        })
-        .returning({ id: semesters.id });
-
-      semesterId = newSemester.id;
-    }
-
-    // ── Auto-assign next division number (global per batch year) ──────
-    const [maxResult] = await db
-      .select({ maxDivNo: max(divisions.divisionNo) })
-      .from(divisions)
-      .where(eq(divisions.batchYear, batchYear));
-
-    const nextDivNo = (maxResult?.maxDivNo ?? 0) + 1;
-
-    // ── Generate permanent division name ──────────────────────────────
-    // Format: YY + COURSE_CODE + SPECIALIZATION_CODE + DIV + NUMBER
-    const yy = String(batchYear).slice(-2);
-    const specCode = SPECIALIZATION_CODES[specialization] || specialization;
-    const displayName = `${yy}${course.code}${specCode}DIV${nextDivNo}`;
-
-    // ── Create division ───────────────────────────────────────────────
-    const [created] = await db
-      .insert(divisions)
-      .values({
-        semesterId,
-        courseId: course.id,
-        courseCode: course.code,
-        courseName: course.name,
-        specialization,
-        batchYear,
-        semesterNo,
-        divisionNo: nextDivNo,
-        displayName,
-      })
-      .returning({
-        id: divisions.id,
-        displayName: divisions.displayName,
-        specialization: divisions.specialization,
-        batchYear: divisions.batchYear,
-        semesterNo: divisions.semesterNo,
-        divisionNo: divisions.divisionNo,
-        courseCode: divisions.courseCode,
-        maxCapacity: divisions.maxCapacity,
-        createdAt: divisions.createdAt,
-      });
-
-    // Invalidate cache
+    // Invalidate cache (outside transaction — non-critical)
     try {
       const keys = await redis.keys("divisions:*");
       if (keys.length > 0) {

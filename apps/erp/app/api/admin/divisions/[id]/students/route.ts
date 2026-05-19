@@ -109,57 +109,59 @@ export async function POST(
       results.push({ id: studentId, name, email, status: "success" });
     }
 
-    // Bulk insert valid students + enrollment history
+    // Bulk insert valid students + enrollment history (transactional)
     if (validStudents.length > 0) {
-      // Insert students
-      const insertedStudents = await db.insert(students).values(
-        validStudents.map((s) => ({
-          studentId: s.studentId,
-          fullName: s.fullName,
-          email: s.email,
-          courseId: division.courseId,
-          entryType: "fresh",
-          entrySemesterNo: division.semesterNo,
-          currentSemesterNo: division.semesterNo,
-          currentDivisionId: division.id,
-          currentDivisionName: division.displayName,
-          status: "incomplete", // profile not submitted yet
-        }))
-      ).returning({ id: students.id, email: students.email });
-
-      // Resolve academic year for enrollment history
-      const [sem] = await db
-        .select({ academicYearId: semesters.academicYearId })
-        .from(semesters)
-        .where(eq(semesters.id, division.semesterId))
-        .limit(1);
-
-      let academicYearId = sem?.academicYearId;
-
-      // Fallback: use current academic year
-      if (!academicYearId) {
-        const [currentYear] = await db
-          .select({ id: academicYears.id })
-          .from(academicYears)
-          .where(eq(academicYears.isCurrent, true))
-          .limit(1);
-        academicYearId = currentYear?.id ?? null;
-      }
-
-      // Insert enrollment history rows (only if academic year exists)
-      if (academicYearId && insertedStudents.length > 0) {
-        await db.insert(studentEnrollmentHistory).values(
-          insertedStudents.map((s) => ({
-            studentId: s.id,
-            semesterId: division.semesterId,
-            divisionId: division.id,
-            academicYearId: academicYearId!,
-            semesterNo: division.semesterNo,
-            divisionName: division.displayName,
-            status: "active",
+      await db.transaction(async (tx) => {
+        // Step 1: Insert students
+        const insertedStudents = await tx.insert(students).values(
+          validStudents.map((s) => ({
+            studentId: s.studentId,
+            fullName: s.fullName,
+            email: s.email,
+            courseId: division.courseId,
+            entryType: "fresh",
+            entrySemesterNo: division.semesterNo,
+            currentSemesterNo: division.semesterNo,
+            currentDivisionId: division.id,
+            currentDivisionName: division.displayName,
+            status: "incomplete", // profile not submitted yet
           }))
-        );
-      }
+        ).returning({ id: students.id, email: students.email });
+
+        // Step 2: Resolve academic year for enrollment history
+        const [sem] = await tx
+          .select({ academicYearId: semesters.academicYearId })
+          .from(semesters)
+          .where(eq(semesters.id, division.semesterId))
+          .limit(1);
+
+        let academicYearId = sem?.academicYearId;
+
+        // Fallback: use current academic year
+        if (!academicYearId) {
+          const [currentYear] = await tx
+            .select({ id: academicYears.id })
+            .from(academicYears)
+            .where(eq(academicYears.isCurrent, true))
+            .limit(1);
+          academicYearId = currentYear?.id ?? null;
+        }
+
+        // Step 3: Insert enrollment history rows (only if academic year exists)
+        if (academicYearId && insertedStudents.length > 0) {
+          await tx.insert(studentEnrollmentHistory).values(
+            insertedStudents.map((s) => ({
+              studentId: s.id,
+              semesterId: division.semesterId,
+              divisionId: division.id,
+              academicYearId: academicYearId!,
+              semesterNo: division.semesterNo,
+              divisionName: division.displayName,
+              status: "active",
+            }))
+          );
+        }
+      });
     }
 
     return NextResponse.json(

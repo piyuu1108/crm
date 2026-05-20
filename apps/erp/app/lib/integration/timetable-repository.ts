@@ -75,7 +75,34 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
 
   try {
     await db.transaction(async (tx) => {
-      // 1. Upsert Rooms
+      // A. Delete existing timetable entries for these divisions
+      if (divisionIds.length > 0) {
+        await tx.delete(timetableEntries)
+          .where(inArray(timetableEntries.divisionId, divisionIds));
+      }
+
+      // B. Delete existing faculty-subject assignments for these divisions (resilient to marks/exams constraints)
+      if (divisionIds.length > 0) {
+        try {
+          await tx.delete(facultySubjectAssignments)
+            .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
+        } catch (assignmentDeleteError) {
+          console.warn("[processTimetablePublish] Could not delete some faculty-subject assignments due to existing references:", assignmentDeleteError);
+        }
+      }
+
+      // C. Delete rooms registered as labs that are in the incoming payload so they are cleanly recreated
+      if (labsToCreate.size > 0) {
+        await tx.delete(rooms)
+          .where(
+            and(
+              eq(rooms.isLab, true),
+              inArray(rooms.code, Array.from(labsToCreate))
+            )
+          );
+      }
+
+      // 1. Re-insert Rooms
       if (labsToCreate.size > 0) {
         const roomInserts = Array.from(labsToCreate).map(code => ({
           code,
@@ -170,12 +197,6 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
             publishId: publishId,
           });
         }
-      }
-
-      // 5. Hard Deletion of Old Timetable for these divisions
-      if (divisionIds.length > 0) {
-        await tx.delete(timetableEntries)
-          .where(inArray(timetableEntries.divisionId, divisionIds));
       }
 
       // 6. Batch Insert New Timetable

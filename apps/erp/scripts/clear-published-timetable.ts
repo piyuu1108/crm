@@ -1,4 +1,4 @@
-import { db } from "@/app/lib/db";
+import { db } from "../app/lib/db";
 import { sql } from "drizzle-orm";
 
 async function main() {

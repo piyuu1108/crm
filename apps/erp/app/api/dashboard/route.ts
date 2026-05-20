@@ -161,13 +161,9 @@ export async function GET(req: NextRequest) {
     // JSON.stringify on large dashboard payloads (arrays, nested objects) is
     // a synchronous CPU operation. We time it separately to surface it.
     // On Cloudflare, large serializations can consume a non-trivial CPU budget.
-    const serialized = profiler.measureCpuSection("serialization:payloadData", () =>
-      JSON.stringify(payloadData)
-    );
-    profiler.trackSection(
+    const serialized = profiler.measureCpuSection(
       "serialization:payloadData",
-      // Re-track as serialization category so the report correctly groups it
-      0, // placeholder — actual timing captured inside measureCpuSection above
+      () => JSON.stringify(payloadData),
       "serialization"
     );
 

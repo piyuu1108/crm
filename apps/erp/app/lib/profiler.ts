@@ -121,14 +121,18 @@ export class RequestProfiler {
    *     verifyTokenSync(token)
    *   );
    */
-  measureCpuSection<T>(name: string, fn: () => T): T {
+  measureCpuSection<T>(
+    name: string,
+    fn: () => T,
+    category: SectionTiming["category"] = "cpu"
+  ): T {
     if (!this.enabled) return fn();
 
     const t0 = this.now();
     const result = fn();
     const elapsed = this.now() - t0;
 
-    this.sections.push({ name, durationMs: elapsed, category: "cpu" });
+    this.sections.push({ name, durationMs: elapsed, category });
     return result;
   }
 
@@ -200,7 +204,10 @@ export class RequestProfiler {
 
   private emit(report: ProfileReport): void {
     const bar = (ms: number, total: number) => {
-      const pct = Math.round((ms / total) * 20);
+      if (!total || isNaN(ms) || isNaN(total) || total <= 0) {
+        return "░".repeat(20);
+      }
+      const pct = Math.max(0, Math.min(20, Math.round((ms / total) * 20)));
       return "█".repeat(pct) + "░".repeat(20 - pct);
     };
 

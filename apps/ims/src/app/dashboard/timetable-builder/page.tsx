@@ -431,7 +431,7 @@ export default function TimetableBuilderPage() {
 
       const payload = Array.from(groupMap.values());
       
-      const res = await fetch("http://localhost:3000/api/integration/timetable/publish", {
+      const res = await fetch("http://localhost:3001/api/integration/timetable/publish", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -634,7 +634,7 @@ export default function TimetableBuilderPage() {
               </>
             )}
           </Button>
-{/* 
+
           <Button
             size="sm"
             // color="success"
@@ -653,7 +653,7 @@ export default function TimetableBuilderPage() {
                 <span className="ml-1">{isPending ? "Publishing…" : "Publish to ERP"}</span>
               </>
             )}
-          </Button> */}
+          </Button> 
         </div>
       </div>
 

@@ -10,7 +10,43 @@ import {
 } from "@/app/lib/schema";
 import { SimplifiedPayload, ValidationError } from "./timetable-validator";
 
+async function ensureQuizPlaceholderEntities() {
+  // 1. Check if QUIZ faculty exists
+  const [quizFaculty] = await db
+    .select({ id: faculty.id })
+    .from(faculty)
+    .where(eq(faculty.facultyCode, "QUIZ"))
+    .limit(1);
+
+  if (!quizFaculty) {
+    await db.insert(faculty).values({
+      facultyCode: "QUIZ",
+      name: "Quiz Placeholder",
+      email: "quiz-placeholder@erp.local",
+      mobile: "0000000000",
+      passwordHash: "placeholder",
+    });
+  }
+
+  // 2. Check if QUIZ subject exists
+  const [quizSubject] = await db
+    .select({ id: subjects.id })
+    .from(subjects)
+    .where(eq(subjects.code, "QUIZ"))
+    .limit(1);
+
+  if (!quizSubject) {
+    await db.insert(subjects).values({
+      code: "QUIZ",
+      name: "Quiz",
+      subjectType: "theory",
+    });
+  }
+}
+
 export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
+  // Ensure "QUIZ" placeholder entities exist in the database
+  await ensureQuizPlaceholderEntities();
   // Extract Unique Keys
   const facultyCodes = Array.from(new Set(payloads.map((p) => p.facultyCode)));
   const subjectCodes = Array.from(new Set(payloads.map((p) => p.subjectCode)));

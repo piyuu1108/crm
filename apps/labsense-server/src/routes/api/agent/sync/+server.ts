@@ -17,6 +17,7 @@ export const OPTIONS: RequestHandler = async () => {
  * Updates session aggregates, upserts application usage, and updates machine last_seen_at.
  */
 export const PATCH: RequestHandler = async ({ request }) => {
+	const reqStart = performance.now();
 	// Parse body
 	const body = await parseJsonBody(request);
 	if (body === null || typeof body.syncToken !== 'string' || typeof body.payload !== 'string') {
@@ -24,6 +25,11 @@ export const PATCH: RequestHandler = async ({ request }) => {
 	}
 
 	const { syncToken, payload } = body;
+
+	console.log('Encrypted payload size:',
+	Buffer.byteLength(payload, 'utf8'),
+	'bytes'
+);
 
 	// Validate session ID format
 	if (!isValidUUID(syncToken)) {
@@ -65,8 +71,32 @@ export const PATCH: RequestHandler = async ({ request }) => {
 		return errorResponse('Payload complexity exceeds safety limits', 413);
 	}
 
+	const dbBody = JSON.stringify(data);
+
+console.log({
+	apps: data.applications.length,
+	details: data.applications.reduce(
+		(a, x) => a + (x.details?.length || 0),
+		0
+	),
+	segments: totalElements,
+	bytes: Buffer.byteLength(JSON.stringify(data)),
+});
+
+console.log('DB body size:',
+	Buffer.byteLength(dbBody, 'utf8'),
+	'bytes'
+);
 	// Execute sync within transaction
+	const syncStart = performance.now();
 	const result = await syncSession(syncToken, data);
+	const syncTime = performance.now() - syncStart;
+const totalTime = performance.now() - reqStart;
+
+console.log({
+	syncMs: Number(syncTime.toFixed(2)),
+	totalMs: Number(totalTime.toFixed(2))
+});
 	if (!result.ok) {
 		return errorResponse(result.error, result.status);
 	}

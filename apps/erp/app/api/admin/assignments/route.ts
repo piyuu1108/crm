@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { counselorDivisionAssignments, divisions, faculty, semesters } from "@/app/lib/schema";
+import { counselorDivisionAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
 
 function ok(data: unknown, status = 200) {
@@ -13,27 +12,13 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorize() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-
-  if (!token) return { error: err("Unauthorized", 401) };
-
-  const payload = await verifyToken(token);
-  if (!payload) return { error: err("Unauthorized: invalid or expired session", 401) };
-
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
-  }
-
-  return { payload };
-}
-
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize();
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (!auth.roles.includes("hod")) {
+      return err("Forbidden: HOD access required", 403);
+    }
 
     // 1. Get all divisions (each carries its own semester_id)
     const allDivisions = await db
@@ -75,20 +60,26 @@ export async function GET() {
         eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
       ));
 
-    // Process assignments into divisions
-    const divisionsWithCounselors = allDivisions.map((div) => {
-      const counselors = activeAssignments
-        .filter((a) => a.divisionId === div.id)
-        .map((a) => ({
+    // Process assignments into divisions using Map for O(N + M) performance
+    const assignmentsByDivision = new Map<number, { facultyId: number; facultyName: string }[]>();
+    for (const a of activeAssignments) {
+      if (a.divisionId !== null) {
+        let list = assignmentsByDivision.get(a.divisionId);
+        if (!list) {
+          list = [];
+          assignmentsByDivision.set(a.divisionId, list);
+        }
+        list.push({
           facultyId: a.facultyId,
           facultyName: a.facultyName,
-        }));
+        });
+      }
+    }
 
-      return {
-        ...div,
-        counselors,
-      };
-    });
+    const divisionsWithCounselors = allDivisions.map((div) => ({
+      ...div,
+      counselors: assignmentsByDivision.get(div.id) || [],
+    }));
 
     return ok({
       divisions: divisionsWithCounselors,
@@ -103,8 +94,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorize();
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (!auth.roles.includes("hod")) {
+      return err("Forbidden: HOD access required", 403);
+    }
 
     const body = await req.json();
     const { facultyId, divisionId } = body;
@@ -165,8 +159,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = await authorize();
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (!auth.roles.includes("hod")) {
+      return err("Forbidden: HOD access required", 403);
+    }
 
     const body = await req.json();
     const { facultyId, divisionId } = body;

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalEvaluations,
@@ -28,20 +27,10 @@ function err(message: string, status: number) {
  */
 export async function PUT(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole = req.headers.get("X-Active-Role") ?? null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
-    const resolvedRole =
-      activeRole && rolesArray.includes(activeRole)
-        ? activeRole
-        : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
 
     if (!["faculty", "hod"].includes(resolvedRole)) {
       return err("Forbidden: only faculty and HOD can finalize", 403);
@@ -67,7 +56,7 @@ export async function PUT(req: NextRequest) {
         .where(eq(facultySubjectAssignments.id, assignmentId))
         .limit(1);
 
-      if (!assignment || assignment.facultyId !== payload.userId) {
+      if (!assignment || assignment.facultyId !== userId) {
         return err("Forbidden: not your assignment", 403);
       }
     }
@@ -77,7 +66,7 @@ export async function PUT(req: NextRequest) {
       .update(internalEvaluations)
       .set({
         isFinalized: finalize,
-        finalizedByFacultyId: finalize ? payload.userId : null,
+        finalizedByFacultyId: finalize ? userId : null,
         finalizedAt: finalize ? new Date() : null,
       })
       .where(

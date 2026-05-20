@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { circulars } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
@@ -11,19 +10,10 @@ export async function DELETE(
 ) {
   try {
     const { slug } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const payload = await verifyToken(token);
+    const payload = await getAuthContext(req);
     if (!payload) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized: invalid session" },
+        { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }

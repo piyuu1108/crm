@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   subjects,
@@ -21,13 +20,6 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authenticate() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return null;
-  return verifyToken(token);
-}
-
 // ─── GET /api/subjects/[code] — Subject detail with role-based access ─────────
 
 export async function GET(
@@ -35,28 +27,33 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> }
 ) {
   try {
-    const payload = await authenticate();
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+
+    const { userId, roles: rolesArray, activeRole } = auth;
 
     const { code } = await params;
     const decodedCode = decodeURIComponent(code);
 
     // Fetch subject from master
     const [subject] = await db
-      .select()
+      .select({
+        id: subjects.id,
+        code: subjects.code,
+        name: subjects.name,
+        subjectType: subjects.subjectType,
+        internalTheoryMax: subjects.internalTheoryMax,
+        externalTheoryMax: subjects.externalTheoryMax,
+        theoryPassingMarks: subjects.theoryPassingMarks,
+        internalPracticalMax: subjects.internalPracticalMax,
+        externalPracticalMax: subjects.externalPracticalMax,
+        practicalPassingMarks: subjects.practicalPassingMarks,
+      })
       .from(subjects)
       .where(eq(subjects.code, decodedCode))
       .limit(1);
 
     if (!subject) return err("Subject not found", 404);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const headerRole = req.headers.get("x-active-role");
-    const rolePriority = ["hod", "counselor", "faculty", "student"];
-    const activeRole =
-      headerRole && rolesArray.includes(headerRole)
-        ? headerRole
-        : rolePriority.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
 
     // Fetch all current assignments for this subject — scoped to each division's current semester
     const allAssignments = await db
@@ -86,7 +83,7 @@ export async function GET(
       const [student] = await db
         .select({ currentDivisionId: students.currentDivisionId })
         .from(students)
-        .where(eq(students.id, payload.userId))
+        .where(eq(students.id, userId))
         .limit(1);
 
       if (!student?.currentDivisionId) return err("Forbidden", 403);
@@ -118,7 +115,7 @@ export async function GET(
           .from(marks)
           .where(
             and(
-              eq(marks.studentId, payload.userId),
+              eq(marks.studentId, userId),
               eq(marks.semesterId, semesterId),
               inArray(marks.assignmentId, assignmentIds)
             )
@@ -129,9 +126,9 @@ export async function GET(
       }
     } else if (activeRole === "faculty") {
       // Faculty can only see subjects assigned to them
-      const isAssigned = allAssignments.some((a) => a.facultyId === payload.userId);
+      const isAssigned = allAssignments.some((a) => a.facultyId === userId);
       if (!isAssigned) return err("Forbidden: subject not assigned to you", 403);
-      filteredAssignments = allAssignments.filter((a) => a.facultyId === payload.userId);
+      filteredAssignments = allAssignments.filter((a) => a.facultyId === userId);
     } else if (activeRole === "counselor") {
       // Counselor can see subjects from their assigned divisions
       const counselorDivs = await db
@@ -141,7 +138,7 @@ export async function GET(
           eq(counselorDivisionAssignments.divisionId, divisions.id),
           eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
         ))
-        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+        .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       const divIds = new Set(counselorDivs.map((d) => d.divisionId));
       const hasAccess = allAssignments.some((a) => divIds.has(a.divisionId));

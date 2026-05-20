@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, S3_BUCKET } from "@/app/lib/storage";
@@ -45,24 +44,15 @@ const MAX_FILE_SIZE_REQUEST = 2 * 1024 * 1024; // 2MB for request attachments
  */
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) {
+    const auth = await getAuthContext(req);
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: invalid session" },
-        { status: 401 }
-      );
-    }
-
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
+    const roles = auth.roles;
     if (!roles.includes("student")) {
       return NextResponse.json(
         { success: false, error: "Forbidden: student role required" },
@@ -108,7 +98,7 @@ export async function POST(req: NextRequest) {
     // ── Generate unique file key ──────────────────────────────────────────
     const ext = ALLOWED_MIMES[contentType];
     const timestamp = Date.now();
-    const fileKey = `students/${payload.userId}/${docType}_${timestamp}${ext}`;
+    const fileKey = `students/${auth.userId}/${docType}_${timestamp}${ext}`;
 
     // ── Generate presigned URL (5 min expiry) ─────────────────────────────
     const command = new PutObjectCommand({

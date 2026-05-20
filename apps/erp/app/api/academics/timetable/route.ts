@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   students,
@@ -25,25 +24,10 @@ function err(message: string, status: number) {
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (rolesArray.length === 0) return err("Forbidden", 403);
-
-    const requestedRole = req.headers.get("X-Active-Role") ?? req.nextUrl.searchParams.get("role") ?? null;
-    let activeRole: string;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"];
-    if (requestedRole) {
-      if (!rolesArray.includes(requestedRole)) return err("Forbidden: role not assigned", 403);
-      activeRole = requestedRole;
-    } else {
-      activeRole = ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
-    }
+    const { userId, roles: rolesArray, activeRole } = auth;
 
     if (activeRole === "student") {
       const [student] = await db
@@ -55,7 +39,7 @@ export async function GET(req: NextRequest) {
         })
         .from(students)
         .leftJoin(divisions, eq(divisions.id, students.currentDivisionId))
-        .where(eq(students.id, payload.userId))
+        .where(eq(students.id, userId))
         .limit(1);
 
       if (!student || !student.divisionId) {
@@ -121,7 +105,7 @@ export async function GET(req: NextRequest) {
         .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(
           and(
-            eq(facultySubjectAssignments.facultyId, payload.userId),
+            eq(facultySubjectAssignments.facultyId, userId),
             eq(timetableEntries.isActive, true)
           )
         );
@@ -137,7 +121,7 @@ export async function GET(req: NextRequest) {
         })
         .from(counselorDivisionAssignments)
         .innerJoin(divisions, eq(counselorDivisionAssignments.divisionId, divisions.id))
-        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+        .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       if (assignments.length === 0) {
         return ok({ role: "counselor", entries: [], divisionName: "" });

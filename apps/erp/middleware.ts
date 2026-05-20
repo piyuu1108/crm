@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifyToken } from "@/app/lib/auth";
 import { redis } from "@/app/lib/redis";
 import { Ratelimit } from "@upstash/ratelimit";
 
@@ -66,7 +65,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // --- 2. Edge JWT Verification ---
+  // --- 2. Cookie check for authentication ---
   const token = request.cookies.get("auth_token")?.value;
 
   if (!token) {
@@ -80,55 +79,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  const payload = await verifyToken(token);
-
-  if (!payload) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: Invalid or expired token" },
-        { status: 401 }
-      );
-    }
-    // Redirect unauthenticated UI requests to login (e.g., token expired)
-    return NextResponse.redirect(new URL("/auth/login", request.url));
-  }
-
-  // --- 3. Header Injection for Downstream API RBAC ---
-  // We inject the validated identity so API routes do not have to parse the JWT again
-  // unless they need strict re-verification per AGENTS.md
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-user-id", payload.userId.toString());
-  requestHeaders.set("x-user-roles", JSON.stringify(payload.roles));
-  if (payload.facultyCode) {
-    requestHeaders.set("x-faculty-code", payload.facultyCode);
-  }
-
-  // --- 4. Active Role Injection from Cookie ---
-  // Read the active_role cookie (set by client on role switch).
-  // Validate it against JWT roles — never trust frontend blindly.
-  const activeRoleCookie = request.cookies.get("active_role")?.value;
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-
-  let resolvedRole: string;
-
-  if (activeRoleCookie && rolesArray.includes(activeRoleCookie)) {
-    // Cookie role is valid
-    resolvedRole = activeRoleCookie;
-  } else {
-    // Fallback: pick by priority order (same as dashboard API)
-    resolvedRole =
-      ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0] ?? "";
-  }
-
-  if (resolvedRole) {
-    requestHeaders.set("x-active-role", resolvedRole);
-  }
-
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  return NextResponse.next();
 }
 
 // Ensure middleware runs on appropriate paths

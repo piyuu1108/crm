@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { and, eq, inArray } from "drizzle-orm";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { initializeEmailJob } from "@/app/lib/email/job-tracker";
@@ -18,15 +17,11 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorizeHod() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return { error: err("Unauthorized", 401) };
+async function authorizeHod(req: NextRequest) {
+  const payload = await getAuthContext(req);
+  if (!payload) return { error: err("Unauthorized", 401) };
 
-  const payload = await verifyToken(token);
-  if (!payload) return { error: err("Unauthorized: invalid session", 401) };
-
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  const rolesArray = payload.roles;
   if (!rolesArray.includes("hod")) return { error: err("Forbidden", 403) };
 
   return { payload };
@@ -37,7 +32,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorizeHod();
+    const auth = await authorizeHod(req);
     if ("error" in auth && auth.error) return auth.error;
 
     const { id: idStr } = await params;

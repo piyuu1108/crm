@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   subjects,
@@ -10,7 +9,7 @@ import {
   facultySubjectAssignments,
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -22,31 +21,14 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authenticate() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return null;
-  return verifyToken(token);
-}
-
 // ─── GET /api/subjects — Mode-filtered subject list ───────────────────────────
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = await authenticate();
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-
-    // Read the user's CURRENT MODE from x-active-role header (set by middleware
-    // from the active_role cookie, validated against JWT roles).
-    // Fallback to priority order only when header is missing (first load).
-    const headerRole = req.headers.get("x-active-role");
-    const rolePriority = ["hod", "counselor", "faculty", "student"];
-    const activeRole =
-      headerRole && rolesArray.includes(headerRole)
-        ? headerRole
-        : rolePriority.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    const { userId, roles: rolesArray, activeRole } = auth;
 
     // ── HOD: All subjects in the system ──────────────────────────────
     if (activeRole === "hod") {
@@ -110,7 +92,7 @@ export async function GET(req: NextRequest) {
           eq(counselorDivisionAssignments.divisionId, divisions.id),
           eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
         ))
-        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+        .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       const divisionIds = counselorDivs.map((d) => d.divisionId);
       if (divisionIds.length === 0) {
@@ -145,7 +127,18 @@ export async function GET(req: NextRequest) {
       // Deduplicate by subjectId and enrich with subject master data
       const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
       const subjectMasters = subjectIds.length > 0
-        ? await db.select().from(subjects).where(inArray(subjects.id, subjectIds))
+        ? await db.select({
+            id: subjects.id,
+            code: subjects.code,
+            name: subjects.name,
+            subjectType: subjects.subjectType,
+            internalTheoryMax: subjects.internalTheoryMax,
+            externalTheoryMax: subjects.externalTheoryMax,
+            theoryPassingMarks: subjects.theoryPassingMarks,
+            internalPracticalMax: subjects.internalPracticalMax,
+            externalPracticalMax: subjects.externalPracticalMax,
+            practicalPassingMarks: subjects.practicalPassingMarks,
+          }).from(subjects).where(inArray(subjects.id, subjectIds))
         : [];
       const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
 
@@ -201,11 +194,22 @@ export async function GET(req: NextRequest) {
         ))
         .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
         .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .where(eq(facultySubjectAssignments.facultyId, payload.userId));
+        .where(eq(facultySubjectAssignments.facultyId, userId));
 
       const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
       const subjectMasters = subjectIds.length > 0
-        ? await db.select().from(subjects).where(inArray(subjects.id, subjectIds))
+        ? await db.select({
+            id: subjects.id,
+            code: subjects.code,
+            name: subjects.name,
+            subjectType: subjects.subjectType,
+            internalTheoryMax: subjects.internalTheoryMax,
+            externalTheoryMax: subjects.externalTheoryMax,
+            theoryPassingMarks: subjects.theoryPassingMarks,
+            internalPracticalMax: subjects.internalPracticalMax,
+            externalPracticalMax: subjects.externalPracticalMax,
+            practicalPassingMarks: subjects.practicalPassingMarks,
+          }).from(subjects).where(inArray(subjects.id, subjectIds))
         : [];
       const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
 
@@ -244,7 +248,7 @@ export async function GET(req: NextRequest) {
           currentDivisionId: students.currentDivisionId,
         })
         .from(students)
-        .where(eq(students.id, payload.userId))
+        .where(eq(students.id, userId))
         .limit(1);
 
       if (!student?.currentDivisionId) {
@@ -284,7 +288,18 @@ export async function GET(req: NextRequest) {
 
       const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
       const subjectMasters = subjectIds.length > 0
-        ? await db.select().from(subjects).where(inArray(subjects.id, subjectIds))
+        ? await db.select({
+            id: subjects.id,
+            code: subjects.code,
+            name: subjects.name,
+            subjectType: subjects.subjectType,
+            internalTheoryMax: subjects.internalTheoryMax,
+            externalTheoryMax: subjects.externalTheoryMax,
+            theoryPassingMarks: subjects.theoryPassingMarks,
+            internalPracticalMax: subjects.internalPracticalMax,
+            externalPracticalMax: subjects.externalPracticalMax,
+            practicalPassingMarks: subjects.practicalPassingMarks,
+          }).from(subjects).where(inArray(subjects.id, subjectIds))
         : [];
       const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
 

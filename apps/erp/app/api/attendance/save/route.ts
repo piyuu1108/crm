@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   attendanceSessionLedger,
@@ -27,19 +26,14 @@ function err(message: string, status: number) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
+    const { userId, roles: rolesArray, activeRole: resolvedRole, isRoleForbidden, forbiddenRole } = auth;
 
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole = req.headers.get("X-Active-Role") ?? null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
-    const resolvedRole = activeRole && rolesArray.includes(activeRole)
-      ? activeRole
-      : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    if (isRoleForbidden) {
+      return err(`Forbidden: role '${forbiddenRole}' is not assigned to this user`, 403);
+    }
 
     if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
       return err("Forbidden", 403);
@@ -79,7 +73,7 @@ export async function POST(req: NextRequest) {
     if (!session) return err("Session not found", 404);
 
     // RBAC: Faculty must own the assignment
-    if (resolvedRole === "faculty" && session.facultyId !== payload.userId) {
+    if (resolvedRole === "faculty" && session.facultyId !== userId) {
       return err("Forbidden: not assigned to this subject", 403);
     }
 
@@ -88,7 +82,7 @@ export async function POST(req: NextRequest) {
       const counselorAssignments = await db
         .select({ divisionId: counselorDivisionAssignments.divisionId })
         .from(counselorDivisionAssignments)
-        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+        .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       if (!counselorAssignments.some((a) => a.divisionId === session.divisionId)) {
         return err("Forbidden: not assigned to this division", 403);
@@ -110,7 +104,7 @@ export async function POST(req: NextRequest) {
     await submitAttendanceCQRS({
       semesterId: session.semesterId,
       divisionId: session.divisionId,
-      facultyId: payload.userId, // use current user saving the attendance
+      facultyId: userId, // use current user saving the attendance
       date: session.date,
       startTime: session.startTime,
       endTime: session.endTime,

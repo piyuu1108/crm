@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { getEmailJobState } from "@/app/lib/email/job-tracker";
 
 function err(message: string, status: number) {
@@ -8,18 +7,14 @@ function err(message: string, status: number) {
 }
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
+    const payload = await getAuthContext(req);
+    if (!payload) return err("Unauthorized", 401);
 
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+    const rolesArray = payload.roles;
     if (!rolesArray.includes("hod")) return err("Forbidden", 403);
 
     const { jobId } = await params;

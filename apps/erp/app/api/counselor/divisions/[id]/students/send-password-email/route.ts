@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { and, eq } from "drizzle-orm";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, students } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
@@ -14,15 +13,11 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorize(divisionId: number) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return { error: err("Unauthorized", 401) };
+async function authorize(req: NextRequest, divisionId: number) {
+  const payload = await getAuthContext(req);
+  if (!payload) return { error: err("Unauthorized", 401) };
 
-  const payload = await verifyToken(token);
-  if (!payload) return { error: err("Unauthorized: invalid session", 401) };
-
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  const rolesArray = payload.roles;
   if (!rolesArray.includes("counselor")) return { error: err("Forbidden", 403) };
 
   // Verify assignment — scoped to the division's current semester
@@ -54,7 +49,7 @@ export async function POST(
     const divisionId = Number.parseInt(idStr, 10);
     if (!Number.isFinite(divisionId)) return err("Invalid division ID", 400);
 
-    const auth = await authorize(divisionId);
+    const auth = await authorize(req, divisionId);
     if ("error" in auth && auth.error) return auth.error;
 
     const body = (await req.json().catch(() => ({}))) as { studentDbId?: number };

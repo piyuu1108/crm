@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, studentDocuments, courses } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -28,17 +27,13 @@ function getStatusAfterStudentEdit(currentStatus: string | null | undefined): Ve
 // ─── Helper: Verify student identity ────────────────────────────────────────
 
 async function getAuthenticatedStudentId(req: NextRequest): Promise<number | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return null;
+  const auth = await getAuthContext(req);
+  if (!auth) return null;
 
-  const payload = await verifyToken(token);
-  if (!payload) return null;
-
-  const roles = Array.isArray(payload.roles) ? payload.roles : [];
+  const roles = auth.roles;
   if (!roles.includes("student")) return null;
 
-  return payload.userId;
+  return auth.userId;
 }
 
 // ─── GET /api/student/profile ───────────────────────────────────────────────

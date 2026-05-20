@@ -9,7 +9,7 @@ import {
   facultyPersonalInfo,
   facultyProfessionalInfo,
 } from "@/app/lib/schema";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import {
   validateFacultyStep1,
   validateFacultyStep2,
@@ -27,23 +27,19 @@ function isSchemaMissingError(error: unknown): boolean {
   return code === "42703" || code === "42P01" || causeCode === "42703" || causeCode === "42P01";
 }
 
-async function getAuthenticatedFacultyId(): Promise<number | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return null;
-
-  const payload = await verifyToken(token);
-  if (!payload) return null;
-  const roles = Array.isArray(payload.roles) ? payload.roles : [];
+async function getAuthenticatedFacultyId(req: NextRequest): Promise<number | null> {
+  const auth = await getAuthContext(req);
+  if (!auth) return null;
+  const roles = auth.roles;
   if (!roles.some((role) => role === "faculty" || role === "counselor" || role === "hod")) {
     return null;
   }
-  return payload.userId;
+  return auth.userId;
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const facultyId = await getAuthenticatedFacultyId();
+    const facultyId = await getAuthenticatedFacultyId(req);
     if (!facultyId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized: faculty role required" },
@@ -193,7 +189,7 @@ export async function GET(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const facultyId = await getAuthenticatedFacultyId();
+    const facultyId = await getAuthenticatedFacultyId(req);
     if (!facultyId) {
       return NextResponse.json(
         { success: false, error: "Unauthorized: faculty role required" },

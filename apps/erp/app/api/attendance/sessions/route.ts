@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   attendanceSessionLedger,
@@ -33,12 +32,8 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
-
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
+    const payload = await getAuthContext(req);
+    if (!payload) return err("Unauthorized", 401);
 
     const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
     if (rolesArray.length === 0) return err("Forbidden", 403);
@@ -268,12 +263,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
-
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
+    const payload = await getAuthContext(req);
+    if (!payload) return err("Unauthorized", 401);
 
     const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
     const activeRole = req.headers.get("X-Active-Role") ?? null;

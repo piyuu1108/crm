@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty, facultyRoles, roles, facultySubjectAssignments, divisions, subjects } from "@/app/lib/schema";
 import { eq, and, like, count, asc, desc, or, sql, inArray } from "drizzle-orm";
@@ -20,16 +19,11 @@ function err(message: string, status: number) {
 }
 
 // ─── Auth guard (JWT double-verification + HOD role check) ────────────────────
-async function authorize() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
+async function authorize(req: NextRequest) {
+  const payload = await getAuthContext(req);
+  if (!payload) return { error: err("Unauthorized", 401) };
 
-  if (!token) return { error: err("Unauthorized", 401) };
-
-  const payload = await verifyToken(token);
-  if (!payload) return { error: err("Unauthorized: invalid or expired session", 401) };
-
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  const rolesArray = payload.roles;
   if (!rolesArray.includes("hod")) {
     return { error: err("Forbidden: HOD access required", 403) };
   }
@@ -40,7 +34,7 @@ async function authorize() {
 // ─── GET /api/admin/faculty — Paginated faculty list ──────────────────────────
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize();
+    const auth = await authorize(req);
     if ("error" in auth && auth.error) return auth.error;
 
     const url = req.nextUrl;
@@ -189,7 +183,7 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/admin/faculty — Create a new faculty member ────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorize();
+    const auth = await authorize(req);
     if ("error" in auth && auth.error) return auth.error;
 
     const body = await req.json();

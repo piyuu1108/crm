@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -14,12 +13,8 @@ function err(message: string, status = 400) {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
-
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
+    const payload = await getAuthContext(req);
+    if (!payload) return err("Unauthorized", 401);
 
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
     if (!roles.some((r) => r === "faculty" || r === "counselor" || r === "hod")) {

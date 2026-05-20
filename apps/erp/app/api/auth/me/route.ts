@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty, facultyDocuments, students } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -19,31 +18,18 @@ function isSchemaMissingError(error: unknown): boolean {
  *
  * Unlike /api/dashboard, this does NOT fetch role-specific data — it's
  * designed to be fast (~50ms) so the sidebar/navbar can render immediately.
- *
- * Security: JWT is re-verified per AGENTS.md (double-check after Edge).
  */
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-
-    if (!token) {
+    const auth = await getAuthContext(req);
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: invalid or expired session" },
-        { status: 401 }
-      );
-    }
-
-    const { userId, roles: jwtRoles } = payload;
-    const rolesArray = Array.isArray(jwtRoles) ? jwtRoles : [];
+    const { userId, roles: rolesArray } = auth;
 
     if (rolesArray.length === 0) {
       return NextResponse.json(

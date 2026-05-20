@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   timetableEntries,
@@ -10,7 +9,7 @@ import {
   faculty,
   subjects,
 } from "@/app/lib/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,13 +24,6 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authenticate() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return null;
-  return verifyToken(token);
-}
-
 function requireHod(roles: string[]) {
   return roles.includes("hod") || roles.includes("admin");
 }
@@ -42,9 +34,9 @@ function requireHod(roles: string[]) {
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = await authenticate();
-    if (!payload) return err("Unauthorized", 401);
-    if (!requireHod(payload.roles)) return err("Forbidden", 403);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (!requireHod(auth.roles)) return err("Forbidden", 403);
 
     const divisionId = req.nextUrl.searchParams.get("divisionId");
     if (!divisionId) return err("divisionId is required", 400);
@@ -219,9 +211,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = await authenticate();
-    if (!payload) return err("Unauthorized", 401);
-    if (!requireHod(payload.roles)) return err("Forbidden", 403);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (!requireHod(auth.roles)) return err("Forbidden", 403);
 
     const body = await req.json();
     const { divisionId, entries: newEntries } = body;

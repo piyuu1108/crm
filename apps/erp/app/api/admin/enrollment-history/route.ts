@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   studentEnrollmentHistory,
@@ -20,15 +19,11 @@ function err(message: string, status: number) {
 }
 
 // ─── Auth guard (HOD, Counselor, or Faculty) ──────────────────────────────────
-async function authorizeStaff() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  if (!token) return { error: err("Unauthorized", 401) };
+async function authorizeStaff(req: NextRequest) {
+  const payload = await getAuthContext(req);
+  if (!payload) return { error: err("Unauthorized", 401) };
 
-  const payload = await verifyToken(token);
-  if (!payload) return { error: err("Unauthorized: invalid session", 401) };
-
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  const rolesArray = payload.roles;
   const staffRoles = ["hod", "counselor", "faculty"];
   if (!rolesArray.some((r: string) => staffRoles.includes(r))) {
     return { error: err("Forbidden: staff access required", 403) };
@@ -47,7 +42,7 @@ async function authorizeStaff() {
 //
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorizeStaff();
+    const auth = await authorizeStaff(req);
     if ("error" in auth && auth.error) return auth.error;
 
     const studentId = parseInt(

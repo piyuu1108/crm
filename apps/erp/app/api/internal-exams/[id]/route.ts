@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { internalExams, internalExamMarks } from "@/app/lib/schema";
 import { eq, count } from "drizzle-orm";
@@ -24,12 +23,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
-
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
+    const payload = await getAuthContext(req);
+    if (!payload) return err("Unauthorized", 401);
 
     const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
     if (!rolesArray.includes("hod")) {
@@ -80,12 +75,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
-
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
+    const payload = await getAuthContext(req);
+    if (!payload) return err("Unauthorized", 401);
 
     const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
     if (!rolesArray.includes("hod")) {

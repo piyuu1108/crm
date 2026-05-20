@@ -1,23 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { sql, like } from "drizzle-orm";
 
 // ─── Auth guard ───────────────────────────────────────────────────────────────
-async function authorize() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-
-  if (!token)
+async function authorize(req: NextRequest) {
+  const payload = await getAuthContext(req);
+  if (!payload)
     return { error: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }) };
 
-  const payload = await verifyToken(token);
-  if (!payload)
-    return { error: NextResponse.json({ success: false, error: "Unauthorized: invalid or expired session" }, { status: 401 }) };
-
-  const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
+  const rolesArray = payload.roles;
   if (!rolesArray.includes("hod")) {
     return { error: NextResponse.json({ success: false, error: "Forbidden: HOD access required" }, { status: 403 }) };
   }
@@ -28,7 +21,7 @@ async function authorize() {
 // ─── GET /api/admin/students/next-id — Get next available student sequence number
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize();
+    const auth = await authorize(req);
     if ("error" in auth && auth.error) return auth.error;
 
     const year = req.nextUrl.searchParams.get("year");

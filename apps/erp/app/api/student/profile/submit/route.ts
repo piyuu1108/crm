@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, studentDocuments } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -21,24 +20,15 @@ import {
  */
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) {
+    const auth = await getAuthContext(req);
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: invalid session" },
-        { status: 401 }
-      );
-    }
-
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
+    const roles = auth.roles;
     if (!roles.includes("student")) {
       return NextResponse.json(
         { success: false, error: "Forbidden: student role required" },
@@ -46,7 +36,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const studentDbId = payload.userId;
+    const studentDbId = auth.userId;
 
     // Fetch full student record
     const rows = await db

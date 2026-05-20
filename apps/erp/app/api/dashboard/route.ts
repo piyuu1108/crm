@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   faculty,
@@ -39,63 +38,17 @@ export async function GET(req: NextRequest) {
   const profiler = new RequestProfiler();
 
   try {
-    // ── 1. Read auth_token from httpOnly cookie ───────────────────────────────
-    // This is a synchronous cookie-store lookup — counts as CPU.
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-
-    if (!token) {
+    const auth = await getAuthContext(req);
+    if (!auth) {
       profiler.finish();
       return err("Unauthorized", 401);
     }
 
-    // ── 2. Verify JWT ─────────────────────────────────────────────────────────
-    // verifyToken internally does crypto (CPU-bound) + possibly a DB/KV lookup.
-    // We wrap it as a tracked async wait. If your verifyToken is purely CPU
-    // (e.g. jsonwebtoken.verify with a local secret), swap to measureCpuSection.
-    const payload = await profiler.measureAsyncWait(
-      "auth:verifyToken",
-      "cpu", // JWT RS256 verification is CPU (crypto), no network
-      () => verifyToken(token)
-    );
+    const { userId, roles: rolesArray, activeRole, isRoleForbidden, forbiddenRole } = auth;
 
-    if (!payload) {
+    if (isRoleForbidden) {
       profiler.finish();
-      return err("Unauthorized: invalid or expired session", 401);
-    }
-
-    // ── 3. Role resolution (pure CPU logic) ───────────────────────────────────
-    const { userId, roles: jwtRoles } = payload;
-    const activeRole = profiler.measureCpuSection("auth:resolveRole", () => {
-      const rolesArray = Array.isArray(jwtRoles) ? jwtRoles : [];
-      if (rolesArray.length === 0) return null;
-
-      const requestedRole =
-        req.headers.get("X-Active-Role") ??
-        req.nextUrl.searchParams.get("role") ??
-        null;
-
-      if (requestedRole) {
-        if (!rolesArray.includes(requestedRole)) return `__forbidden:${requestedRole}`;
-        return requestedRole;
-      }
-
-      return ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
-    });
-
-    const rolesArray = Array.isArray(jwtRoles) ? jwtRoles : [];
-    if (rolesArray.length === 0) {
-      profiler.finish();
-      return err("Forbidden: no roles assigned", 403);
-    }
-    if (!activeRole) {
-      profiler.finish();
-      return err("Forbidden: no roles assigned", 403);
-    }
-    if (activeRole.startsWith("__forbidden:")) {
-      const role = activeRole.slice("__forbidden:".length);
-      profiler.finish();
-      return err(`Forbidden: role '${role}' is not assigned to this user`, 403);
+      return err(`Forbidden: role '${forbiddenRole}' is not assigned to this user`, 403);
     }
 
     // ── 4. Redis cache lookup ─────────────────────────────────────────────────

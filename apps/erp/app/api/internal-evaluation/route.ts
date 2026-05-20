@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/app/lib/auth";
+import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalEvaluations,
@@ -63,20 +62,10 @@ async function canAccessAssignment(
  */
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole = req.headers.get("X-Active-Role") ?? null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
-    const resolvedRole =
-      activeRole && rolesArray.includes(activeRole)
-        ? activeRole
-        : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
 
     if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
       return err("Forbidden", 403);
@@ -88,7 +77,7 @@ export async function GET(req: NextRequest) {
 
     if (!assignmentId) return err("assignmentId is required", 400);
 
-    if (!(await canAccessAssignment(resolvedRole, payload.userId, assignmentId))) {
+    if (!(await canAccessAssignment(resolvedRole, userId, assignmentId))) {
       return err("Forbidden: no access to this assignment", 403);
     }
 
@@ -190,20 +179,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    if (!token) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const payload = await verifyToken(token);
-    if (!payload) return err("Unauthorized: invalid session", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole = req.headers.get("X-Active-Role") ?? null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
-    const resolvedRole =
-      activeRole && rolesArray.includes(activeRole)
-        ? activeRole
-        : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
 
     if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
       return err("Forbidden", 403);
@@ -216,7 +195,7 @@ export async function POST(req: NextRequest) {
       return err("assignmentId, semesterId, and non-empty records are required", 400);
     }
 
-    if (!(await canAccessAssignment(resolvedRole, payload.userId, assignmentId))) {
+    if (!(await canAccessAssignment(resolvedRole, userId, assignmentId))) {
       return err("Forbidden: no access to this assignment", 403);
     }
 
@@ -247,7 +226,7 @@ export async function POST(req: NextRequest) {
         subjectType: string;
         divisionName: string;
       }) =>
-        sql`(${assignmentId}, ${r.studentId}, ${semesterId}, ${r.finalTheoryMarks}, ${r.finalPracticalMarks}, false, ${r.studentName}, ${r.subjectName}, ${r.subjectType}, ${r.divisionName}, ${payload.userId}, NOW())`
+        sql`(${assignmentId}, ${r.studentId}, ${semesterId}, ${r.finalTheoryMarks}, ${r.finalPracticalMarks}, false, ${r.studentName}, ${r.subjectName}, ${r.subjectType}, ${r.divisionName}, ${userId}, NOW())`
     );
 
     await db.execute(sql`

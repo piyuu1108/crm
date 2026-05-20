@@ -172,10 +172,9 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
         }
       }
 
-      // 5. Logical Deletion of Old Timetable for these divisions
+      // 5. Hard Deletion of Old Timetable for these divisions
       if (divisionIds.length > 0) {
-        await tx.update(timetableEntries)
-          .set({ isActive: false })
+        await tx.delete(timetableEntries)
           .where(inArray(timetableEntries.divisionId, divisionIds));
       }
 

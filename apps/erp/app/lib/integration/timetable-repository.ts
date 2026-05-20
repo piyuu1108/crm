@@ -75,19 +75,29 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
 
   try {
     await db.transaction(async (tx) => {
-      // A. Delete existing timetable entries for these divisions
-      if (divisionIds.length > 0) {
+      // A. Delete existing timetable entries for these divisions (only for their current active semester)
+      for (const div of classMap.values()) {
         await tx.delete(timetableEntries)
-          .where(inArray(timetableEntries.divisionId, divisionIds));
+          .where(
+            and(
+              eq(timetableEntries.divisionId, div.id),
+              eq(timetableEntries.semesterId, div.semesterId)
+            )
+          );
       }
 
-      // B. Delete existing faculty-subject assignments for these divisions (resilient to marks/exams constraints)
-      if (divisionIds.length > 0) {
+      // B. Delete existing faculty-subject assignments for these divisions (only for their current active semester, resilient to references)
+      for (const div of classMap.values()) {
         try {
           await tx.delete(facultySubjectAssignments)
-            .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
+            .where(
+              and(
+                eq(facultySubjectAssignments.divisionId, div.id),
+                eq(facultySubjectAssignments.semesterId, div.semesterId)
+              )
+            );
         } catch (assignmentDeleteError) {
-          console.warn("[processTimetablePublish] Could not delete some faculty-subject assignments due to existing references:", assignmentDeleteError);
+          console.warn(`[processTimetablePublish] Could not delete faculty-subject assignments for division ${div.id} in semester ${div.semesterId}:`, assignmentDeleteError);
         }
       }
 

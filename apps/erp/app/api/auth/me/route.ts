@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { userId, roles: rolesArray } = auth;
+    const { userId, roles: rolesArray, activeRole } = auth;
 
     if (rolesArray.length === 0) {
       return NextResponse.json(
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Resolve user info from DB (same logic as dashboard's resolveUserInfo)
+    // Resolve user info from DB (with fallbacks for mixed role/development users)
     let userInfo: {
       id: number;
       name: string;
@@ -47,10 +47,9 @@ export async function GET(req: NextRequest) {
       profilePhoto?: string;
     } | null = null;
 
-    // Check if any role is student
-    const hasStudentRole = rolesArray.includes("student");
+    const targetRole = activeRole || (rolesArray.includes("student") ? "student" : "faculty");
 
-    if (hasStudentRole) {
+    if (targetRole === "student") {
       const rows = await db
         .select({
           id: students.id,
@@ -71,6 +70,43 @@ export async function GET(req: NextRequest) {
             ? `/api/student/profile-photo?key=${encodeURIComponent(rows[0].profilePhoto)}`
             : undefined,
         };
+      } else {
+        // Fallback: check faculty table
+        const facultyRows = await db
+          .select({
+            id: faculty.id,
+            name: faculty.name,
+            email: faculty.email,
+            facultyCode: faculty.facultyCode,
+          })
+          .from(faculty)
+          .where(eq(faculty.id, userId))
+          .limit(1);
+
+        if (facultyRows[0]) {
+          let facultyDocRows: Array<{ profilePhotoUrl: string }> = [];
+          try {
+            facultyDocRows = await db
+              .select({
+                profilePhotoUrl: facultyDocuments.profilePhotoUrl,
+              })
+              .from(facultyDocuments)
+              .where(eq(facultyDocuments.facultyId, facultyRows[0].id))
+              .limit(1);
+          } catch (err) {
+            if (!isSchemaMissingError(err)) throw err;
+          }
+
+          userInfo = {
+            id: facultyRows[0].id,
+            name: facultyRows[0].name,
+            email: facultyRows[0].email,
+            facultyCode: facultyRows[0].facultyCode,
+            profilePhoto: facultyDocRows[0]?.profilePhotoUrl
+              ? `/api/student/profile-photo?key=${encodeURIComponent(facultyDocRows[0].profilePhotoUrl)}`
+              : undefined,
+          };
+        }
       }
     } else {
       const rows = await db
@@ -96,7 +132,6 @@ export async function GET(req: NextRequest) {
             .limit(1);
         } catch (err) {
           if (!isSchemaMissingError(err)) throw err;
-          facultyDocRows = [];
         }
 
         userInfo = {
@@ -108,6 +143,29 @@ export async function GET(req: NextRequest) {
             ? `/api/student/profile-photo?key=${encodeURIComponent(facultyDocRows[0].profilePhotoUrl)}`
             : undefined,
         };
+      } else {
+        // Fallback: check students table
+        const studentRows = await db
+          .select({
+            id: students.id,
+            name: students.fullName,
+            email: students.email,
+            profilePhoto: students.profilePhoto,
+          })
+          .from(students)
+          .where(eq(students.id, userId))
+          .limit(1);
+
+        if (studentRows[0]) {
+          userInfo = {
+            id: studentRows[0].id,
+            name: studentRows[0].name,
+            email: studentRows[0].email,
+            profilePhoto: studentRows[0].profilePhoto
+              ? `/api/student/profile-photo?key=${encodeURIComponent(studentRows[0].profilePhoto)}`
+              : undefined,
+          };
+        }
       }
     }
 

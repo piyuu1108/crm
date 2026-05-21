@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
@@ -96,9 +96,6 @@ export async function PATCH(
 
     const body = await req.json();
     const action = body?.action as string | undefined;
-    if (action !== "approve" && action !== "reject") {
-      return err("Invalid action. Must be 'approve' or 'reject'", 400);
-    }
 
     const rows = await db
       .select({
@@ -119,16 +116,57 @@ export async function PATCH(
     );
     if (!allowed) return err("Forbidden: student not in your assigned division", 403);
 
-    const nextStatus = action === "approve" ? "approved" : "rejected";
-    await db.update(students).set({ status: nextStatus }).where(eq(students.id, id));
+    if (action) {
+      if (action !== "approve" && action !== "reject") {
+        return err("Invalid action. Must be 'approve' or 'reject'", 400);
+      }
+
+      const nextStatus = action === "approve" ? "approved" : "rejected";
+      await db.update(students).set({ status: nextStatus }).where(eq(students.id, id));
+
+      try {
+        await clearCache(cacheTags.dashboard.user(id));
+      } catch (cacheError) {
+        console.warn("[counselor student verify] cache clear failed:", cacheError);
+      }
+
+      return ok({ id, status: nextStatus });
+    }
+
+    // Otherwise, edit profile (fullName, email)
+    const { fullName, email } = body || {};
+    if (!fullName || typeof fullName !== "string" || !fullName.trim()) {
+      return err("Full name is required", 400);
+    }
+    if (!email || typeof email !== "string" || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email.trim())) {
+      return err("A valid email address is required", 400);
+    }
+
+    // Check email uniqueness
+    const emailConflict = await db
+      .select({ id: students.id })
+      .from(students)
+      .where(and(eq(students.email, email.trim()), ne(students.id, id)))
+      .limit(1);
+    if (emailConflict[0]) {
+      return err("Email is already in use by another student", 400);
+    }
+
+    await db
+      .update(students)
+      .set({
+        fullName: fullName.trim(),
+        email: email.trim(),
+      })
+      .where(eq(students.id, id));
 
     try {
       await clearCache(cacheTags.dashboard.user(id));
     } catch (cacheError) {
-      console.warn("[counselor student verify] cache clear failed:", cacheError);
+      console.warn("[counselor student update] cache clear failed:", cacheError);
     }
 
-    return ok({ id, status: nextStatus });
+    return ok({ id, fullName: fullName.trim(), email: email.trim() });
   } catch (error) {
     console.error("[PATCH /api/counselor/students/[studentId]] Error:", error);
     return err("Internal server error", 500);

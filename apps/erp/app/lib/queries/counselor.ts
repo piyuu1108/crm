@@ -184,6 +184,24 @@ export async function updateCounselorStudentVerification(
   return json.data as { id: number; status: string };
 }
 
+export async function updateCounselorStudentProfile(
+  studentDbId: number,
+  payload: { fullName?: string; email?: string }
+): Promise<{ id: number; fullName: string; email: string }> {
+  const res = await fetchWithTimeout(`/api/counselor/students/${studentDbId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+    timeoutMs: 8000,
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error ?? "Failed to update student profile");
+  }
+  return json.data as { id: number; fullName: string; email: string };
+}
+
 // ─── Hooks ────────────────────────────────────────────────────────────────────
 
 export function useCounselorDivisionsQuery() {
@@ -269,6 +287,25 @@ export function useCounselorStudentVerificationMutation() {
       studentDbId: number;
       action: "approve" | "reject";
     }) => updateCounselorStudentVerification(studentDbId, action),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["counselor", "divisions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["counselor", "students", "detail", variables.studentDbId],
+      });
+    },
+  });
+}
+
+export function useCounselorStudentProfileMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      studentDbId,
+      payload,
+    }: {
+      studentDbId: number;
+      payload: { fullName?: string; email?: string };
+    }) => updateCounselorStudentProfile(studentDbId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["counselor", "divisions"] });
       queryClient.invalidateQueries({

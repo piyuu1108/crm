@@ -21,9 +21,11 @@ import {
   useCounselorUploadStudentsMutation,
   useCounselorSinglePasswordEmailMutation,
   useCounselorNextStudentIdQuery,
+  useCounselorStudentProfileMutation,
 } from "@/app/lib/queries/counselor";
 import type { DivisionStudent } from "@/app/lib/queries/divisions";
 import { StudentActionsMenu } from "./student-actions-menu";
+import { EditStudentModal } from "@/components/edit-student-modal";
 
 // ─── Specialization badge colors ──────────────────────────────────────────────
 const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
@@ -114,6 +116,18 @@ export default function CounselorDivisionDetailPage() {
   const singleEmailMutation = useCounselorSinglePasswordEmailMutation(divisionId);
   const bulkEmailMutation = useCounselorBulkPasswordEmailMutation(divisionId);
   const verifyStudentMutation = useCounselorStudentVerificationMutation();
+  const studentProfileMutation = useCounselorStudentProfileMutation();
+
+  const [editingStudent, setEditingStudent] = useState<DivisionStudent | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleEditSave = useCallback(async (fullName: string, email: string) => {
+    if (!editingStudent) return;
+    await studentProfileMutation.mutateAsync({
+      studentDbId: editingStudent.id,
+      payload: { fullName, email },
+    });
+  }, [editingStudent, studentProfileMutation]);
 
   // CSV state
   const [csvRows, setCsvRows] = useState<CsvRow[] | null>(null);
@@ -535,6 +549,14 @@ export default function CounselorDivisionDetailPage() {
                               ariaLabel={`Actions for ${s.fullName}`}
                               actions={[
                                 {
+                                  id: `edit-${s.id}`,
+                                  label: "Edit Profile",
+                                  onAction: () => {
+                                    setEditingStudent(s);
+                                    setIsEditModalOpen(true);
+                                  },
+                                },
+                                {
                                   id: `send-password-${s.id}`,
                                   label: "Send Password Email",
                                   isDisabled: singleEmailMutation.isPending,
@@ -620,6 +642,16 @@ export default function CounselorDivisionDetailPage() {
           </div>
         </Tabs.Panel>
       </Tabs>
+
+      <EditStudentModal
+        student={editingStudent}
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingStudent(null);
+        }}
+        onSave={handleEditSave}
+      />
     </div>
   );
 }

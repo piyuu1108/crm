@@ -317,6 +317,24 @@ export async function updateAdminStudentVerification(
   return json.data as { id: number; status: string };
 }
 
+export async function updateAdminStudentProfile(
+  studentDbId: number,
+  payload: { fullName?: string; email?: string }
+): Promise<{ id: number; fullName: string; email: string }> {
+  const res = await fetchWithTimeout(`/api/admin/students/${studentDbId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+    timeoutMs: 8000,
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error ?? "Failed to update student profile");
+  }
+  return json.data as { id: number; fullName: string; email: string };
+}
+
 // ─── Query Keys ───────────────────────────────────────────────────────────────
 
 export const divisionListKey = (params: DivisionListParams) =>
@@ -428,6 +446,25 @@ export function useAdminStudentVerificationMutation() {
       studentDbId: number;
       action: "approve" | "reject";
     }) => updateAdminStudentVerification(studentDbId, action),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["divisions"] });
+      queryClient.invalidateQueries({
+        queryKey: ["admin", "students", "detail", variables.studentDbId],
+      });
+    },
+  });
+}
+
+export function useAdminStudentProfileMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      studentDbId,
+      payload,
+    }: {
+      studentDbId: number;
+      payload: { fullName?: string; email?: string };
+    }) => updateAdminStudentProfile(studentDbId, payload),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["divisions"] });
       queryClient.invalidateQueries({

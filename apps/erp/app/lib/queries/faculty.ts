@@ -44,6 +44,7 @@ export interface FacultyEmailJobProgress {
   sent: number;
   failed: number;
   status: "processing" | "completed";
+  failedEmails?: string[];
 }
 
 export interface CreateFacultyPayload {

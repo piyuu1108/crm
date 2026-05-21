@@ -87,7 +87,7 @@ export async function POST(
     if (result.success) {
       await incrementEmailJobCounters(jobId, recipients.length, 0);
     } else {
-      await incrementEmailJobCounters(jobId, 0, recipients.length);
+      await incrementEmailJobCounters(jobId, 0, recipients.length, recipients.map((r) => r.email));
       console.error(`[POST counselor bulk password email] Direct send failed:`, result.error);
       return err(result.error ?? "Failed to send bulk emails", 500);
     }

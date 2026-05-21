@@ -126,6 +126,13 @@ export default function CounselorDivisionDetailPage() {
   });
   const { data: emailJobProgress } = useCounselorEmailJobProgressQuery(emailJobId);
 
+  const handleClearEmailJob = useCallback(() => {
+    setEmailJobId(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`division-email-job:${divisionId}`);
+    }
+  }, [divisionId]);
+
   // ── CSV validation ─────────────────────────────────────────
   const validateCsvRows = useCallback(
     (rows: Array<{ id: string; name: string; email: string }>, existingStudents: DivisionStudent[]) => {
@@ -423,11 +430,40 @@ export default function CounselorDivisionDetailPage() {
 
             {emailJobProgress && (
               <Card className="mb-4 border border-accent/20 bg-accent/5">
-                <Card.Content className="p-3 text-sm">
-                  <p className="font-medium text-foreground">
-                    Sent: {emailJobProgress.sent} / {emailJobProgress.total}
-                  </p>
-                  <p className="text-muted-foreground">Failed: {emailJobProgress.failed}</p>
+                <Card.Content className="p-4 text-sm flex flex-col gap-2 relative">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground">
+                        Bulk Password Emails Progress
+                      </p>
+                      <p className="text-muted-foreground mt-0.5">
+                        Sent: <span className="font-medium text-foreground">{emailJobProgress.sent}</span> / {emailJobProgress.total}
+                      </p>
+                      <p className="text-muted-foreground">
+                        Failed: <span className="font-medium text-danger">{emailJobProgress.failed}</span>
+                      </p>
+                    </div>
+                    {emailJobProgress.status === "completed" && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="shrink-0"
+                        onPress={handleClearEmailJob}
+                      >
+                        Remove Progress
+                      </Button>
+                    )}
+                  </div>
+                  {emailJobProgress.failedEmails && emailJobProgress.failedEmails.length > 0 && (
+                    <div className="mt-2 border-t border-divider pt-2">
+                      <p className="font-medium text-danger text-xs mb-1">Failed Recipients:</p>
+                      <ul className="list-disc pl-4 text-xs text-muted-foreground flex flex-col gap-0.5">
+                        {emailJobProgress.failedEmails.map((email) => (
+                          <li key={email}>{email}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </Card.Content>
               </Card>
             )}

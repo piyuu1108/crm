@@ -101,6 +101,7 @@ export interface EmailJobProgress {
   sent: number;
   failed: number;
   status: "processing" | "completed";
+  failedEmails?: string[];
 }
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────

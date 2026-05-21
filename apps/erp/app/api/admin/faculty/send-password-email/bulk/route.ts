@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     if (result.success) {
       await incrementEmailJobCounters(jobId, recipients.length, 0);
     } else {
-      await incrementEmailJobCounters(jobId, 0, recipients.length);
+      await incrementEmailJobCounters(jobId, 0, recipients.length, recipients.map((r) => r.email));
       console.error(`[POST admin bulk faculty password email] Direct send failed:`, result.error);
       return err(result.error ?? "Failed to send bulk emails", 500);
     }

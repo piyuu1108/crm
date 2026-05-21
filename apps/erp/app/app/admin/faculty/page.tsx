@@ -124,6 +124,13 @@ export default function FacultyPage() {
   const singleEmailMutation = useFacultyPasswordEmailMutation();
   const { data: emailJobProgress } = useFacultyEmailJobProgressQuery(emailJobId);
 
+  const handleClearEmailJob = useCallback(() => {
+    setEmailJobId(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("faculty-email-job:admin");
+    }
+  }, []);
+
   useEffect(() => {
     if (!emailJobId) return;
     localStorage.setItem("faculty-email-job:admin", emailJobId);
@@ -293,28 +300,51 @@ export default function FacultyPage() {
         </div>
 
       {/* ── Email Job Progress ────────────────────────────────── */}
-      {emailJobProgress && emailJobProgress.status !== "completed" && (
+      {emailJobProgress && (
         <Card className="border border-accent/20 bg-accent/5">
-          <Card.Content className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-accent/10">
-                <FileArrowUp className="size-5 text-accent" />
+          <Card.Content className="p-4 flex flex-col gap-2 relative">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-accent/10 shrink-0">
+                  <FileArrowUp className="size-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    Sending Password Emails…
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Sent: <span className="font-medium text-foreground">{emailJobProgress.sent}</span> of {emailJobProgress.total} sent •{" "}
+                    Failed: <span className="font-medium text-danger">{emailJobProgress.failed}</span>
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">
-                  Sending Password Emails…
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {emailJobProgress.sent} of {emailJobProgress.total} sent •{" "}
-                  {emailJobProgress.failed} failed
-                </p>
+              <div className="flex items-center gap-2">
+                {emailJobProgress.status === "processing" ? (
+                  <span className="text-xs font-medium text-accent animate-pulse">
+                    Processing
+                  </span>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="shrink-0"
+                    onPress={handleClearEmailJob}
+                  >
+                    Remove Progress
+                  </Button>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-accent animate-pulse">
-                Processing
-              </span>
-            </div>
+            {emailJobProgress.failedEmails && emailJobProgress.failedEmails.length > 0 && (
+              <div className="mt-2 border-t border-divider pt-2">
+                <p className="font-medium text-danger text-xs mb-1">Failed Recipients:</p>
+                <ul className="list-disc pl-4 text-xs text-muted-foreground flex flex-col gap-0.5">
+                  {emailJobProgress.failedEmails.map((email) => (
+                    <li key={email}>{email}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Card.Content>
         </Card>
       )}

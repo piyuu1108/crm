@@ -89,10 +89,87 @@ function buildFacultyText(payload: PasswordEmailPayload & { setupUrl: string }):
   return `Welcome ${payload.fullName}!\n\nYour faculty account has been created.\n\nFaculty Code: ${payload.userCode}\nEmail: ${payload.email}\n\nSet your password here: ${payload.setupUrl}\n\nThis link expires in 24 hours.`;
 }
 
+// ─── HTML template builders for Bulk sending (using Brevo Liquid syntax) ──────
+
+function buildBulkStudentHtml(): string {
+  return `
+<!DOCTYPE html>
+<html>
+<body style="font-family: sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 32px 16px;">
+  <h2 style="margin-bottom: 4px;">Welcome, {{params.fullName}}!</h2>
+  <p style="color: #555; margin-top: 0;">Your student account has been created.</p>
+
+  <table style="background: #f5f5f5; border-radius: 8px; padding: 16px 20px; margin: 20px 0; width: 100%; border-collapse: collapse;">
+    <tr>
+      <td style="color: #555; font-size: 13px; padding: 4px 0;">Student ID</td>
+      <td style="font-weight: 600; font-size: 15px; padding: 4px 0;">{{params.userCode}}</td>
+    </tr>
+    <tr>
+      <td style="color: #555; font-size: 13px; padding: 4px 0;">Email</td>
+      <td style="font-weight: 600; font-size: 15px; padding: 4px 0;">{{params.email}}</td>
+    </tr>
+  </table>
+
+  <p>Please set your password using the button below. Use your Student ID or email to log in.</p>
+
+  <p style="margin: 24px 0;">
+    <a href="{{params.setupUrl}}" style="display: inline-block; background: #4f46e5; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 15px;">
+      Set Password
+    </a>
+  </p>
+
+  <p style="color: #888; font-size: 13px;">This link expires in <strong>24 hours</strong>. If you did not expect this email, please ignore it.</p>
+</body>
+</html>
+  `.trim();
+}
+
+function buildBulkStudentText(): string {
+  return `Welcome {{params.fullName}}!\n\nYour student account has been created.\n\nStudent ID: {{params.userCode}}\nEmail: {{params.email}}\n\nSet your password here: {{params.setupUrl}}\n\nThis link expires in 24 hours.`;
+}
+
+function buildBulkFacultyHtml(): string {
+  return `
+<!DOCTYPE html>
+<html>
+<body style="font-family: sans-serif; color: #1a1a1a; max-width: 560px; margin: 0 auto; padding: 32px 16px;">
+  <h2 style="margin-bottom: 4px;">Welcome, {{params.fullName}}!</h2>
+  <p style="color: #555; margin-top: 0;">Your faculty account has been created.</p>
+
+  <table style="background: #f5f5f5; border-radius: 8px; padding: 16px 20px; margin: 20px 0; width: 100%; border-collapse: collapse;">
+    <tr>
+      <td style="color: #555; font-size: 13px; padding: 4px 0;">Faculty Code</td>
+      <td style="font-weight: 600; font-size: 15px; padding: 4px 0;">{{params.userCode}}</td>
+    </tr>
+    <tr>
+      <td style="color: #555; font-size: 13px; padding: 4px 0;">Email</td>
+      <td style="font-weight: 600; font-size: 15px; padding: 4px 0;">{{params.email}}</td>
+    </tr>
+  </table>
+
+  <p>Please set your password using the button below. Use your email address to log in.</p>
+
+  <p style="margin: 24px 0;">
+    <a href="{{params.setupUrl}}" style="display: inline-block; background: #4f46e5; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; font-size: 15px;">
+      Set Password
+    </a>
+  </p>
+
+  <p style="color: #888; font-size: 13px;">This link expires in <strong>24 hours</strong>. If you did not expect this email, please ignore it.</p>
+</body>
+</html>
+  `.trim();
+}
+
+function buildBulkFacultyText(): string {
+  return `Welcome {{params.fullName}}!\n\nYour faculty account has been created.\n\nFaculty Code: {{params.userCode}}\nEmail: {{params.email}}\n\nSet your password here: {{params.setupUrl}}\n\nThis link expires in 24 hours.`;
+}
+
 // ─── Email provider ───────────────────────────────────────────────────────────
 
 interface EmailProvider {
   sendPasswordEmail(payload: PasswordEmailPayload & { setupUrl: string }): Promise<EmailSendResult>;
+  sendBulkPasswordEmails(payloads: Array<PasswordEmailPayload & { setupUrl: string }>): Promise<EmailSendResult>;
 }
 
 class BrevoEmailProvider implements EmailProvider {
@@ -138,6 +215,80 @@ class BrevoEmailProvider implements EmailProvider {
       return { success: false, error: err.message };
     }
   }
+
+  async sendBulkPasswordEmails(
+    payloads: Array<PasswordEmailPayload & { setupUrl: string }>
+  ): Promise<EmailSendResult> {
+    try {
+      const studentPayloads = payloads.filter((p) => p.userType === "student");
+      const facultyPayloads = payloads.filter((p) => p.userType === "faculty");
+
+      const sendGroup = async (
+        group: Array<PasswordEmailPayload & { setupUrl: string }>,
+        isStudent: boolean
+      ): Promise<EmailSendResult> => {
+        if (group.length === 0) return { success: true };
+
+        const subject = isStudent
+          ? "Set your student account password"
+          : "Set your faculty account password";
+        const htmlContent = isStudent ? buildBulkStudentHtml() : buildBulkFacultyHtml();
+        const textContent = isStudent ? buildBulkStudentText() : buildBulkFacultyText();
+
+        const messageVersions = group.map((p) => ({
+          to: [{ email: p.email, name: p.fullName }],
+          params: {
+            fullName: p.fullName,
+            userCode: p.userCode,
+            email: p.email,
+            setupUrl: p.setupUrl,
+          },
+        }));
+
+        const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "api-key": process.env.BREVO_API_KEY!,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sender: {
+              email: "no-reply@pipy.site",
+              name: "ERP System",
+            },
+            subject,
+            htmlContent,
+            textContent,
+            messageVersions,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("[BrevoEmailProvider] Bulk API error:", data);
+          return { success: false, error: data.message ?? "Brevo API error" };
+        }
+
+        return { success: true };
+      };
+
+      const results = await Promise.all([
+        sendGroup(studentPayloads, true),
+        sendGroup(facultyPayloads, false),
+      ]);
+
+      const failed = results.find((r) => !r.success);
+      if (failed) {
+        return failed;
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("[BrevoEmailProvider] Unexpected bulk error:", err);
+      return { success: false, error: err.message };
+    }
+  }
 }
 
 const provider: EmailProvider = new BrevoEmailProvider();
@@ -174,4 +325,45 @@ export async function sendPasswordEmail(
   const setupUrl = `${normalizedBase}/set-password?token=${encodeURIComponent(rawToken)}`;
 
   return provider.sendPasswordEmail({ ...payload, setupUrl });
+}
+
+export async function sendBulkPasswordEmails(
+  payloads: PasswordEmailPayload[]
+): Promise<EmailSendResult> {
+  if (!payloads || payloads.length === 0) {
+    return { success: true };
+  }
+
+  // Base URL handling (correct for dev + prod)
+  const baseUrl =
+    process.env.NODE_ENV === "development"
+      ? "http://localhost:3000"
+      : process.env.NEXT_PUBLIC_APP_URL;
+
+  if (!baseUrl) {
+    return { success: false, error: "NEXT_PUBLIC_APP_URL is not set in production" };
+  }
+
+  const normalizedBase = baseUrl.replace(/\/$/, "");
+
+  const enrichedPayloads: Array<PasswordEmailPayload & { setupUrl: string }> = [];
+
+  for (const payload of payloads) {
+    if (!payload.userId || !payload.userCode || !payload.fullName || !payload.email || !payload.userType) {
+      const missing = ["userId", "userCode", "fullName", "email", "userType"]
+        .filter((k) => !payload[k as keyof PasswordEmailPayload]);
+      console.error("[sendBulkPasswordEmails] Missing required fields:", missing, "payload:", payload);
+      return { success: false, error: `Missing fields in payload: ${missing.join(", ")}` };
+    }
+
+    const { rawToken } = await createPasswordSetupToken(payload.userId, payload.userType);
+    const setupUrl = `${normalizedBase}/set-password?token=${encodeURIComponent(rawToken)}`;
+
+    enrichedPayloads.push({
+      ...payload,
+      setupUrl,
+    });
+  }
+
+  return provider.sendBulkPasswordEmails(enrichedPayloads);
 }

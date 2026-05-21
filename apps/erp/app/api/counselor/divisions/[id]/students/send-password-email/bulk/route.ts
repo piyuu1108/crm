@@ -4,8 +4,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, students } from "@/app/lib/schema";
-import { initializeEmailJob } from "@/app/lib/email/job-tracker";
-import { publishToQstash } from "@/app/lib/qstash";
+import { initializeEmailJob, incrementEmailJobCounters } from "@/app/lib/email/job-tracker";
+import { sendBulkPasswordEmails } from "@/app/lib/email/service";
 
 const BATCH_SIZE = 10;
 
@@ -66,46 +66,37 @@ export async function POST(
     const recipients = selectedStudents
       .filter((student) => Boolean(student.studentId))
       .map((student) => ({
-        studentDbId: student.id,
-        studentId: student.studentId as string,
+        userId: student.id,
+        userCode: student.studentId as string,
         fullName: student.fullName,
         email: student.email,
+        userType: "student" as const,
       }));
 
     if (recipients.length === 0) {
       return err("No valid students selected", 400);
     }
 
-    const protocol = req.headers.get("x-forwarded-proto") ?? "http";
-    const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
-    if (!host) return err("Missing host header", 500);
-
-    const processUrl = `${protocol}://${host}/api/internal/email-jobs/process`;
     const jobId = randomUUID();
 
     await initializeEmailJob(jobId, recipients.length);
 
-    const batches: typeof recipients[] = [];
-    for (let idx = 0; idx < recipients.length; idx += BATCH_SIZE) {
-      batches.push(recipients.slice(idx, idx + BATCH_SIZE));
-    }
+    // Send emails directly to Brevo and await response (No queues)
+    const result = await sendBulkPasswordEmails(recipients);
 
-    const publishResponses = await Promise.all(
-      batches.map((batch, batchIndex) =>
-        publishToQstash(processUrl, {
-          jobId,
-          batchIndex,
-          totalBatches: batches.length,
-          recipients: batch,
-        })
-      )
-    );
+    if (result.success) {
+      await incrementEmailJobCounters(jobId, recipients.length, 0);
+    } else {
+      await incrementEmailJobCounters(jobId, 0, recipients.length);
+      console.error(`[POST counselor bulk password email] Direct send failed:`, result.error);
+      return err(result.error ?? "Failed to send bulk emails", 500);
+    }
 
     return ok({
       jobId,
       total: recipients.length,
-      queuedBatches: batches.length,
-      messageIds: publishResponses.map((resp) => resp.messageId).filter(Boolean),
+      queuedBatches: 1,
+      messageIds: [],
     });
   } catch (error) {
     console.error("[POST counselor bulk password email] Error:", error);

@@ -147,6 +147,8 @@ export function Navbar() {
                   const selected = Array.from(keys)[0] as string;
                   if (selected && selected !== activeRole) {
                     setActiveRole(selected);
+                    // Invalidate auth/me queries to update role-specific details (photo, facultyCode, etc.)
+                    queryClient.invalidateQueries({ queryKey: authMeQueryKey });
                     // Refresh server state to match new role
                     router.refresh();
                   }

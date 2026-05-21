@@ -86,11 +86,9 @@ export function AuthHydrator({ children }: { children: React.ReactNode }) {
   const hasTimedOut = useTimeout(HYDRATION_TIMEOUT_MS, isWaiting);
 
   const handleRouteResync = useCallback(() => {
-    queryClient.removeQueries({ queryKey: authMeQueryKey });
     queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    void refetch();
     router.refresh();
-  }, [queryClient, refetch, router]);
+  }, [queryClient, router]);
 
   useEffect(() => {
     hydrateFromStorage();

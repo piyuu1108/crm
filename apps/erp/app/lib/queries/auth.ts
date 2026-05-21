@@ -71,10 +71,10 @@ export function useAuthMeQuery() {
   return useQuery({
     queryKey: authMeQueryKey,
     queryFn: fetchMe,
-    staleTime: 0, // Always revalidate — critical for back-navigation
-    gcTime: 5 * 60 * 1000, // Keep in memory for 5 min (dedup)
+    staleTime: 15 * 60 * 1000, // Cache user info for 15 minutes to avoid redundant network requests
+    gcTime: 30 * 60 * 1000, // Keep in memory for 30 min
     retry: 1,
     refetchOnWindowFocus: false,
-    refetchOnMount: "always", // Force refetch even if data exists in cache
+    refetchOnMount: false, // Serve from cache if available instead of forcing network refetches
   });
 }

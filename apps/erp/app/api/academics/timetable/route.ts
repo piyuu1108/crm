@@ -11,6 +11,7 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { remember, cacheKeys, TTL } from "@/app/lib/cache";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -51,65 +52,76 @@ export async function GET(req: NextRequest) {
         return ok({ role: "student", isPublished: false, entries: [], divisionName: div.displayName });
       }
 
-      const entries = await db
-        .select({
-          id: timetableEntries.id,
-          dayOfWeek: timetableEntries.dayOfWeek,
-          startTime: timetableEntries.startTime,
-          endTime: timetableEntries.endTime,
-          subjectName: subjects.name,
-          facultyName: faculty.name,
-          divisionName: divisions.displayName,
-          color: timetableEntries.color,
-          isLab: timetableEntries.isLab,
-          labId: timetableEntries.labId,
-        })
-        .from(timetableEntries)
-        .innerJoin(
-          facultySubjectAssignments,
-          eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
-        )
-        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
-        .where(
-          and(
-            eq(timetableEntries.divisionId, auth.divisionId),
-            eq(timetableEntries.semesterId, auth.semesterId),
-            eq(timetableEntries.isActive, true)
-          )
-        );
+      const entries = await remember(
+        cacheKeys.timetable(auth.divisionId),
+        TTL.TIMETABLE,
+        async () => {
+          return db
+            .select({
+              id: timetableEntries.id,
+              dayOfWeek: timetableEntries.dayOfWeek,
+              startTime: timetableEntries.startTime,
+              endTime: timetableEntries.endTime,
+              subjectName: subjects.name,
+              facultyName: faculty.name,
+              divisionName: divisions.displayName,
+              color: timetableEntries.color,
+              isLab: timetableEntries.isLab,
+              labId: timetableEntries.labId,
+            })
+            .from(timetableEntries)
+            .innerJoin(
+              facultySubjectAssignments,
+              eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+            )
+            .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+            .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+            .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
+            .where(
+              and(
+                eq(timetableEntries.divisionId, auth.divisionId!),
+                eq(timetableEntries.isActive, true)
+              )
+            );
+        }
+      );
 
       return ok({ role: "student", isPublished: true, entries, divisionName: div.displayName });
 
     } else if (activeRole === "faculty" || activeRole === "hod") {
-      const entries = await db
-        .select({
-          id: timetableEntries.id,
-          dayOfWeek: timetableEntries.dayOfWeek,
-          startTime: timetableEntries.startTime,
-          endTime: timetableEntries.endTime,
-          subjectName: subjects.name,
-          facultyName: faculty.name,
-          divisionName: divisions.displayName,
-          color: timetableEntries.color,
-          isLab: timetableEntries.isLab,
-          labId: timetableEntries.labId,
-        })
-        .from(timetableEntries)
-        .innerJoin(
-          facultySubjectAssignments,
-          eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
-        )
-        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
-        .where(
-          and(
-            eq(facultySubjectAssignments.facultyId, userId),
-            eq(timetableEntries.isActive, true)
-          )
-        );
+      const entries = await remember(
+        cacheKeys.timetableFaculty(userId),
+        TTL.TIMETABLE,
+        async () => {
+          return db
+            .select({
+              id: timetableEntries.id,
+              dayOfWeek: timetableEntries.dayOfWeek,
+              startTime: timetableEntries.startTime,
+              endTime: timetableEntries.endTime,
+              subjectName: subjects.name,
+              facultyName: faculty.name,
+              divisionName: divisions.displayName,
+              color: timetableEntries.color,
+              isLab: timetableEntries.isLab,
+              labId: timetableEntries.labId,
+            })
+            .from(timetableEntries)
+            .innerJoin(
+              facultySubjectAssignments,
+              eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+            )
+            .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+            .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+            .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
+            .where(
+              and(
+                eq(facultySubjectAssignments.facultyId, userId),
+                eq(timetableEntries.isActive, true)
+              )
+            );
+        }
+      );
 
       return ok({ role: activeRole, entries });
 
@@ -133,35 +145,45 @@ export async function GET(req: NextRequest) {
 
       const divisionNames = divisionDetails.map(a => a.divisionName).join(", ");
       
-      const entries = await db
-        .select({
-          id: timetableEntries.id,
-          dayOfWeek: timetableEntries.dayOfWeek,
-          startTime: timetableEntries.startTime,
-          endTime: timetableEntries.endTime,
-          subjectName: subjects.name,
-          facultyName: faculty.name,
-          divisionName: divisions.displayName,
-          color: timetableEntries.color,
-          isLab: timetableEntries.isLab,
-          labId: timetableEntries.labId,
-        })
-        .from(timetableEntries)
-        .innerJoin(
-          facultySubjectAssignments,
-          eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
-        )
-        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
-        .where(
-          and(
-            sql`${timetableEntries.divisionId} IN (${sql.join(divisionIds.map(id => sql`${id}`), sql`, `)})`,
-            eq(timetableEntries.isActive, true)
+      const allEntries = await Promise.all(
+        divisionIds.map((divId) =>
+          remember(
+            cacheKeys.timetable(divId),
+            TTL.TIMETABLE,
+            async () => {
+              return db
+                .select({
+                  id: timetableEntries.id,
+                  dayOfWeek: timetableEntries.dayOfWeek,
+                  startTime: timetableEntries.startTime,
+                  endTime: timetableEntries.endTime,
+                  subjectName: subjects.name,
+                  facultyName: faculty.name,
+                  divisionName: divisions.displayName,
+                  color: timetableEntries.color,
+                  isLab: timetableEntries.isLab,
+                  labId: timetableEntries.labId,
+                })
+                .from(timetableEntries)
+                .innerJoin(
+                  facultySubjectAssignments,
+                  eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+                )
+                .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+                .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+                .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
+                .where(
+                  and(
+                    eq(timetableEntries.divisionId, divId),
+                    eq(timetableEntries.isActive, true)
+                  )
+                );
+            }
           )
-        );
+        )
+      );
 
-      return ok({ role: "counselor", entries, divisionName: divisionNames });
+      return ok({ role: "counselor", entries: allEntries.flat(), divisionName: divisionNames });
 
     }
 

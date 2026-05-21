@@ -8,6 +8,8 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, count } from "drizzle-orm";
+import { redis } from "@/app/lib/redis";
+import { invalidateSubjectsUpdated } from "@/app/lib/cache";
 
 function ok(data: unknown, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -195,6 +197,14 @@ export async function POST(req: NextRequest) {
       divisionName: div.displayName,
       courseCode: div.courseCode,
     };
+
+    // Invalidate cached subjects
+    await invalidateSubjectsUpdated(divisionId, semesterId);
+    try {
+      await redis.del(`erp:subjects:faculty:${facultyId}`);
+    } catch (e) {
+      console.warn("[Cache Invalidation Error] Failed to delete subjects faculty key:", e);
+    }
 
     return ok(assignment, 201);
   } catch (error) {

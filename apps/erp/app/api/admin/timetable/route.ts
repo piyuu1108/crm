@@ -10,6 +10,7 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, inArray } from "drizzle-orm";
+import { invalidateTimetableUpdated } from "@/app/lib/cache";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -326,6 +327,8 @@ export async function POST(req: NextRequest) {
           .where(eq(divisions.id, divId));
       }
     });
+
+    await invalidateTimetableUpdated(divId);
 
     return ok({ saved: newEntries.length, status: "draft" });
   } catch (error) {

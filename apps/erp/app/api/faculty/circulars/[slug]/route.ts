@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { circulars } from "@/app/lib/schema";
+import { circulars, circularRecipients } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
+import { invalidateCircularUpdated } from "@/app/lib/cache";
 
 export async function DELETE(
   req: NextRequest,
@@ -46,7 +47,24 @@ export async function DELETE(
       );
     }
 
+    // Retrieve recipient division IDs if division-targeted
+    let divisionIds: number[] = [];
+    if (existing.targetType === "DIVISION") {
+      const recs = await db
+        .select({ divisionId: circularRecipients.divisionId })
+        .from(circularRecipients)
+        .where(eq(circularRecipients.circularId, existing.id));
+      divisionIds = recs.map((r) => r.divisionId);
+    }
+
     await db.delete(circulars).where(eq(circulars.slug, slug));
+
+    // Invalidate cached circular lists
+    await invalidateCircularUpdated({
+      targetType: existing.targetType,
+      targetYear: existing.targetYear,
+      recipientDivisions: divisionIds,
+    });
 
     return NextResponse.json({ success: true, data: "Deleted successfully" });
   } catch (error) {

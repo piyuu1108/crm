@@ -10,6 +10,7 @@ import {
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
 import { eq, and, inArray } from "drizzle-orm";
+import { remember, cacheKeys, TTL } from "@/app/lib/cache";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,90 @@ function ok(data: unknown) {
 
 function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
+}
+
+interface CachedSubject {
+  id: number;
+  code: string;
+  name: string;
+  subjectType: string;
+  facultyName: string;
+  divisionName: string;
+  internalTheoryMax: number | null;
+  externalTheoryMax: number | null;
+  theoryPassingMarks: number | null;
+  internalPracticalMax: number | null;
+  externalPracticalMax: number | null;
+  practicalPassingMarks: number | null;
+  divisionId: number;
+  facultyId: number;
+}
+
+async function getDivisionSubjects(divisionId: number, semesterId: number): Promise<CachedSubject[]> {
+  return remember(
+    cacheKeys.subjects(divisionId, semesterId),
+    TTL.SUBJECTS,
+    async () => {
+      const rows = await db
+        .select({
+          subjectId: facultySubjectAssignments.subjectId,
+          subjectName: subjects.name,
+          subjectType: facultySubjectAssignments.subjectType,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
+          courseCode: divisions.courseCode,
+          divisionId: facultySubjectAssignments.divisionId,
+          facultyId: facultySubjectAssignments.facultyId,
+        })
+        .from(facultySubjectAssignments)
+        .innerJoin(divisions, eq(divisions.id, facultySubjectAssignments.divisionId))
+        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+        .where(
+          and(
+            eq(facultySubjectAssignments.divisionId, divisionId),
+            eq(facultySubjectAssignments.semesterId, semesterId)
+          )
+        );
+
+      const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
+      const subjectMasters = subjectIds.length > 0
+        ? await db.select({
+            id: subjects.id,
+            code: subjects.code,
+            name: subjects.name,
+            subjectType: subjects.subjectType,
+            internalTheoryMax: subjects.internalTheoryMax,
+            externalTheoryMax: subjects.externalTheoryMax,
+            theoryPassingMarks: subjects.theoryPassingMarks,
+            internalPracticalMax: subjects.internalPracticalMax,
+            externalPracticalMax: subjects.externalPracticalMax,
+            practicalPassingMarks: subjects.practicalPassingMarks,
+          }).from(subjects).where(inArray(subjects.id, subjectIds))
+        : [];
+      const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
+
+      return rows.map((row) => {
+        const master = masterMap.get(row.subjectId);
+        return {
+          id: master?.id ?? row.subjectId,
+          code: master?.code ?? "",
+          name: row.subjectName,
+          subjectType: row.subjectType,
+          facultyName: row.facultyName,
+          divisionName: row.divisionName,
+          internalTheoryMax: master?.internalTheoryMax ?? null,
+          externalTheoryMax: master?.externalTheoryMax ?? null,
+          theoryPassingMarks: master?.theoryPassingMarks ?? null,
+          internalPracticalMax: master?.internalPracticalMax ?? null,
+          externalPracticalMax: master?.externalPracticalMax ?? null,
+          practicalPassingMarks: master?.practicalPassingMarks ?? null,
+          divisionId: row.divisionId,
+          facultyId: row.facultyId,
+        };
+      });
+    }
+  );
 }
 
 // ─── GET /api/subjects — Mode-filtered subject list ───────────────────────────
@@ -93,70 +178,57 @@ export async function GET(req: NextRequest) {
         });
       }
 
-      // Get subject assignments for those divisions — scoped to each division's current semester
-      const rows = await db
-        .select({
-          subjectId: facultySubjectAssignments.subjectId,
-          subjectName: subjects.name,
-          subjectType: facultySubjectAssignments.subjectType,
-          facultyName: faculty.name,
-          divisionName: divisions.displayName,
-          courseCode: divisions.courseCode,
-          divisionId: facultySubjectAssignments.divisionId,
-          facultyId: facultySubjectAssignments.facultyId,
-        })
-        .from(facultySubjectAssignments)
-        .innerJoin(divisions, and(
-          eq(facultySubjectAssignments.divisionId, divisions.id),
-          eq(facultySubjectAssignments.semesterId, divisions.semesterId)
-        ))
-        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
+      const divs = await db
+        .select({ id: divisions.id, semesterId: divisions.semesterId })
+        .from(divisions)
+        .where(inArray(divisions.id, divisionIds));
 
-      // Deduplicate by subjectId and enrich with subject master data
-      const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
-      const subjectMasters = subjectIds.length > 0
-        ? await db.select({
-            id: subjects.id,
-            code: subjects.code,
-            name: subjects.name,
-            subjectType: subjects.subjectType,
-            internalTheoryMax: subjects.internalTheoryMax,
-            externalTheoryMax: subjects.externalTheoryMax,
-            theoryPassingMarks: subjects.theoryPassingMarks,
-            internalPracticalMax: subjects.internalPracticalMax,
-            externalPracticalMax: subjects.externalPracticalMax,
-            practicalPassingMarks: subjects.practicalPassingMarks,
-          }).from(subjects).where(inArray(subjects.id, subjectIds))
-        : [];
-      const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
+      if (divs.length === 0) {
+        return ok({ role: activeRole, subjects: [] });
+      }
 
-      // Group assignments by subject
-      const grouped = new Map<number, { master: typeof subjectMasters[0]; assignments: typeof rows }>();
-      for (const row of rows) {
-        const existing = grouped.get(row.subjectId);
+      const allDivSubjects = await Promise.all(
+        divs.map((d) => getDivisionSubjects(d.id, d.semesterId))
+      );
+
+      const merged = allDivSubjects.flat();
+
+      // Group assignments by subject to recreate counselor's grouped format
+      const grouped = new Map<number, { master: any; assignments: any[] }>();
+      for (const row of merged) {
+        const existing = grouped.get(row.id);
+        const assignment = {
+          subjectId: row.id,
+          subjectName: row.name,
+          subjectType: row.subjectType,
+          facultyName: row.facultyName,
+          divisionName: row.divisionName,
+          divisionId: row.divisionId,
+          facultyId: row.facultyId,
+        };
         if (existing) {
-          existing.assignments.push(row);
+          existing.assignments.push(assignment);
         } else {
-          const master = masterMap.get(row.subjectId);
-          if (master) {
-            grouped.set(row.subjectId, { master, assignments: [row] });
-          }
+          grouped.set(row.id, {
+            master: {
+              id: row.id,
+              code: row.code,
+              name: row.name,
+              subjectType: row.subjectType,
+              internalTheoryMax: row.internalTheoryMax,
+              externalTheoryMax: row.externalTheoryMax,
+              theoryPassingMarks: row.theoryPassingMarks,
+              internalPracticalMax: row.internalPracticalMax,
+              externalPracticalMax: row.externalPracticalMax,
+              practicalPassingMarks: row.practicalPassingMarks,
+            },
+            assignments: [assignment],
+          });
         }
       }
 
       const result = Array.from(grouped.values()).map(({ master, assignments: assigns }) => ({
-        id: master.id,
-        code: master.code,
-        name: master.name,
-        subjectType: master.subjectType,
-        internalTheoryMax: master.internalTheoryMax,
-        externalTheoryMax: master.externalTheoryMax,
-        theoryPassingMarks: master.theoryPassingMarks,
-        internalPracticalMax: master.internalPracticalMax,
-        externalPracticalMax: master.externalPracticalMax,
-        practicalPassingMarks: master.practicalPassingMarks,
+        ...master,
         assignments: assigns,
       }));
 
@@ -165,68 +237,73 @@ export async function GET(req: NextRequest) {
 
     // ── FACULTY: Only assigned subjects ──────────────────────────────
     if (activeRole === "faculty") {
-      // Get assignments scoped to each division's current semester
-      const rows = await db
-        .select({
-          subjectId: facultySubjectAssignments.subjectId,
-          subjectName: subjects.name,
-          subjectType: facultySubjectAssignments.subjectType,
-          facultyName: faculty.name,
-          divisionName: divisions.displayName,
-          courseCode: divisions.courseCode,
-          divisionId: facultySubjectAssignments.divisionId,
-          facultyId: facultySubjectAssignments.facultyId,
-        })
-        .from(facultySubjectAssignments)
-        .innerJoin(divisions, and(
-          eq(facultySubjectAssignments.divisionId, divisions.id),
-          eq(facultySubjectAssignments.semesterId, divisions.semesterId)
-        ))
-        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .where(eq(facultySubjectAssignments.facultyId, userId));
+      const result = await remember(
+        `erp:subjects:faculty:${userId}`,
+        TTL.SUBJECTS,
+        async () => {
+          const rows = await db
+            .select({
+              subjectId: facultySubjectAssignments.subjectId,
+              subjectName: subjects.name,
+              subjectType: facultySubjectAssignments.subjectType,
+              facultyName: faculty.name,
+              divisionName: divisions.displayName,
+              courseCode: divisions.courseCode,
+              divisionId: facultySubjectAssignments.divisionId,
+              facultyId: facultySubjectAssignments.facultyId,
+            })
+            .from(facultySubjectAssignments)
+            .innerJoin(divisions, and(
+              eq(facultySubjectAssignments.divisionId, divisions.id),
+              eq(facultySubjectAssignments.semesterId, divisions.semesterId)
+            ))
+            .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+            .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+            .where(eq(facultySubjectAssignments.facultyId, userId));
 
-      const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
-      const subjectMasters = subjectIds.length > 0
-        ? await db.select({
-            id: subjects.id,
-            code: subjects.code,
-            name: subjects.name,
-            subjectType: subjects.subjectType,
-            internalTheoryMax: subjects.internalTheoryMax,
-            externalTheoryMax: subjects.externalTheoryMax,
-            theoryPassingMarks: subjects.theoryPassingMarks,
-            internalPracticalMax: subjects.internalPracticalMax,
-            externalPracticalMax: subjects.externalPracticalMax,
-            practicalPassingMarks: subjects.practicalPassingMarks,
-          }).from(subjects).where(inArray(subjects.id, subjectIds))
-        : [];
-      const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
+          const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
+          const subjectMasters = subjectIds.length > 0
+            ? await db.select({
+                id: subjects.id,
+                code: subjects.code,
+                name: subjects.name,
+                subjectType: subjects.subjectType,
+                internalTheoryMax: subjects.internalTheoryMax,
+                externalTheoryMax: subjects.externalTheoryMax,
+                theoryPassingMarks: subjects.theoryPassingMarks,
+                internalPracticalMax: subjects.internalPracticalMax,
+                externalPracticalMax: subjects.externalPracticalMax,
+                practicalPassingMarks: subjects.practicalPassingMarks,
+              }).from(subjects).where(inArray(subjects.id, subjectIds))
+            : [];
+          const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
 
-      const grouped = new Map<number, { master: typeof subjectMasters[0]; assignments: typeof rows }>();
-      for (const row of rows) {
-        const existing = grouped.get(row.subjectId);
-        if (existing) {
-          existing.assignments.push(row);
-        } else {
-          const master = masterMap.get(row.subjectId);
-          if (master) grouped.set(row.subjectId, { master, assignments: [row] });
+          const grouped = new Map<number, { master: typeof subjectMasters[0]; assignments: typeof rows }>();
+          for (const row of rows) {
+            const existing = grouped.get(row.subjectId);
+            if (existing) {
+              existing.assignments.push(row);
+            } else {
+              const master = masterMap.get(row.subjectId);
+              if (master) grouped.set(row.subjectId, { master, assignments: [row] });
+            }
+          }
+
+          return Array.from(grouped.values()).map(({ master, assignments: assigns }) => ({
+            id: master.id,
+            code: master.code,
+            name: master.name,
+            subjectType: master.subjectType,
+            internalTheoryMax: master.internalTheoryMax,
+            externalTheoryMax: master.externalTheoryMax,
+            theoryPassingMarks: master.theoryPassingMarks,
+            internalPracticalMax: master.internalPracticalMax,
+            externalPracticalMax: master.externalPracticalMax,
+            practicalPassingMarks: master.practicalPassingMarks,
+            assignments: assigns,
+          }));
         }
-      }
-
-      const result = Array.from(grouped.values()).map(({ master, assignments: assigns }) => ({
-        id: master.id,
-        code: master.code,
-        name: master.name,
-        subjectType: master.subjectType,
-        internalTheoryMax: master.internalTheoryMax,
-        externalTheoryMax: master.externalTheoryMax,
-        theoryPassingMarks: master.theoryPassingMarks,
-        internalPracticalMax: master.internalPracticalMax,
-        externalPracticalMax: master.externalPracticalMax,
-        practicalPassingMarks: master.practicalPassingMarks,
-        assignments: assigns,
-      }));
+      );
 
       return ok({ role: activeRole, subjects: result });
     }
@@ -237,66 +314,7 @@ export async function GET(req: NextRequest) {
         return ok({ role: activeRole, subjects: [] });
       }
 
-      const currentDivisionId = auth.divisionId;
-      const semesterId = auth.semesterId;
-
-      const rows = await db
-        .select({
-          subjectId: facultySubjectAssignments.subjectId,
-          subjectName: subjects.name,
-          subjectType: facultySubjectAssignments.subjectType,
-          facultyName: faculty.name,
-          divisionName: divisions.displayName,
-          courseCode: divisions.courseCode,
-          divisionId: facultySubjectAssignments.divisionId,
-          facultyId: facultySubjectAssignments.facultyId,
-        })
-        .from(facultySubjectAssignments)
-        .innerJoin(divisions, eq(divisions.id, facultySubjectAssignments.divisionId))
-        .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .where(
-          and(
-            eq(facultySubjectAssignments.divisionId, currentDivisionId),
-            eq(facultySubjectAssignments.semesterId, semesterId)
-          )
-        );
-
-      const subjectIds = [...new Set(rows.map((r) => r.subjectId))];
-      const subjectMasters = subjectIds.length > 0
-        ? await db.select({
-            id: subjects.id,
-            code: subjects.code,
-            name: subjects.name,
-            subjectType: subjects.subjectType,
-            internalTheoryMax: subjects.internalTheoryMax,
-            externalTheoryMax: subjects.externalTheoryMax,
-            theoryPassingMarks: subjects.theoryPassingMarks,
-            internalPracticalMax: subjects.internalPracticalMax,
-            externalPracticalMax: subjects.externalPracticalMax,
-            practicalPassingMarks: subjects.practicalPassingMarks,
-          }).from(subjects).where(inArray(subjects.id, subjectIds))
-        : [];
-      const masterMap = new Map(subjectMasters.map((s) => [s.id, s]));
-
-      const result = rows.map((row) => {
-        const master = masterMap.get(row.subjectId);
-        return {
-          id: master?.id ?? row.subjectId,
-          code: master?.code ?? "",
-          name: row.subjectName,
-          subjectType: row.subjectType,
-          facultyName: row.facultyName,
-          divisionName: row.divisionName,
-          internalTheoryMax: master?.internalTheoryMax ?? null,
-          externalTheoryMax: master?.externalTheoryMax ?? null,
-          theoryPassingMarks: master?.theoryPassingMarks ?? null,
-          internalPracticalMax: master?.internalPracticalMax ?? null,
-          externalPracticalMax: master?.externalPracticalMax ?? null,
-          practicalPassingMarks: master?.practicalPassingMarks ?? null,
-        };
-      });
-
+      const result = await getDivisionSubjects(auth.divisionId, auth.semesterId);
       return ok({ role: activeRole, subjects: result });
     }
 

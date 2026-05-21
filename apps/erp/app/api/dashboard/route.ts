@@ -14,6 +14,7 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
 import { redis } from "@/app/lib/redis";
+import { cacheKeys, TTL } from "@/app/lib/cache";
 import { RequestProfiler } from "@/app/lib/profiler";
 
 const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
@@ -52,99 +53,75 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 4. Redis cache lookup ─────────────────────────────────────────────────
-    // measureAsyncWait records only the network RTT to Redis.
-    // The surrounding cache-key construction is pure CPU (negligible, not timed).
-    let cacheKey = `dashboard:user:${userId}:role:${activeRole}`;
-    if (activeRole === "student" && auth.divisionId && auth.semesterId) {
-      cacheKey = `dashboard:student:${userId}:div:${auth.divisionId}:sem:${auth.semesterId}`;
-    } else if (activeRole === "counselor" && auth.counselorDivisionIds && auth.counselorDivisionIds.length > 0) {
-      cacheKey = `dashboard:counselor:${userId}:divs:${[...auth.counselorDivisionIds].sort().join(",")}`;
-    }
+    const cacheKey = cacheKeys.dashboard(userId);
+    let source: "cache" | "db" = "cache";
 
-    const cachedData = await profiler
-      .measureAsyncWait("cache:redisGet", "redis", async () => {
+    let cachedData = null;
+    try {
+      const getRedis = async () => {
         try {
           return await redis.get(cacheKey);
-        } catch (redisError) {
-          console.warn("[Redis GET Error] Falling back to DB:", redisError);
+        } catch (e) {
+          console.warn("[Redis GET Error] Falling back to DB:", e);
           return null;
         }
-      });
+      };
+      cachedData = await profiler.measureAsyncWait("cache:redisGet", "redis", getRedis);
+    } catch (err) {
+      console.error("[Cache Error] Redis GET failed:", err);
+    }
 
+    let payloadData: any;
     if (cachedData) {
+      payloadData = typeof cachedData === "string" ? JSON.parse(cachedData) : cachedData;
       console.log(`[Dashboard Cache] HIT for key: ${cacheKey}`);
-      profiler.finish();
-      return ok(cachedData, "cache");
-    }
+    } else {
+      source = "db";
+      console.log(`[Dashboard Cache] MISS for key: ${cacheKey}. Fetching from DB...`);
+      const [userInfo, dashboard] = await Promise.all([
+        profiler.measureAsyncWait(
+          "db:resolveUserInfo",
+          "db",
+          () => resolveUserInfo(userId, activeRole, rolesArray)
+        ),
+        profiler.measureAsyncWait(
+          `db:buildDashboard:${activeRole}`,
+          "db",
+          () => buildDashboard(activeRole as Role, userId, auth)
+        ),
+      ]);
 
-    console.log(`[Dashboard Cache] MISS for key: ${cacheKey}. Fetching from DB...`);
-
-    // ── 5. Parallel DB fetches ────────────────────────────────────────────────
-    // Promise.all here means both DB calls fly concurrently. We track them as
-    // two separate async waits. The wall time for the parallel block is
-    // max(userInfo, dashboard) — but we log each independently for visibility.
-    //
-    // Note: because they run concurrently, summing their individual durations
-    // would OVER-count total I/O. The profiler sums them for budget awareness,
-    // not for exact wall-time decomposition.
-    const [userInfo, dashboard] = await Promise.all([
-      profiler.measureAsyncWait(
-        "db:resolveUserInfo",
-        "db",
-        () => resolveUserInfo(userId, activeRole, rolesArray)
-      ),
-      profiler.measureAsyncWait(
-        `db:buildDashboard:${activeRole}`,
-        "db",
-        () => buildDashboard(activeRole as Role, userId, auth)
-      ),
-    ]);
-
-    if (!userInfo) {
-      profiler.finish();
-      return err("User record not found", 404);
-    }
-
-    // ── 6. Payload assembly (CPU) ─────────────────────────────────────────────
-    const payloadData = profiler.measureCpuSection("cpu:assemblePayload", () => ({
-      user: {
-        ...userInfo,
-        roles: rolesArray,
-        activeRole,
-      },
-      dashboard,
-    }));
-
-    // ── 7. JSON serialization (CPU — often ignored but measurable) ────────────
-    // JSON.stringify on large dashboard payloads (arrays, nested objects) is
-    // a synchronous CPU operation. We time it separately to surface it.
-    // On Cloudflare, large serializations can consume a non-trivial CPU budget.
-    const serialized = profiler.measureCpuSection(
-      "serialization:payloadData",
-      () => JSON.stringify(payloadData),
-      "serialization"
-    );
-
-    // ── 8. Cache write (fire-and-forget Redis write) ──────────────────────────
-    // We wrap this too. Even though it's non-blocking from the user's POV,
-    // tracking it tells us how much work happens before we can GC the payload.
-    await profiler.measureAsyncWait("cache:redisSet", "redis", async () => {
-      try {
-        await redis.set(cacheKey, payloadData, { ex: 300 });
-      } catch (redisError) {
-        console.warn("[Redis SET Error] Failed to cache data:", redisError);
+      if (!userInfo) {
+        profiler.finish();
+        return err("User record not found", 404);
       }
-    });
 
-    // ── 9. Response serialization (final JSON.stringify by Next.js) ───────────
-    // NextResponse.json() runs its own JSON.stringify internally. We measure
-    // our explicit serialization above; Next's pass is not easily interceptable.
-    // In practice it's a second stringify of the same data — worth knowing.
+      payloadData = profiler.measureCpuSection("cpu:assemblePayload", () => ({
+        user: {
+          ...userInfo,
+          roles: rolesArray,
+          activeRole,
+        },
+        dashboard,
+      }));
 
-    // Emit profile before returning
+      // Cache write
+      try {
+        const setRedis = async () => {
+          try {
+            await redis.set(cacheKey, JSON.stringify(payloadData), { ex: TTL.DASHBOARD });
+          } catch (e) {
+            console.warn("[Redis SET Error] Failed to cache:", e);
+          }
+        };
+        await profiler.measureAsyncWait("cache:redisSet", "redis", setRedis);
+      } catch (err) {
+        console.error("[Cache Error] Redis SET failed:", err);
+      }
+    }
+
     profiler.finish();
-
-    return ok(payloadData, "db");
+    return ok(payloadData, source);
   } catch (error) {
     console.error("[/api/dashboard] Unhandled error:", error);
     profiler.finish();

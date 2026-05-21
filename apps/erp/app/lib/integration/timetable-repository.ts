@@ -1,5 +1,6 @@
 import { eq, inArray, and, sql } from "drizzle-orm";
 import { db } from "@/app/lib/db";
+import { invalidateTimetableUpdated } from "@/app/lib/cache";
 import {
   faculty,
   subjects,
@@ -252,6 +253,9 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
         await tx.insert(timetableEntries).values(chunk);
       }
     });
+
+    // Invalidate caches for all modified divisions
+    await Promise.all(divisionIds.map(divId => invalidateTimetableUpdated(divId)));
 
     // Count total lectures
     const totalInserted = payloads.reduce((acc, p) => acc + p.lectures.length, 0);

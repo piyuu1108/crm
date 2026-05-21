@@ -14,6 +14,42 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
+import { remember, cacheKeys, TTL, invalidateAttendanceUpdated } from "@/app/lib/cache";
+
+async function getDivisionAttendance(divisionId: number) {
+  return remember(
+    cacheKeys.attendance(divisionId),
+    TTL.ATTENDANCE,
+    async () => {
+      const rawSessions = await db
+        .select({
+          id: attendanceSessionLedger.id,
+          date: attendanceSessionLedger.date,
+          subjectName: attendanceSessionLedger.subjectName,
+          facultyName: faculty.name,
+          divisionName: divisions.displayName,
+          startTime: attendanceSessionLedger.startTime,
+          endTime: attendanceSessionLedger.endTime,
+          absentStudentIds: attendanceSessionLedger.absentStudentIds,
+        })
+        .from(attendanceSessionLedger)
+        .innerJoin(divisions, eq(attendanceSessionLedger.divisionId, divisions.id))
+        .innerJoin(faculty, eq(attendanceSessionLedger.facultyId, faculty.id))
+        .where(eq(attendanceSessionLedger.divisionId, divisionId));
+
+      const [studentCountRow] = await db
+        .select({ count: count() })
+        .from(students)
+        .where(eq(students.currentDivisionId, divisionId));
+      const totalStudents = Number(studentCountRow?.count ?? 0);
+
+      return {
+        rawSessions,
+        totalStudents,
+      };
+    }
+  );
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -197,34 +233,10 @@ export async function GET(req: NextRequest) {
           return err("Forbidden: not assigned to this division", 403);
         }
 
-        const rawSessions = await db
-          .select({
-            id: attendanceSessionLedger.id,
-            date: attendanceSessionLedger.date,
-            subjectName: attendanceSessionLedger.subjectName,
-            facultyName: faculty.name,
-            divisionName: divisions.displayName,
-            startTime: attendanceSessionLedger.startTime,
-            endTime: attendanceSessionLedger.endTime,
-            absentStudentIds: attendanceSessionLedger.absentStudentIds,
-          })
-          .from(attendanceSessionLedger)
-          .innerJoin(divisions, eq(attendanceSessionLedger.divisionId, divisions.id))
-          .innerJoin(faculty, eq(attendanceSessionLedger.facultyId, faculty.id))
-          .where(
-            and(
-              eq(attendanceSessionLedger.divisionId, divId),
-              eq(attendanceSessionLedger.date, date)
-            )
-          );
+        const cached = await getDivisionAttendance(divId);
+        const filtered = cached.rawSessions.filter((s) => s.date === date);
 
-        const [studentCountRow] = await db
-          .select({ count: count() })
-          .from(students)
-          .where(eq(students.currentDivisionId, divId));
-        const totalStudents = Number(studentCountRow?.count ?? 0);
-
-        for (const s of rawSessions) {
+        for (const s of filtered) {
           sessions.push({
             id: s.id,
             timetableId: null,
@@ -235,8 +247,8 @@ export async function GET(req: NextRequest) {
             isCancelled: false,
             startTime: s.startTime,
             endTime: s.endTime,
-            totalStudents,
-            presentCount: Math.max(0, totalStudents - s.absentStudentIds.length),
+            totalStudents: cached.totalStudents,
+            presentCount: Math.max(0, cached.totalStudents - s.absentStudentIds.length),
           });
         }
       }
@@ -376,6 +388,8 @@ export async function POST(req: NextRequest) {
       subjectName: entryDetails.subjectName,
       absentStudentIds: [],
     });
+
+    await invalidateAttendanceUpdated(entry.divisionId);
 
     const records = studentsInDivision.map((s) => ({
       studentId: s.id,

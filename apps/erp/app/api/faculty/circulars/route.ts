@@ -3,6 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
+import { invalidateCircularUpdated } from "@/app/lib/cache";
 
 const VALID_TARGET_TYPES = ["ALL", "FACULTY", "YEAR", "DIVISION"] as const;
 type TargetType = (typeof VALID_TARGET_TYPES)[number];
@@ -108,6 +109,13 @@ export async function POST(req: NextRequest) {
     } else {
       console.log(`[POST /api/faculty/circulars] Created circular id=${newCircular.id} slug=${newCircular.slug} type=${targetType} year=${newCircular.targetYear ?? "n/a"}`);
     }
+
+    // Invalidate cached circular lists for target visibility
+    await invalidateCircularUpdated({
+      targetType,
+      targetYear: targetYear ? Number(targetYear) : null,
+      recipientDivisions: targetDivisionIds ? targetDivisionIds.map(Number) : [],
+    });
 
     return NextResponse.json(
       {

@@ -9,6 +9,75 @@ import {
   facultySubjectAssignments,
 } from "@/app/lib/schema";
 import { desc, eq, and, or, inArray, count } from "drizzle-orm";
+import { remember, cacheKeys, TTL } from "@/app/lib/cache";
+
+// ─── Cache Helpers ────────────────────────────────────────────────────────────
+
+async function getGlobalCirculars() {
+  return remember(
+    cacheKeys.circularsGlobal(),
+    TTL.CIRCULARS,
+    async () => {
+      const rows = await db
+        .select()
+        .from(circulars)
+        .where(eq(circulars.targetType, "ALL"))
+        .orderBy(desc(circulars.createdAt));
+      return enrichWithDivisions(rows);
+    }
+  );
+}
+
+async function getYearCirculars(year: number) {
+  return remember(
+    cacheKeys.circularsYear(year),
+    TTL.CIRCULARS,
+    async () => {
+      const rows = await db
+        .select()
+        .from(circulars)
+        .where(and(eq(circulars.targetType, "YEAR"), eq(circulars.targetYear, year)))
+        .orderBy(desc(circulars.createdAt));
+      return enrichWithDivisions(rows);
+    }
+  );
+}
+
+async function getDivisionCirculars(divisionId: number) {
+  return remember(
+    cacheKeys.circularsDiv(divisionId),
+    TTL.CIRCULARS,
+    async () => {
+      const divRows = await db
+        .select({ circularId: circularRecipients.circularId })
+        .from(circularRecipients)
+        .where(eq(circularRecipients.divisionId, divisionId));
+      const ids = divRows.map((r) => r.circularId);
+      if (ids.length === 0) return [];
+      const rows = await db
+        .select()
+        .from(circulars)
+        .where(and(eq(circulars.targetType, "DIVISION"), inArray(circulars.id, ids)))
+        .orderBy(desc(circulars.createdAt));
+      return enrichWithDivisions(rows);
+    }
+  );
+}
+
+async function getFacultyCirculars() {
+  return remember(
+    cacheKeys.circularsFaculty(),
+    TTL.CIRCULARS,
+    async () => {
+      const rows = await db
+        .select()
+        .from(circulars)
+        .where(eq(circulars.targetType, "FACULTY"))
+        .orderBy(desc(circulars.createdAt));
+      return enrichWithDivisions(rows);
+    }
+  );
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -60,34 +129,24 @@ export async function GET(req: NextRequest) {
         ? Math.ceil(studentData.currentSemesterNo / 2)
         : null;
 
-      let divisionCircularIds: number[] = [];
-      if (studentDivId) {
-        const divRows = await db
-          .select({ circularId: circularRecipients.circularId })
-          .from(circularRecipients)
-          .where(eq(circularRecipients.divisionId, studentDivId));
-        divisionCircularIds = divRows.map((r) => r.circularId);
-      }
-
-      const conditions = [
-        eq(circulars.targetType, "ALL"),
-        ...(studentYear !== null
-          ? [and(eq(circulars.targetType, "YEAR"), eq(circulars.targetYear, studentYear))]
-          : []),
-        ...(divisionCircularIds.length > 0
-          ? [and(eq(circulars.targetType, "DIVISION"), inArray(circulars.id, divisionCircularIds))]
-          : []),
-      ];
-
-      const whereClause = or(...conditions);
-
-      const [rows, [{ total }]] = await Promise.all([
-        db.select().from(circulars).where(whereClause).orderBy(desc(circulars.createdAt)).limit(limit).offset(offset),
-        db.select({ total: count(circulars.id) }).from(circulars).where(whereClause),
+      // Parallel fetch cached segments
+      const [globalCirculars, yearCirculars, divCirculars] = await Promise.all([
+        getGlobalCirculars(),
+        studentYear ? getYearCirculars(studentYear) : Promise.resolve([]),
+        studentDivId ? getDivisionCirculars(studentDivId) : Promise.resolve([]),
       ]);
 
-      console.log(`[GET /api/circulars] STUDENT year=${studentYear} divId=${studentDivId} → ${total} results`);
-      return ok(await enrichWithDivisions(rows), { total: Number(total), limit, offset });
+      const merged = [...globalCirculars, ...yearCirculars, ...divCirculars];
+      // Deduplicate by ID
+      const deduped = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+      // Sort by createdAt descending
+      deduped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const paginated = deduped.slice(offset, offset + limit);
+      const total = deduped.length;
+
+      console.log(`[GET /api/circulars] STUDENT year=${studentYear} divId=${studentDivId} → ${total} results (cached)`);
+      return ok(paginated, { total: Number(total), limit, offset });
     }
 
     // ── HOD — sees everything, no filter ──────────────────────────────────────
@@ -103,49 +162,56 @@ export async function GET(req: NextRequest) {
 
     // ── FACULTY / COUNSELOR ────────────────────────────────────────────────────
     if (isFaculty) {
-      // Divisions this faculty teaches in (for DIVISION-targeted circulars)
+      // Divisions this faculty teaches in
       const assignmentRows = await db
         .select({ divisionId: facultySubjectAssignments.divisionId })
         .from(facultySubjectAssignments)
         .where(eq(facultySubjectAssignments.facultyId, userId));
 
-      const facultyDivisionIds = [...new Set(assignmentRows.map((r) => r.divisionId))];
+      const counselorDivIds = payload.counselorDivisionIds ?? [];
+      const facultyDivisionIds = [...new Set([...assignmentRows.map((r) => r.divisionId), ...counselorDivIds])];
 
-      let divisionCircularIds: number[] = [];
-      if (facultyDivisionIds.length > 0) {
-        const divRows = await db
-          .select({ circularId: circularRecipients.circularId })
-          .from(circularRecipients)
-          .where(inArray(circularRecipients.divisionId, facultyDivisionIds));
-        divisionCircularIds = [...new Set(divRows.map((r) => r.circularId))];
-      }
-
-      // Faculty see:
-      // 1. ALL circulars
-      // 2. FACULTY circulars
-      // 3. Any YEAR circular (faculty should see year-level announcements)
-      // 4. Their OWN circulars regardless of type (most important — they created them)
-      // 5. DIVISION circulars for divisions they teach
-      const whereClause = or(
-        eq(circulars.targetType, "ALL"),
-        eq(circulars.targetType, "FACULTY"),
-        eq(circulars.targetType, "YEAR"),
-        eq(circulars.facultyId, userId),           // ← own circulars — always visible
-        ...(divisionCircularIds.length > 0
-          ? [and(
-              eq(circulars.targetType, "DIVISION"),
-              inArray(circulars.id, divisionCircularIds)
-            )]
-          : []),
-      );
-
-      const [rows, [{ total }]] = await Promise.all([
-        db.select().from(circulars).where(whereClause).orderBy(desc(circulars.createdAt)).limit(limit).offset(offset),
-        db.select({ total: count(circulars.id) }).from(circulars).where(whereClause),
+      // Parallel fetch cached segments
+      const [globalCirculars, facultyCirculars, y1, y2, y3, y4, ...divisionCircularsList] = await Promise.all([
+        getGlobalCirculars(),
+        getFacultyCirculars(),
+        getYearCirculars(1),
+        getYearCirculars(2),
+        getYearCirculars(3),
+        getYearCirculars(4),
+        ...facultyDivisionIds.map((divId) => getDivisionCirculars(divId)),
       ]);
 
-      console.log(`[GET /api/circulars] FACULTY userId=${userId} divisions=[${facultyDivisionIds.join(",")}] → ${total} results`);
-      return ok(await enrichWithDivisions(rows), { total: Number(total), limit, offset });
+      // Database-backed fetch for own circulars
+      const ownCirculars = await db
+        .select()
+        .from(circulars)
+        .where(eq(circulars.facultyId, userId))
+        .orderBy(desc(circulars.createdAt));
+      const ownEnriched = await enrichWithDivisions(ownCirculars);
+
+      // Merge everything
+      const merged = [
+        ...globalCirculars,
+        ...facultyCirculars,
+        ...y1,
+        ...y2,
+        ...y3,
+        ...y4,
+        ...divisionCircularsList.flat(),
+        ...ownEnriched,
+      ];
+
+      // Deduplicate by ID
+      const deduped = Array.from(new Map(merged.map((c) => [c.id, c])).values());
+      // Sort by createdAt descending
+      deduped.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const paginated = deduped.slice(offset, offset + limit);
+      const total = deduped.length;
+
+      console.log(`[GET /api/circulars] FACULTY userId=${userId} divisions=[${facultyDivisionIds.join(",")}] → ${total} results (cached/merged)`);
+      return ok(paginated, { total: Number(total), limit, offset });
     }
 
     return err("Forbidden: no recognized role", 403);

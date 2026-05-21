@@ -7,6 +7,7 @@ import {
 } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
+import { invalidateAttendanceUpdated } from "@/app/lib/cache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -100,7 +101,6 @@ export async function POST(req: NextRequest) {
     }
     const updatedAbsentIds = Array.from(absentSet);
 
-    // Submit the updated attendance ledger entry atomically updating the summary cache
     await submitAttendanceCQRS({
       semesterId: session.semesterId,
       divisionId: session.divisionId,
@@ -111,6 +111,8 @@ export async function POST(req: NextRequest) {
       subjectName: session.subjectName,
       absentStudentIds: updatedAbsentIds,
     });
+
+    await invalidateAttendanceUpdated(session.divisionId);
 
     return ok({ saved: records.length });
   } catch (error) {

@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import {
   attendanceSessionLedger,
   counselorDivisionAssignments,
+  subjects,
 } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
@@ -54,7 +55,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fetch existing ledger session
     const [session] = await db
       .select({
         id: attendanceSessionLedger.id,
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         date: attendanceSessionLedger.date,
         startTime: attendanceSessionLedger.startTime,
         endTime: attendanceSessionLedger.endTime,
-        subjectName: attendanceSessionLedger.subjectName,
+        subjectId: attendanceSessionLedger.subjectId,
         absentStudentIds: attendanceSessionLedger.absentStudentIds,
       })
       .from(attendanceSessionLedger)
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       date: session.date,
       startTime: session.startTime,
       endTime: session.endTime,
-      subjectName: session.subjectName,
+      subjectId: session.subjectId,
       absentStudentIds: updatedAbsentIds,
     });
 

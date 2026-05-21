@@ -125,14 +125,40 @@ export async function GET(req: NextRequest) {
 
     // Get all raw marks for this assignment across all exams
     const rawMarks = await db
-      .select()
+      .select({
+        id: internalExamMarks.id,
+        internalExamId: internalExamMarks.internalExamId,
+        assignmentId: internalExamMarks.assignmentId,
+        studentId: internalExamMarks.studentId,
+        theoryMarks: internalExamMarks.theoryMarks,
+        practicalMarks: internalExamMarks.practicalMarks,
+        isDraft: internalExamMarks.isDraft,
+        isVisible: internalExamMarks.isVisible,
+        studentName: students.fullName,
+        subjectName: sql<string>`${assignment.subjectName}`,
+        divisionName: sql<string>`${assignment.divisionName}`,
+      })
       .from(internalExamMarks)
+      .innerJoin(students, eq(internalExamMarks.studentId, students.id))
       .where(eq(internalExamMarks.assignmentId, assignmentId));
 
     // Get existing evaluations
     const evaluations = await db
-      .select()
+      .select({
+        id: internalEvaluations.id,
+        assignmentId: internalEvaluations.assignmentId,
+        studentId: internalEvaluations.studentId,
+        semesterId: internalEvaluations.semesterId,
+        finalTheoryMarks: internalEvaluations.finalTheoryMarks,
+        finalPracticalMarks: internalEvaluations.finalPracticalMarks,
+        isFinalized: internalEvaluations.isFinalized,
+        studentName: students.fullName,
+        subjectName: sql<string>`${assignment.subjectName}`,
+        subjectType: sql<string>`${assignment.subjectType}`,
+        divisionName: sql<string>`${assignment.divisionName}`,
+      })
       .from(internalEvaluations)
+      .innerJoin(students, eq(internalEvaluations.studentId, students.id))
       .where(
         and(
           eq(internalEvaluations.assignmentId, assignmentId),
@@ -218,17 +244,13 @@ export async function POST(req: NextRequest) {
         studentId: number;
         finalTheoryMarks: number | null;
         finalPracticalMarks: number | null;
-        studentName: string;
-        subjectName: string;
-        subjectType: string;
-        divisionName: string;
       }) =>
-        sql`(${assignmentId}, ${r.studentId}, ${semesterId}, ${r.finalTheoryMarks}, ${r.finalPracticalMarks}, false, ${r.studentName}, ${r.subjectName}, ${r.subjectType}, ${r.divisionName}, ${userId}, NOW())`
+        sql`(${assignmentId}, ${r.studentId}, ${semesterId}, ${r.finalTheoryMarks}, ${r.finalPracticalMarks}, false, ${userId}, NOW())`
     );
 
     await db.execute(sql`
       INSERT INTO internal_evaluations
-        (assignment_id, student_id, semester_id, final_theory_marks, final_practical_marks, is_finalized, student_name, subject_name, subject_type, division_name, updated_by_faculty_id, updated_at)
+        (assignment_id, student_id, semester_id, final_theory_marks, final_practical_marks, is_finalized, updated_by_faculty_id, updated_at)
       VALUES ${sql.join(values, sql`, `)}
       ON CONFLICT (assignment_id, student_id, semester_id)
       DO UPDATE SET

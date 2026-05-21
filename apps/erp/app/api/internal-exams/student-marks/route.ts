@@ -7,6 +7,7 @@ import {
   students,
   subjects,
   facultySubjectAssignments,
+  divisions,
 } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
 
@@ -37,18 +38,20 @@ export async function GET(req: NextRequest) {
 
 
 
-    // Fetch all visible marks for this student
     const marks = await db
       .select({
         id: internalExamMarks.id,
         examId: internalExamMarks.internalExamId,
-        subjectName: internalExamMarks.subjectName,
+        subjectName: subjects.name,
         theoryMarks: internalExamMarks.theoryMarks,
         practicalMarks: internalExamMarks.practicalMarks,
-        divisionName: internalExamMarks.divisionName,
+        divisionName: divisions.displayName,
         assignmentId: internalExamMarks.assignmentId,
       })
       .from(internalExamMarks)
+      .innerJoin(facultySubjectAssignments, eq(internalExamMarks.assignmentId, facultySubjectAssignments.id))
+      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+      .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
       .where(
         and(
           eq(internalExamMarks.studentId, payload.userId),

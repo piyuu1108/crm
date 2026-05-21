@@ -1,5 +1,6 @@
+import "dotenv/config";
 import { db } from "@/app/lib/db";
-import { students, divisions, semesters, faculty, attendanceSessionLedger, attendanceAnalyticsSummary, studentEnrollmentHistory } from "@/app/lib/schema";
+import { students, divisions, semesters, faculty, attendanceSessionLedger, attendanceAnalyticsSummary, studentEnrollmentHistory, subjects } from "@/app/lib/schema";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -16,6 +17,9 @@ async function main() {
 
     const [semester] = await db.select().from(semesters).limit(1);
     if (!semester) throw new Error("No semesters found.");
+
+    const [subject] = await db.select().from(subjects).limit(1);
+    if (!subject) throw new Error("No subjects found.");
 
     // Fetch/setup two students in the division
     const activeStudents = await db
@@ -83,7 +87,7 @@ async function main() {
         date: "2026-05-19",
         startTime: "08:40:00",
         endTime: "09:20:00",
-        subjectName: "CQRS Distributed Architectures",
+        subjectId: subject.id,
         absentStudentIds: [],
       });
       console.log(`Created new session ledger entry. ID: ${sessionId}`);
@@ -129,7 +133,7 @@ async function main() {
       date: "2026-05-19",
       startTime: "08:40:00",
       endTime: "09:20:00",
-      subjectName: "CQRS Distributed Architectures",
+      subjectId: subject.id,
       absentStudentIds: finalAbsentIds,
     });
     console.log("Saved attendance successfully.");
@@ -141,10 +145,11 @@ async function main() {
         .select({
           id: attendanceSessionLedger.id,
           status: sql<string>`case when ${studentId} = any(${attendanceSessionLedger.absentStudentIds}) then 'absent' else 'present' end`,
-          subjectName: attendanceSessionLedger.subjectName,
+          subjectName: subjects.name,
           date: attendanceSessionLedger.date,
         })
         .from(attendanceSessionLedger)
+        .innerJoin(subjects, eq(attendanceSessionLedger.subjectId, subjects.id))
         .leftJoin(
           studentEnrollmentHistory,
           and(
@@ -238,7 +243,7 @@ async function main() {
       date: "2026-05-19",
       startTime: "08:40:00",
       endTime: "09:20:00",
-      subjectName: "CQRS Distributed Architectures",
+      subjectId: subject.id,
       absentStudentIds: finalEditAbsentIds,
     });
 

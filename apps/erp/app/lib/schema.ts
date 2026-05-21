@@ -312,11 +312,6 @@ export const marks = pgTable("marks", {
   assignmentId: integer("assignment_id").notNull().references(() => facultySubjectAssignments.id),
   semesterId: integer("semester_id").notNull().references(() => semesters.id),
 
-  studentName: varchar("student_name", { length: 150 }).notNull(),
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
-  subjectType: varchar("subject_type", { length: 20 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
-
   internalTheory: decimal("internal_theory", { precision: 6, scale: 2 }),
   externalTheory: decimal("external_theory", { precision: 6, scale: 2 }),
   internalPractical: decimal("internal_practical", { precision: 6, scale: 2 }),
@@ -340,10 +335,6 @@ export const studentRequests = pgTable("student_requests", {
   studentId: integer("student_id").notNull().references(() => students.id),
   targetFacultyId: integer("target_faculty_id").notNull().references(() => faculty.id),
   semesterId: integer("semester_id").notNull().references(() => semesters.id),
-
-  studentName: varchar("student_name", { length: 150 }).notNull(),
-  targetFacultyName: varchar("target_faculty_name", { length: 100 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
 
   requestType: varchar("request_type", { length: 50 }).notNull(),
   subject: varchar("subject", { length: 200 }).notNull(),
@@ -452,10 +443,6 @@ export const internalExamMarks = pgTable("internal_exam_marks", {
   isDraft: boolean("is_draft").notNull().default(true),
   isVisible: boolean("is_visible").notNull().default(false),
 
-  studentName: varchar("student_name", { length: 150 }).notNull(),
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
-
   updatedByFacultyId: integer("updated_by_faculty_id").references(() => faculty.id),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => [
@@ -474,11 +461,6 @@ export const internalEvaluations = pgTable("internal_evaluations", {
   finalPracticalMarks: decimal("final_practical_marks", { precision: 6, scale: 2 }),
   isFinalized: boolean("is_finalized").notNull().default(false),
 
-  studentName: varchar("student_name", { length: 150 }).notNull(),
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
-  subjectType: varchar("subject_type", { length: 20 }).notNull(),
-  divisionName: varchar("division_name", { length: 50 }).notNull(),
-
   finalizedByFacultyId: integer("finalized_by_faculty_id").references(() => faculty.id),
   finalizedAt: timestamp("finalized_at"),
   updatedByFacultyId: integer("updated_by_faculty_id").references(() => faculty.id),
@@ -496,7 +478,7 @@ export const attendanceSessionLedger = pgTable("attendance_session_ledger", {
   date: date("date").notNull(),
   startTime: time("start_time").notNull(),
   endTime: time("end_time").notNull(),
-  subjectName: varchar("subject_name", { length: 100 }).notNull(),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
   absentStudentIds: integer("absent_student_ids").array().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => [

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { studentRequests } from "@/app/lib/schema";
-import { eq, and, desc, count } from "drizzle-orm";
+import { studentRequests, students, faculty } from "@/app/lib/schema";
+import { eq, and, desc, count, sql } from "drizzle-orm";
 
 /**
  * GET /api/requests/faculty
@@ -42,8 +42,28 @@ export async function GET(req: NextRequest) {
     const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
 
     const results = await db
-      .select()
+      .select({
+        id: studentRequests.id,
+        studentId: studentRequests.studentId,
+        targetFacultyId: studentRequests.targetFacultyId,
+        semesterId: studentRequests.semesterId,
+        requestType: studentRequests.requestType,
+        subject: studentRequests.subject,
+        description: studentRequests.description,
+        status: studentRequests.status,
+        remarks: studentRequests.remarks,
+        attachmentUrl: studentRequests.attachmentUrl,
+        attachmentType: studentRequests.attachmentType,
+        attachmentSize: studentRequests.attachmentSize,
+        createdAt: studentRequests.createdAt,
+        updatedAt: studentRequests.updatedAt,
+        studentName: students.fullName,
+        targetFacultyName: faculty.name,
+        divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
+      })
       .from(studentRequests)
+      .innerJoin(students, eq(studentRequests.studentId, students.id))
+      .innerJoin(faculty, eq(studentRequests.targetFacultyId, faculty.id))
       .where(whereClause)
       .orderBy(desc(studentRequests.createdAt))
       .limit(limit)

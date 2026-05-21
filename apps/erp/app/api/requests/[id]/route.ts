@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { studentRequests } from "@/app/lib/schema";
-import { eq, and } from "drizzle-orm";
+import { studentRequests, students, faculty } from "@/app/lib/schema";
+import { eq, and, sql } from "drizzle-orm";
 
 /**
  * GET /api/requests/[id]
@@ -33,8 +33,28 @@ export async function GET(
     }
 
     const [request] = await db
-      .select()
+      .select({
+        id: studentRequests.id,
+        studentId: studentRequests.studentId,
+        targetFacultyId: studentRequests.targetFacultyId,
+        semesterId: studentRequests.semesterId,
+        requestType: studentRequests.requestType,
+        subject: studentRequests.subject,
+        description: studentRequests.description,
+        status: studentRequests.status,
+        remarks: studentRequests.remarks,
+        attachmentUrl: studentRequests.attachmentUrl,
+        attachmentType: studentRequests.attachmentType,
+        attachmentSize: studentRequests.attachmentSize,
+        createdAt: studentRequests.createdAt,
+        updatedAt: studentRequests.updatedAt,
+        studentName: students.fullName,
+        targetFacultyName: faculty.name,
+        divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
+      })
       .from(studentRequests)
+      .innerJoin(students, eq(studentRequests.studentId, students.id))
+      .innerJoin(faculty, eq(studentRequests.targetFacultyId, faculty.id))
       .where(eq(studentRequests.id, id));
 
     if (!request) {
@@ -110,7 +130,7 @@ export async function PATCH(
 
     // Verify request exists and belongs to this faculty
     const [request] = await db
-      .select()
+      .select({ targetFacultyId: studentRequests.targetFacultyId })
       .from(studentRequests)
       .where(eq(studentRequests.id, id));
 
@@ -138,15 +158,39 @@ export async function PATCH(
       );
     }
 
-    const [updated] = await db
+    await db
       .update(studentRequests)
       .set({
         status,
         remarks: remarks || null,
         updatedAt: new Date(),
       })
-      .where(eq(studentRequests.id, id))
-      .returning();
+      .where(eq(studentRequests.id, id));
+
+    const [updated] = await db
+      .select({
+        id: studentRequests.id,
+        studentId: studentRequests.studentId,
+        targetFacultyId: studentRequests.targetFacultyId,
+        semesterId: studentRequests.semesterId,
+        requestType: studentRequests.requestType,
+        subject: studentRequests.subject,
+        description: studentRequests.description,
+        status: studentRequests.status,
+        remarks: studentRequests.remarks,
+        attachmentUrl: studentRequests.attachmentUrl,
+        attachmentType: studentRequests.attachmentType,
+        attachmentSize: studentRequests.attachmentSize,
+        createdAt: studentRequests.createdAt,
+        updatedAt: studentRequests.updatedAt,
+        studentName: students.fullName,
+        targetFacultyName: faculty.name,
+        divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
+      })
+      .from(studentRequests)
+      .innerJoin(students, eq(studentRequests.studentId, students.id))
+      .innerJoin(faculty, eq(studentRequests.targetFacultyId, faculty.id))
+      .where(eq(studentRequests.id, id));
 
     return NextResponse.json({
       success: true,

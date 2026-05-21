@@ -9,7 +9,7 @@ export interface SubmitAttendanceCQRSInput {
   date: string;         // YYYY-MM-DD
   startTime: string;    // HH:MM:SS
   endTime: string;      // HH:MM:SS
-  subjectName: string;
+  subjectId: number;
   absentStudentIds: number[];
 }
 
@@ -44,7 +44,7 @@ export async function submitAttendanceCQRS(payload: SubmitAttendanceCQRSInput): 
         .set({
           absentStudentIds: payload.absentStudentIds,
           facultyId: payload.facultyId,
-          subjectName: payload.subjectName,
+          subjectId: payload.subjectId,
         })
         .where(eq(attendanceSessionLedger.id, existing.id));
 
@@ -100,7 +100,7 @@ export async function submitAttendanceCQRS(payload: SubmitAttendanceCQRSInput): 
           date: payload.date,
           startTime: payload.startTime,
           endTime: payload.endTime,
-          subjectName: payload.subjectName,
+          subjectId: payload.subjectId,
           absentStudentIds: payload.absentStudentIds,
         })
         .returning({ id: attendanceSessionLedger.id });

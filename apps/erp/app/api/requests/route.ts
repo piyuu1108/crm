@@ -42,8 +42,28 @@ export async function GET(req: NextRequest) {
     const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
 
     const results = await db
-      .select()
+      .select({
+        id: studentRequests.id,
+        studentId: studentRequests.studentId,
+        targetFacultyId: studentRequests.targetFacultyId,
+        semesterId: studentRequests.semesterId,
+        requestType: studentRequests.requestType,
+        subject: studentRequests.subject,
+        description: studentRequests.description,
+        status: studentRequests.status,
+        remarks: studentRequests.remarks,
+        attachmentUrl: studentRequests.attachmentUrl,
+        attachmentType: studentRequests.attachmentType,
+        attachmentSize: studentRequests.attachmentSize,
+        createdAt: studentRequests.createdAt,
+        updatedAt: studentRequests.updatedAt,
+        studentName: students.fullName,
+        targetFacultyName: faculty.name,
+        divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
+      })
       .from(studentRequests)
+      .innerJoin(students, eq(studentRequests.studentId, students.id))
+      .innerJoin(faculty, eq(studentRequests.targetFacultyId, faculty.id))
       .where(whereClause)
       .orderBy(desc(studentRequests.createdAt))
       .limit(limit)
@@ -173,15 +193,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Insert ──────────────────────────────────────────────────────────
-    const [inserted] = await db
+    const [insertedRow] = await db
       .insert(studentRequests)
       .values({
         studentId: payload.userId,
         targetFacultyId,
         semesterId: activeSem.id,
-        studentName: student.fullName,
-        targetFacultyName: targetFaculty.name,
-        divisionName: student.currentDivisionName || "N/A",
         requestType: requestType.trim(),
         subject: subject.trim(),
         description: description.trim(),
@@ -191,6 +208,13 @@ export async function POST(req: NextRequest) {
         attachmentSize: attachmentSize || null,
       })
       .returning();
+
+    const inserted = {
+      ...insertedRow,
+      studentName: student.fullName,
+      targetFacultyName: targetFaculty.name,
+      divisionName: student.currentDivisionName || "N/A",
+    };
 
     return NextResponse.json({
       success: true,

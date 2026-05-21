@@ -111,8 +111,23 @@ export async function GET(req: NextRequest) {
 
     // Fetch existing marks
     const marks = await db
-      .select()
+      .select({
+        id: internalExamMarks.id,
+        internalExamId: internalExamMarks.internalExamId,
+        assignmentId: internalExamMarks.assignmentId,
+        studentId: internalExamMarks.studentId,
+        theoryMarks: internalExamMarks.theoryMarks,
+        practicalMarks: internalExamMarks.practicalMarks,
+        isDraft: internalExamMarks.isDraft,
+        isVisible: internalExamMarks.isVisible,
+        studentName: students.fullName,
+        subjectName: sql<string>`${assignment.subjectName}`,
+        divisionName: sql<string>`${assignment.divisionName}`,
+        updatedByFacultyId: internalExamMarks.updatedByFacultyId,
+        updatedAt: internalExamMarks.updatedAt,
+      })
       .from(internalExamMarks)
+      .innerJoin(students, eq(internalExamMarks.studentId, students.id))
       .where(
         and(
           eq(internalExamMarks.internalExamId, examId),
@@ -187,16 +202,13 @@ export async function POST(req: NextRequest) {
         studentId: number;
         theoryMarks: number | null;
         practicalMarks: number | null;
-        studentName: string;
-        subjectName: string;
-        divisionName: string;
       }) =>
-        sql`(${examId}, ${assignmentId}, ${r.studentId}, ${r.theoryMarks}, ${r.practicalMarks}, ${isDraft ?? true}, false, ${r.studentName}, ${r.subjectName}, ${r.divisionName}, ${userId}, NOW())`
+        sql`(${examId}, ${assignmentId}, ${r.studentId}, ${r.theoryMarks}, ${r.practicalMarks}, ${isDraft ?? true}, false, ${userId}, NOW())`
     );
 
     await db.execute(sql`
       INSERT INTO internal_exam_marks
-        (internal_exam_id, assignment_id, student_id, theory_marks, practical_marks, is_draft, is_visible, student_name, subject_name, division_name, updated_by_faculty_id, updated_at)
+        (internal_exam_id, assignment_id, student_id, theory_marks, practical_marks, is_draft, is_visible, updated_by_faculty_id, updated_at)
       VALUES ${sql.join(values, sql`, `)}
       ON CONFLICT (internal_exam_id, assignment_id, student_id)
       DO UPDATE SET

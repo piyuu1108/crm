@@ -25,7 +25,7 @@ async function getDivisionAttendance(divisionId: number) {
         .select({
           id: attendanceSessionLedger.id,
           date: attendanceSessionLedger.date,
-          subjectName: attendanceSessionLedger.subjectName,
+          subjectName: subjects.name,
           facultyName: faculty.name,
           divisionName: divisions.displayName,
           startTime: attendanceSessionLedger.startTime,
@@ -35,6 +35,7 @@ async function getDivisionAttendance(divisionId: number) {
         .from(attendanceSessionLedger)
         .innerJoin(divisions, eq(attendanceSessionLedger.divisionId, divisions.id))
         .innerJoin(faculty, eq(attendanceSessionLedger.facultyId, faculty.id))
+        .innerJoin(subjects, eq(attendanceSessionLedger.subjectId, subjects.id))
         .where(eq(attendanceSessionLedger.divisionId, divisionId));
 
       const [studentCountRow] = await db
@@ -312,11 +313,10 @@ export async function POST(req: NextRequest) {
 
     if (!entry) return err("Timetable entry not found", 404);
 
-    // Fetch assignment details for subject name & faculty ID
     const [entryDetails] = await db
       .select({
         facultyId: facultySubjectAssignments.facultyId,
-        subjectName: subjects.name,
+        subjectId: subjects.id,
       })
       .from(timetableEntries)
       .innerJoin(
@@ -385,7 +385,7 @@ export async function POST(req: NextRequest) {
       date,
       startTime: entry.startTime,
       endTime: entry.endTime,
-      subjectName: entryDetails.subjectName,
+      subjectId: entryDetails.subjectId,
       absentStudentIds: [],
     });
 

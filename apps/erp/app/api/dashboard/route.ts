@@ -229,11 +229,12 @@ async function buildStudentDashboard(studentId: number, auth: AuthContext) {
       requestType: studentRequests.requestType,
       subject: studentRequests.subject,
       status: studentRequests.status,
-      studentName: studentRequests.studentName,
-      divisionName: studentRequests.divisionName,
+      studentName: students.fullName,
+      divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
       createdAt: sql<string>`${studentRequests.createdAt}::text`,
     })
     .from(studentRequests)
+    .innerJoin(students, eq(studentRequests.studentId, students.id))
     .where(eq(studentRequests.studentId, studentId))
     .orderBy(sql`${studentRequests.createdAt} DESC`)
     .limit(5);
@@ -287,11 +288,12 @@ async function buildFacultyDashboard(facultyId: number) {
         requestType: studentRequests.requestType,
         subject: studentRequests.subject,
         status: studentRequests.status,
-        studentName: studentRequests.studentName,
-        divisionName: studentRequests.divisionName,
+        studentName: students.fullName,
+        divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
         createdAt: sql<string>`${studentRequests.createdAt}::text`,
       })
       .from(studentRequests)
+      .innerJoin(students, eq(studentRequests.studentId, students.id))
       .where(
         and(
           eq(studentRequests.targetFacultyId, facultyId),
@@ -348,11 +350,12 @@ async function buildCounselorDashboard(facultyId: number, auth: AuthContext) {
             requestType: studentRequests.requestType,
             subject: studentRequests.subject,
             status: studentRequests.status,
-            studentName: studentRequests.studentName,
-            divisionName: studentRequests.divisionName,
+            studentName: students.fullName,
+            divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
             createdAt: sql<string>`${studentRequests.createdAt}::text`,
           })
           .from(studentRequests)
+          .innerJoin(students, eq(studentRequests.studentId, students.id))
           .where(eq(studentRequests.status, "pending"))
           .orderBy(sql`${studentRequests.createdAt} DESC`)
           .limit(10)
@@ -399,11 +402,12 @@ async function buildHodDashboard() {
           requestType: studentRequests.requestType,
           subject: studentRequests.subject,
           status: studentRequests.status,
-          studentName: studentRequests.studentName,
-          divisionName: studentRequests.divisionName,
+          studentName: students.fullName,
+          divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
           createdAt: sql<string>`${studentRequests.createdAt}::text`,
         })
         .from(studentRequests)
+        .innerJoin(students, eq(studentRequests.studentId, students.id))
         .where(eq(studentRequests.status, "pending"))
         .orderBy(sql`${studentRequests.createdAt} DESC`)
         .limit(10),

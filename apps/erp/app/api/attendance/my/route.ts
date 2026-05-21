@@ -6,6 +6,7 @@ import {
   studentEnrollmentHistory,
   students,
   faculty,
+  subjects,
 } from "@/app/lib/schema";
 import { eq, and, sql, gte, lte } from "drizzle-orm";
 
@@ -47,22 +48,22 @@ export async function GET(req: NextRequest) {
       conditions.push(lte(attendanceSessionLedger.date, dateTo));
     }
     if (subjectFilter) {
-      conditions.push(eq(attendanceSessionLedger.subjectName, subjectFilter));
+      conditions.push(eq(subjects.name, subjectFilter));
     }
 
-    // Query records where student is/was in the division for the session
     const records = await db
       .select({
         id: attendanceSessionLedger.id,
         status: sql<string>`case when ${payload.userId} = any(${attendanceSessionLedger.absentStudentIds}) then 'absent' else 'present' end`,
         date: attendanceSessionLedger.date,
-        subjectName: attendanceSessionLedger.subjectName,
+        subjectName: subjects.name,
         facultyName: faculty.name,
         startTime: attendanceSessionLedger.startTime,
         endTime: attendanceSessionLedger.endTime,
       })
       .from(attendanceSessionLedger)
       .innerJoin(faculty, eq(attendanceSessionLedger.facultyId, faculty.id))
+      .innerJoin(subjects, eq(attendanceSessionLedger.subjectId, subjects.id))
       .leftJoin(
         studentEnrollmentHistory,
         and(
@@ -81,8 +82,9 @@ export async function GET(req: NextRequest) {
 
     // Get unique subjects list for frontend filter dropdown
     const subjectsResult = await db
-      .select({ subjectName: attendanceSessionLedger.subjectName })
+      .select({ subjectName: subjects.name })
       .from(attendanceSessionLedger)
+      .innerJoin(subjects, eq(attendanceSessionLedger.subjectId, subjects.id))
       .leftJoin(
         studentEnrollmentHistory,
         and(
@@ -96,9 +98,9 @@ export async function GET(req: NextRequest) {
           sql`(${studentEnrollmentHistory.id} is not null or ${payload.divisionId} = ${attendanceSessionLedger.divisionId})`
         )
       )
-      .groupBy(attendanceSessionLedger.subjectName);
+      .groupBy(subjects.name);
 
-    const subjects = subjectsResult.map((s) => s.subjectName).filter(Boolean);
+    const subjectsList = subjectsResult.map((s) => s.subjectName).filter(Boolean);
 
     // Calculate summary statistics
     const totalPresent = records.filter((r) => r.status === "present").length;
@@ -108,7 +110,7 @@ export async function GET(req: NextRequest) {
 
     return ok({
       records,
-      subjects,
+      subjects: subjectsList,
       summary: { total, present: totalPresent, absent: totalAbsent, percentage },
     });
   } catch (error) {

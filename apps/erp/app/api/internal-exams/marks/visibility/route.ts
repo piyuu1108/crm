@@ -59,11 +59,8 @@ export async function PUT(req: NextRequest) {
       }
 
       if (resolvedRole === "counselor") {
-        const counselorDivs = await db
-          .select({ divisionId: counselorDivisionAssignments.divisionId })
-          .from(counselorDivisionAssignments)
-          .where(eq(counselorDivisionAssignments.facultyId, userId));
-        if (!counselorDivs.some((d) => d.divisionId === assignment.divisionId)) {
+        const counselorDivisionIds = auth.counselorDivisionIds ?? [];
+        if (!counselorDivisionIds.includes(assignment.divisionId)) {
           return err("Forbidden: not your division", 403);
         }
       }

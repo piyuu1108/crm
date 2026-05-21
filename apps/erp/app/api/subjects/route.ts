@@ -84,17 +84,7 @@ export async function GET(req: NextRequest) {
 
     // ── COUNSELOR: Subjects from assigned divisions ──────────────────
     if (activeRole === "counselor") {
-      // Get divisions assigned to this counselor (matched to division's current semester)
-      const counselorDivs = await db
-        .select({ divisionId: counselorDivisionAssignments.divisionId })
-        .from(counselorDivisionAssignments)
-        .innerJoin(divisions, and(
-          eq(counselorDivisionAssignments.divisionId, divisions.id),
-          eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-        ))
-        .where(eq(counselorDivisionAssignments.facultyId, userId));
-
-      const divisionIds = counselorDivs.map((d) => d.divisionId);
+      const divisionIds = auth.counselorDivisionIds ?? [];
       if (divisionIds.length === 0) {
         return ok({
           role: activeRole,
@@ -243,26 +233,12 @@ export async function GET(req: NextRequest) {
 
     // ── STUDENT: Subjects from student's current division ────────────
     if (activeRole === "student") {
-      const [student] = await db
-        .select({
-          currentDivisionId: students.currentDivisionId,
-        })
-        .from(students)
-        .where(eq(students.id, userId))
-        .limit(1);
-
-      if (!student?.currentDivisionId) {
+      if (!auth.divisionId || !auth.semesterId) {
         return ok({ role: activeRole, subjects: [] });
       }
 
-      // Get division's semester
-      const [div] = await db
-        .select({ semesterId: divisions.semesterId })
-        .from(divisions)
-        .where(eq(divisions.id, student.currentDivisionId))
-        .limit(1);
-
-      if (!div) return ok({ role: activeRole, subjects: [] });
+      const currentDivisionId = auth.divisionId;
+      const semesterId = auth.semesterId;
 
       const rows = await db
         .select({
@@ -281,8 +257,8 @@ export async function GET(req: NextRequest) {
         .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .where(
           and(
-            eq(facultySubjectAssignments.divisionId, student.currentDivisionId),
-            eq(facultySubjectAssignments.semesterId, div.semesterId)
+            eq(facultySubjectAssignments.divisionId, currentDivisionId),
+            eq(facultySubjectAssignments.semesterId, semesterId)
           )
         );
 

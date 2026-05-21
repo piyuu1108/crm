@@ -9,6 +9,16 @@ export interface AuthContext {
   isRoleForbidden: boolean;
   forbiddenRole?: string;
   facultyCode?: string;
+
+  // Student
+  divisionId?: number;
+  semesterId?: number;
+
+  // Counselor
+  counselorDivisionIds?: readonly number[];
+
+  // Shared
+  academicYearId?: number;
 }
 
 const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
@@ -30,9 +40,35 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     return null;
   }
 
-  const { userId, roles, facultyCode } = payload;
+  const {
+    userId,
+    roles,
+    facultyCode,
+    divisionId,
+    semesterId,
+    counselorDivisionIds,
+    academicYearId,
+  } = payload;
 
   if (userId === undefined || !Array.isArray(roles) || roles.length === 0) {
+    return null;
+  }
+
+  // Structural validation of enriched academic fields
+  if (divisionId !== undefined && typeof divisionId !== "number") {
+    return null;
+  }
+  if (semesterId !== undefined && typeof semesterId !== "number") {
+    return null;
+  }
+  if (academicYearId !== undefined && typeof academicYearId !== "number") {
+    return null;
+  }
+  if (
+    counselorDivisionIds !== undefined &&
+    (!Array.isArray(counselorDivisionIds) ||
+      counselorDivisionIds.some((id) => typeof id !== "number"))
+  ) {
     return null;
   }
 
@@ -70,5 +106,9 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     isRoleForbidden,
     forbiddenRole,
     facultyCode,
+    divisionId,
+    semesterId,
+    counselorDivisionIds,
+    academicYearId,
   };
 }

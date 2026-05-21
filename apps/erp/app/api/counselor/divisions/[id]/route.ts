@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions, students, counselorDivisionAssignments } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
@@ -21,23 +21,8 @@ async function authorize(req: NextRequest, divisionId: number) {
     return { error: err("Forbidden", 403) };
   }
 
-  // Verify assignment — scoped to the division's current semester
-  const [assignment] = await db
-    .select({ id: counselorDivisionAssignments.id })
-    .from(counselorDivisionAssignments)
-    .innerJoin(divisions, and(
-      eq(counselorDivisionAssignments.divisionId, divisions.id),
-      eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-    ))
-    .where(
-      and(
-        eq(counselorDivisionAssignments.facultyId, payload.userId),
-        eq(counselorDivisionAssignments.divisionId, divisionId)
-      )
-    )
-    .limit(1);
-
-  if (!assignment) {
+  const counselorDivisionIds = payload.counselorDivisionIds ?? [];
+  if (!counselorDivisionIds.includes(divisionId)) {
     return { error: err("Forbidden: You are not the counselor for this division in its current semester", 403) };
   }
 

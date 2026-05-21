@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalEvaluations,
@@ -76,11 +76,8 @@ export async function GET(req: NextRequest) {
         return err("Forbidden: not your assignment", 403);
       }
       if (resolvedRole === "counselor") {
-        const counselorDivs = await db
-          .select({ divisionId: counselorDivisionAssignments.divisionId })
-          .from(counselorDivisionAssignments)
-          .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
-        if (!counselorDivs.some((d) => d.divisionId === assignment.divisionId)) {
+        const counselorDivisionIds = payload.counselorDivisionIds ?? [];
+        if (!counselorDivisionIds.includes(assignment.divisionId)) {
           return err("Forbidden: not your division", 403);
         }
       }

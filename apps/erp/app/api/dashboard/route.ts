@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   faculty,
@@ -54,7 +54,12 @@ export async function GET(req: NextRequest) {
     // ── 4. Redis cache lookup ─────────────────────────────────────────────────
     // measureAsyncWait records only the network RTT to Redis.
     // The surrounding cache-key construction is pure CPU (negligible, not timed).
-    const cacheKey = `dashboard:user:${userId}:role:${activeRole}`;
+    let cacheKey = `dashboard:user:${userId}:role:${activeRole}`;
+    if (activeRole === "student" && auth.divisionId && auth.semesterId) {
+      cacheKey = `dashboard:student:${userId}:div:${auth.divisionId}:sem:${auth.semesterId}`;
+    } else if (activeRole === "counselor" && auth.counselorDivisionIds && auth.counselorDivisionIds.length > 0) {
+      cacheKey = `dashboard:counselor:${userId}:divs:${[...auth.counselorDivisionIds].sort().join(",")}`;
+    }
 
     const cachedData = await profiler
       .measureAsyncWait("cache:redisGet", "redis", async () => {
@@ -91,7 +96,7 @@ export async function GET(req: NextRequest) {
       profiler.measureAsyncWait(
         `db:buildDashboard:${activeRole}`,
         "db",
-        () => buildDashboard(activeRole as Role, userId)
+        () => buildDashboard(activeRole as Role, userId, auth)
       ),
     ]);
 
@@ -189,14 +194,14 @@ async function resolveUserInfo(
 }
 
 // ─── Dashboard builders ───────────────────────────────────────────────────────
-async function buildDashboard(role: Role, userId: number) {
+async function buildDashboard(role: Role, userId: number, auth: AuthContext) {
   switch (role) {
     case "student":
-      return buildStudentDashboard(userId);
+      return buildStudentDashboard(userId, auth);
     case "faculty":
       return buildFacultyDashboard(userId);
     case "counselor":
-      return buildCounselorDashboard(userId);
+      return buildCounselorDashboard(userId, auth);
     case "hod":
       return buildHodDashboard();
     default:
@@ -205,13 +210,12 @@ async function buildDashboard(role: Role, userId: number) {
 }
 
 // ── Student ──────────────────────────────────────────────────────────────────
-async function buildStudentDashboard(studentId: number) {
+async function buildStudentDashboard(studentId: number, auth: AuthContext) {
   const profileRows = await db
     .select({
       studentId: students.studentId,
       divisionName: students.currentDivisionName,
       currentSemesterNo: students.currentSemesterNo,
-      currentDivisionId: students.currentDivisionId,
       status: students.status,
       profileStatus: students.profileStatus,
       profileStep: students.profileStep,
@@ -221,18 +225,11 @@ async function buildStudentDashboard(studentId: number) {
     .limit(1);
   const profile = profileRows[0] ?? null;
 
-  let semesterId: number | null = null;
-  if (profile?.currentDivisionId) {
-    const [div] = await db
-      .select({ semesterId: divisions.semesterId })
-      .from(divisions)
-      .where(eq(divisions.id, profile.currentDivisionId))
-      .limit(1);
-    semesterId = div?.semesterId ?? null;
-  }
+  const divisionId = auth.divisionId ?? null;
+  const semesterId = auth.semesterId ?? null;
 
   // Query summary statistics from our read-optimized cache
-  const [summary] = profile?.currentDivisionId && semesterId
+  const [summary] = divisionId && semesterId
     ? await db
         .select({
           presentCount: attendanceAnalyticsSummary.presentCount,
@@ -243,7 +240,7 @@ async function buildStudentDashboard(studentId: number) {
         .where(
           and(
             eq(attendanceAnalyticsSummary.studentId, studentId),
-            eq(attendanceAnalyticsSummary.divisionId, profile.currentDivisionId),
+            eq(attendanceAnalyticsSummary.divisionId, divisionId),
             eq(attendanceAnalyticsSummary.semesterId, semesterId)
           )
         )
@@ -265,7 +262,6 @@ async function buildStudentDashboard(studentId: number) {
     );
   const pendingRequestsCount = Number(pendingRows[0]?.count ?? 0);
 
-  const divisionId = profile?.currentDivisionId ?? null;
   const todayTimetable = await getTodayTimetableForDivision(divisionId, semesterId);
 
   const recentRequests = await db
@@ -367,23 +363,23 @@ async function buildFacultyDashboard(facultyId: number) {
   };
 }
 
-async function buildCounselorDashboard(facultyId: number) {
-  const assignedDivisionRows = await db
-    .select({
-      id: counselorDivisionAssignments.divisionId,
-      divisionName: divisions.displayName,
-    })
-    .from(counselorDivisionAssignments)
-    .innerJoin(
-      divisions,
-      and(
-        eq(counselorDivisionAssignments.divisionId, divisions.id),
-        eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-      )
-    )
-    .where(eq(counselorDivisionAssignments.facultyId, facultyId));
+async function buildCounselorDashboard(facultyId: number, auth: AuthContext) {
+  const divisionIds = auth.counselorDivisionIds ?? [];
 
-  const divisionIds = assignedDivisionRows.map((d) => d.id);
+  const assignedDivisionRows = divisionIds.length > 0
+    ? await db
+        .select({
+          id: divisions.id,
+          divisionName: divisions.displayName,
+        })
+        .from(divisions)
+        .where(
+          sql`${divisions.id} IN (${sql.join(
+            divisionIds.map((id) => sql`${id}`),
+            sql`, `
+          )})`
+        )
+    : [];
 
   const pendingRows =
     divisionIds.length > 0

@@ -71,10 +71,9 @@ export async function GET(req: NextRequest) {
           eq(studentEnrollmentHistory.semesterId, attendanceSessionLedger.semesterId)
         )
       )
-      .leftJoin(students, eq(students.id, payload.userId))
       .where(
         and(
-          sql`(${studentEnrollmentHistory.id} is not null or ${students.currentDivisionId} = ${attendanceSessionLedger.divisionId})`,
+          sql`(${studentEnrollmentHistory.id} is not null or ${payload.divisionId} = ${attendanceSessionLedger.divisionId})`,
           ...conditions
         )
       )
@@ -92,10 +91,9 @@ export async function GET(req: NextRequest) {
           eq(studentEnrollmentHistory.semesterId, attendanceSessionLedger.semesterId)
         )
       )
-      .leftJoin(students, eq(students.id, payload.userId))
       .where(
         and(
-          sql`(${studentEnrollmentHistory.id} is not null or ${students.currentDivisionId} = ${attendanceSessionLedger.divisionId})`
+          sql`(${studentEnrollmentHistory.id} is not null or ${payload.divisionId} = ${attendanceSessionLedger.divisionId})`
         )
       )
       .groupBy(attendanceSessionLedger.subjectName);

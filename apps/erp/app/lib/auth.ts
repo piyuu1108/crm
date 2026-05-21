@@ -4,10 +4,24 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || "development-fallback-secret-key-12345"
 );
 
-export interface JWTPayload {
+export type AuthPayload = {
   userId: number;
-  email: string;
   roles: string[];
+  activeRole?: string;
+
+  // Student
+  divisionId?: number;
+  semesterId?: number;
+
+  // Counselor
+  counselorDivisionIds?: readonly number[];
+
+  // Shared
+  academicYearId?: number;
+};
+
+export interface JWTPayload extends AuthPayload {
+  email: string;
   facultyCode?: string;
   studentId?: string;
   [key: string]: unknown;

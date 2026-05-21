@@ -35,17 +35,7 @@ export async function GET(req: NextRequest) {
       return err("Forbidden: students only", 403);
     }
 
-    // Get the student record
-    const [student] = await db
-      .select({
-        id: students.id,
-        currentDivisionId: students.currentDivisionId,
-      })
-      .from(students)
-      .where(eq(students.id, payload.userId))
-      .limit(1);
 
-    if (!student) return err("Student not found", 404);
 
     // Fetch all visible marks for this student
     const marks = await db

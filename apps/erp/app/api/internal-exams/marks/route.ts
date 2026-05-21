@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalExamMarks,
@@ -24,10 +24,10 @@ function err(message: string, status: number) {
 
 // Shared RBAC check: returns true if the user can access the assignment
 async function canAccessAssignment(
-  resolvedRole: string,
-  userId: number,
+  auth: AuthContext,
   assignmentId: number
 ): Promise<boolean> {
+  const { activeRole: resolvedRole, userId } = auth;
   if (resolvedRole === "hod") return true;
 
   const [assignment] = await db
@@ -46,11 +46,8 @@ async function canAccessAssignment(
   }
 
   if (resolvedRole === "counselor") {
-    const counselorDivs = await db
-      .select({ divisionId: counselorDivisionAssignments.divisionId })
-      .from(counselorDivisionAssignments)
-      .where(eq(counselorDivisionAssignments.facultyId, userId));
-    return counselorDivs.some((d) => d.divisionId === assignment.divisionId);
+    const counselorDivisionIds = auth.counselorDivisionIds ?? [];
+    return counselorDivisionIds.includes(assignment.divisionId);
   }
 
   return false;
@@ -80,7 +77,7 @@ export async function GET(req: NextRequest) {
       return err("examId and assignmentId are required", 400);
     }
 
-    if (!(await canAccessAssignment(resolvedRole, userId, assignmentId))) {
+    if (!(await canAccessAssignment(auth, assignmentId))) {
       return err("Forbidden: no access to this assignment", 403);
     }
 
@@ -172,7 +169,7 @@ export async function POST(req: NextRequest) {
       return err("examId, assignmentId, and non-empty records are required", 400);
     }
 
-    if (!(await canAccessAssignment(resolvedRole, userId, assignmentId))) {
+    if (!(await canAccessAssignment(auth, assignmentId))) {
       return err("Forbidden: no access to this assignment", 403);
     }
 

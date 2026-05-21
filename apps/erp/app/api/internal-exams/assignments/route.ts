@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   facultySubjectAssignments,
@@ -102,19 +102,7 @@ export async function GET(req: NextRequest) {
         .orderBy(subjects.name);
     } else {
       // Counselor sees assignments for their assigned divisions
-      const counselorDivs = await db
-        .select({ divisionId: counselorDivisionAssignments.divisionId })
-        .from(counselorDivisionAssignments)
-        .innerJoin(
-          divisions,
-          and(
-            eq(counselorDivisionAssignments.divisionId, divisions.id),
-            eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-          )
-        )
-        .where(eq(counselorDivisionAssignments.facultyId, userId));
-
-      const divIds = counselorDivs.map((d) => d.divisionId);
+      const divIds = auth.counselorDivisionIds ?? [];
 
       if (divIds.length === 0) {
         return ok([]);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   students,
@@ -26,27 +26,12 @@ async function authorizeCounselor(req: NextRequest) {
     return { error: err("Forbidden: Counselor access required", 403) };
   }
 
-  return { payload };
+  return { payload: payload as AuthContext };
 }
 
-async function ensureDivisionAccess(counselorId: number, divisionId: number) {
-  // Verify assignment — scoped to the division's current semester
-  const assignment = await db
-    .select({ id: counselorDivisionAssignments.id })
-    .from(counselorDivisionAssignments)
-    .innerJoin(divisions, and(
-      eq(counselorDivisionAssignments.divisionId, divisions.id),
-      eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-    ))
-    .where(
-      and(
-        eq(counselorDivisionAssignments.facultyId, counselorId),
-        eq(counselorDivisionAssignments.divisionId, divisionId)
-      )
-    )
-    .limit(1);
-
-  return Boolean(assignment[0]);
+function ensureDivisionAccess(auth: AuthContext, divisionId: number) {
+  const counselorDivisionIds = auth.counselorDivisionIds ?? [];
+  return counselorDivisionIds.includes(divisionId);
 }
 
 export async function GET(
@@ -84,8 +69,8 @@ export async function GET(
     if (!student) return err("Student not found", 404);
     if (!student.currentDivisionId) return err("Student has no active division", 400);
 
-    const allowed = await ensureDivisionAccess(
-      auth.payload.userId,
+    const allowed = ensureDivisionAccess(
+      auth.payload,
       student.currentDivisionId
     );
     if (!allowed) return err("Forbidden: student not in your assigned division", 403);
@@ -128,8 +113,8 @@ export async function PATCH(
     if (!student) return err("Student not found", 404);
     if (!student.currentDivisionId) return err("Student has no active division", 400);
 
-    const allowed = await ensureDivisionAccess(
-      auth.payload.userId,
+    const allowed = ensureDivisionAccess(
+      auth.payload,
       student.currentDivisionId
     );
     if (!allowed) return err("Forbidden: student not in your assigned division", 403);

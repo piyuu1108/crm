@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, students } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
@@ -20,23 +20,8 @@ async function authorize(req: NextRequest, divisionId: number) {
   const rolesArray = payload.roles;
   if (!rolesArray.includes("counselor")) return { error: err("Forbidden", 403) };
 
-  // Verify assignment — scoped to the division's current semester
-  const [assignment] = await db
-    .select({ id: counselorDivisionAssignments.id })
-    .from(counselorDivisionAssignments)
-    .innerJoin(divisions, and(
-      eq(counselorDivisionAssignments.divisionId, divisions.id),
-      eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-    ))
-    .where(
-      and(
-        eq(counselorDivisionAssignments.facultyId, payload.userId),
-        eq(counselorDivisionAssignments.divisionId, divisionId)
-      )
-    )
-    .limit(1);
-
-  if (!assignment) return { error: err("Forbidden", 403) };
+  const counselorDivisionIds = payload.counselorDivisionIds ?? [];
+  if (!counselorDivisionIds.includes(divisionId)) return { error: err("Forbidden", 403) };
   return { payload };
 }
 

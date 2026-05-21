@@ -74,22 +74,31 @@ export async function POST(request: Request) {
       const userRolesList = userRolesRaw.map((r) => r.name);
 
       // 3.5 Check if they are a counselor for any division's current semester
-      const { counselorDivisionAssignments, divisions: divisionsTable } = await import("@/app/lib/schema");
+      const { counselorDivisionAssignments, divisions: divisionsTable, academicYears: academicYearsTable } = await import("@/app/lib/schema");
       const { and } = await import("drizzle-orm");
 
       const activeAssignments = await db
-        .select({ id: counselorDivisionAssignments.id })
+        .select({ divisionId: counselorDivisionAssignments.divisionId })
         .from(counselorDivisionAssignments)
         .innerJoin(divisionsTable, and(
           eq(counselorDivisionAssignments.divisionId, divisionsTable.id),
           eq(counselorDivisionAssignments.semesterId, divisionsTable.semesterId)
         ))
-        .where(eq(counselorDivisionAssignments.facultyId, user.id))
-        .limit(1);
+        .where(eq(counselorDivisionAssignments.facultyId, user.id));
 
-      if (activeAssignments.length > 0 && !userRolesList.includes("counselor")) {
+      const counselorDivisionIds = activeAssignments.map((a) => a.divisionId);
+
+      if (counselorDivisionIds.length > 0 && !userRolesList.includes("counselor")) {
         userRolesList.push("counselor");
       }
+
+      // Fetch current active academic year for faculty
+      const activeYear = await db
+        .select({ id: academicYearsTable.id })
+        .from(academicYearsTable)
+        .where(eq(academicYearsTable.isCurrent, true))
+        .limit(1);
+      const academicYearId = activeYear[0]?.id;
 
       // 4. Generate JWT
       const payload: JWTPayload = {
@@ -97,6 +106,8 @@ export async function POST(request: Request) {
         email: user.email,
         roles: userRolesList,
         facultyCode: user.facultyCode,
+        counselorDivisionIds: counselorDivisionIds.length > 0 ? counselorDivisionIds : undefined,
+        academicYearId,
       };
 
       const token = await signToken(payload);
@@ -171,11 +182,43 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch student's division, semester, and academic year IDs
+    const { divisions: divisionsTable, semesters: semestersTable, academicYears: academicYearsTable } = await import("@/app/lib/schema");
+
+    const studentInfo = await db
+      .select({
+        divisionId: students.currentDivisionId,
+        semesterId: divisionsTable.semesterId,
+        academicYearId: semestersTable.academicYearId,
+      })
+      .from(students)
+      .leftJoin(divisionsTable, eq(students.currentDivisionId, divisionsTable.id))
+      .leftJoin(semestersTable, eq(divisionsTable.semesterId, semestersTable.id))
+      .where(eq(students.id, student.id))
+      .limit(1);
+
+    const divisionId = studentInfo[0]?.divisionId ?? undefined;
+    const semesterId = studentInfo[0]?.semesterId ?? undefined;
+    let academicYearId = studentInfo[0]?.academicYearId ?? undefined;
+
+    if (!academicYearId) {
+      // Fall back to the current active academic year
+      const activeYear = await db
+        .select({ id: academicYearsTable.id })
+        .from(academicYearsTable)
+        .where(eq(academicYearsTable.isCurrent, true))
+        .limit(1);
+      academicYearId = activeYear[0]?.id;
+    }
+
     const payload: JWTPayload = {
       userId: student.id,
       email: student.email,
       roles: ["student"],
       studentId: student.studentId ?? undefined,
+      divisionId: divisionId || undefined,
+      semesterId: semesterId || undefined,
+      academicYearId: academicYearId || undefined,
     };
 
     const token = await signToken(payload);

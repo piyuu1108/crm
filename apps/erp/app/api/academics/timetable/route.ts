@@ -30,24 +30,25 @@ export async function GET(req: NextRequest) {
     const { userId, roles: rolesArray, activeRole } = auth;
 
     if (activeRole === "student") {
-      const [student] = await db
-        .select({
-          divisionId: students.currentDivisionId,
-          semesterId: divisions.semesterId,
-          publishStatus: divisions.publishStatus,
-          divisionName: students.currentDivisionName
-        })
-        .from(students)
-        .leftJoin(divisions, eq(divisions.id, students.currentDivisionId))
-        .where(eq(students.id, userId))
-        .limit(1);
-
-      if (!student || !student.divisionId) {
+      if (!auth.divisionId || !auth.semesterId) {
         return ok({ role: "student", isPublished: false, entries: [], divisionName: "" });
       }
 
-      if (student.publishStatus !== "published") {
-        return ok({ role: "student", isPublished: false, entries: [], divisionName: student.divisionName });
+      const [div] = await db
+        .select({
+          publishStatus: divisions.publishStatus,
+          displayName: divisions.displayName,
+        })
+        .from(divisions)
+        .where(eq(divisions.id, auth.divisionId))
+        .limit(1);
+
+      if (!div) {
+        return ok({ role: "student", isPublished: false, entries: [], divisionName: "" });
+      }
+
+      if (div.publishStatus !== "published") {
+        return ok({ role: "student", isPublished: false, entries: [], divisionName: div.displayName });
       }
 
       const entries = await db
@@ -73,13 +74,13 @@ export async function GET(req: NextRequest) {
         .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
         .where(
           and(
-            eq(timetableEntries.divisionId, student.divisionId),
-            eq(timetableEntries.semesterId, student.semesterId!),
+            eq(timetableEntries.divisionId, auth.divisionId),
+            eq(timetableEntries.semesterId, auth.semesterId),
             eq(timetableEntries.isActive, true)
           )
         );
 
-      return ok({ role: "student", isPublished: true, entries, divisionName: student.divisionName });
+      return ok({ role: "student", isPublished: true, entries, divisionName: div.displayName });
 
     } else if (activeRole === "faculty" || activeRole === "hod") {
       const entries = await db
@@ -113,22 +114,24 @@ export async function GET(req: NextRequest) {
       return ok({ role: activeRole, entries });
 
     } else if (activeRole === "counselor") {
-      const assignments = await db
-        .select({
-          divisionId: counselorDivisionAssignments.divisionId,
-          semesterId: counselorDivisionAssignments.semesterId,
-          divisionName: divisions.displayName,
-        })
-        .from(counselorDivisionAssignments)
-        .innerJoin(divisions, eq(counselorDivisionAssignments.divisionId, divisions.id))
-        .where(eq(counselorDivisionAssignments.facultyId, userId));
-
-      if (assignments.length === 0) {
+      const divisionIds = auth.counselorDivisionIds ?? [];
+      if (divisionIds.length === 0) {
         return ok({ role: "counselor", entries: [], divisionName: "" });
       }
 
-      const divisionIds = assignments.map(a => a.divisionId);
-      const divisionNames = assignments.map(a => a.divisionName).join(", ");
+      const divisionDetails = await db
+        .select({
+          divisionName: divisions.displayName,
+        })
+        .from(divisions)
+        .where(
+          sql`${divisions.id} IN (${sql.join(
+            divisionIds.map((id) => sql`${id}`),
+            sql`, `
+          )})`
+        );
+
+      const divisionNames = divisionDetails.map(a => a.divisionName).join(", ");
       
       const entries = await db
         .select({

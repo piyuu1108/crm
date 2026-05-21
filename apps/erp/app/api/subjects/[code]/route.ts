@@ -80,21 +80,17 @@ export async function GET(
 
     if (activeRole === "student") {
       // Student can only see this subject if it's in their division
-      const [student] = await db
-        .select({ currentDivisionId: students.currentDivisionId })
-        .from(students)
-        .where(eq(students.id, userId))
-        .limit(1);
+      if (!auth.divisionId) return err("Forbidden", 403);
 
-      if (!student?.currentDivisionId) return err("Forbidden", 403);
+      const currentDivisionId = auth.divisionId;
 
       const inDivision = allAssignments.some(
-        (a) => a.divisionId === student.currentDivisionId
+        (a) => a.divisionId === currentDivisionId
       );
       if (!inDivision) return err("Forbidden: subject not in your division", 403);
 
       filteredAssignments = allAssignments.filter(
-        (a) => a.divisionId === student.currentDivisionId
+        (a) => a.divisionId === currentDivisionId
       );
 
       // Fetch student marks for this subject
@@ -131,16 +127,12 @@ export async function GET(
       filteredAssignments = allAssignments.filter((a) => a.facultyId === userId);
     } else if (activeRole === "counselor") {
       // Counselor can see subjects from their assigned divisions
-      const counselorDivs = await db
-        .select({ divisionId: counselorDivisionAssignments.divisionId })
-        .from(counselorDivisionAssignments)
-        .innerJoin(divisions, and(
-          eq(counselorDivisionAssignments.divisionId, divisions.id),
-          eq(counselorDivisionAssignments.semesterId, divisions.semesterId)
-        ))
-        .where(eq(counselorDivisionAssignments.facultyId, userId));
+      const counselorDivisionIds = auth.counselorDivisionIds ?? [];
+      if (counselorDivisionIds.length === 0) {
+        return err("Forbidden: subject not in your divisions", 403);
+      }
 
-      const divIds = new Set(counselorDivs.map((d) => d.divisionId));
+      const divIds = new Set(counselorDivisionIds);
       const hasAccess = allAssignments.some((a) => divIds.has(a.divisionId));
       if (!hasAccess) return err("Forbidden: subject not in your divisions", 403);
       filteredAssignments = allAssignments.filter((a) => divIds.has(a.divisionId));

@@ -18,7 +18,7 @@ import { remember, cacheKeys, TTL, invalidateAttendanceUpdated } from "@/app/lib
 
 async function getDivisionAttendance(divisionId: number) {
   return remember(
-    cacheKeys.attendance(divisionId),
+    cacheKeys.attendance.division(divisionId),
     TTL.ATTENDANCE,
     async () => {
       const rawSessions = await db

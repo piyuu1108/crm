@@ -41,7 +41,7 @@ interface CachedSubject {
 
 async function getDivisionSubjects(divisionId: number, semesterId: number): Promise<CachedSubject[]> {
   return remember(
-    cacheKeys.subjects(divisionId, semesterId),
+    cacheKeys.subjects.division(divisionId, semesterId),
     TTL.SUBJECTS,
     async () => {
       const rows = await db
@@ -238,7 +238,7 @@ export async function GET(req: NextRequest) {
     // ── FACULTY: Only assigned subjects ──────────────────────────────
     if (activeRole === "faculty") {
       const result = await remember(
-        `erp:subjects:faculty:${userId}`,
+        cacheKeys.subjects.faculty(userId),
         TTL.SUBJECTS,
         async () => {
           const rows = await db

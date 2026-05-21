@@ -7,7 +7,7 @@ import {
   divisions,
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
-import { redis } from "@/app/lib/redis";
+import { invalidateDashboard } from "@/app/lib/cache";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -123,7 +123,7 @@ export async function PATCH(
     await db.update(students).set({ status: nextStatus }).where(eq(students.id, id));
 
     try {
-      await redis.del(`dashboard:user:${id}:role:student`);
+      await invalidateDashboard(id);
     } catch (cacheError) {
       console.warn("[counselor student verify] cache clear failed:", cacheError);
     }

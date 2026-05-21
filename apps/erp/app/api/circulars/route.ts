@@ -9,13 +9,13 @@ import {
   facultySubjectAssignments,
 } from "@/app/lib/schema";
 import { desc, eq, and, or, inArray, count } from "drizzle-orm";
-import { remember, cacheKeys, TTL } from "@/app/lib/cache";
+import { remember, cacheKeys, TTL, semesterToAcademicYear } from "@/app/lib/cache";
 
 // ─── Cache Helpers ────────────────────────────────────────────────────────────
 
 async function getGlobalCirculars() {
   return remember(
-    cacheKeys.circularsGlobal(),
+    cacheKeys.circulars.global(),
     TTL.CIRCULARS,
     async () => {
       const rows = await db
@@ -30,7 +30,7 @@ async function getGlobalCirculars() {
 
 async function getYearCirculars(year: number) {
   return remember(
-    cacheKeys.circularsYear(year),
+    cacheKeys.circulars.year(year),
     TTL.CIRCULARS,
     async () => {
       const rows = await db
@@ -45,7 +45,7 @@ async function getYearCirculars(year: number) {
 
 async function getDivisionCirculars(divisionId: number) {
   return remember(
-    cacheKeys.circularsDiv(divisionId),
+    cacheKeys.circulars.division(divisionId),
     TTL.CIRCULARS,
     async () => {
       const divRows = await db
@@ -66,7 +66,7 @@ async function getDivisionCirculars(divisionId: number) {
 
 async function getFacultyCirculars() {
   return remember(
-    cacheKeys.circularsFaculty(),
+    cacheKeys.circulars.faculty(),
     TTL.CIRCULARS,
     async () => {
       const rows = await db
@@ -115,18 +115,9 @@ export async function GET(req: NextRequest) {
 
     // ── STUDENT ────────────────────────────────────────────────────────────────
     if (isStudent) {
-      const [studentData] = await db
-        .select({
-          currentSemesterNo: students.currentSemesterNo,
-          currentDivisionId: students.currentDivisionId,
-        })
-        .from(students)
-        .where(eq(students.id, userId))
-        .limit(1);
-
-      const studentDivId  = studentData?.currentDivisionId ?? null;
-      const studentYear   = studentData?.currentSemesterNo
-        ? Math.ceil(studentData.currentSemesterNo / 2)
+      const studentDivId  = payload.divisionId ?? null;
+      const studentYear   = payload.semesterId
+        ? semesterToAcademicYear(payload.semesterId)
         : null;
 
       // Parallel fetch cached segments

@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       }
 
       const entries = await remember(
-        cacheKeys.timetable(auth.divisionId),
+        cacheKeys.timetable.division(auth.divisionId),
         TTL.TIMETABLE,
         async () => {
           return db
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
     } else if (activeRole === "faculty" || activeRole === "hod") {
       const entries = await remember(
-        cacheKeys.timetableFaculty(userId),
+        cacheKeys.timetable.faculty(userId),
         TTL.TIMETABLE,
         async () => {
           return db
@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
       const allEntries = await Promise.all(
         divisionIds.map((divId) =>
           remember(
-            cacheKeys.timetable(divId),
+            cacheKeys.timetable.division(divId),
             TTL.TIMETABLE,
             async () => {
               return db

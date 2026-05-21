@@ -25,16 +25,34 @@ export const TTL = {
 
 // Deterministic key builders
 export const cacheKeys = {
-  dashboard: (userId: number) => `erp:dashboard:user:${userId}`,
-  timetable: (divisionId: number) => `erp:timetable:division:${divisionId}`,
-  timetableFaculty: (facultyId: number) => `erp:timetable:faculty:${facultyId}`,
-  subjects: (divisionId: number, semesterId: number) => `erp:subjects:division:${divisionId}:semester:${semesterId}`,
-  circularsDiv: (divisionId: number) => `erp:circulars:division:${divisionId}`,
-  circularsYear: (academicYear: number) => `erp:circulars:year:${academicYear}`,
-  circularsGlobal: () => `erp:circulars:global`,
-  circularsFaculty: () => `erp:circulars:faculty`,
-  attendance: (divisionId: number) => `erp:attendance:division:${divisionId}`,
-};
+  dashboard: {
+    user: (userId: number) => `erp:dashboard:user:${userId}` as const,
+  },
+  timetable: {
+    division: (divisionId: number) => `erp:timetable:division:${divisionId}` as const,
+    faculty: (facultyId: number) => `erp:timetable:faculty:${facultyId}` as const,
+  },
+  subjects: {
+    division: (divisionId: number, semesterId: number) => `erp:subjects:division:${divisionId}:semester:${semesterId}` as const,
+    faculty: (facultyId: number) => `erp:subjects:faculty:${facultyId}` as const,
+  },
+  circulars: {
+    division: (divisionId: number) => `erp:circulars:division:${divisionId}` as const,
+    year: (academicYear: number) => `erp:circulars:year:${academicYear}` as const,
+    global: () => `erp:circulars:global` as const,
+    faculty: () => `erp:circulars:faculty` as const,
+  },
+  attendance: {
+    division: (divisionId: number) => `erp:attendance:division:${divisionId}` as const,
+  },
+} as const;
+
+/**
+ * Maps semester index to the corresponding academic year (e.g. Sem 1 & 2 -> Year 1, Sem 3 & 4 -> Year 2)
+ */
+export function semesterToAcademicYear(semesterId: number): number {
+  return Math.ceil(semesterId / 2);
+}
 
 // Logging helper
 function logCache(action: string, key: string, metadata: Record<string, any> = {}) {
@@ -146,9 +164,11 @@ export async function invalidateKey(key: string) {
 
 /**
  * Invalidate the dashboard cache of a specific user.
+ * Deletes both the new nested key format and the legacy string-formatted key for backward compatibility.
  */
 export async function invalidateDashboard(userId: number) {
-  await invalidateKey(cacheKeys.dashboard(userId));
+  await invalidateKey(cacheKeys.dashboard.user(userId));
+  await invalidateKey(`dashboard:user:${userId}:role:student`);
 }
 
 /**
@@ -165,7 +185,8 @@ export async function invalidateStudentDashboardsInDivision(divisionId: number) 
     if (studentRows.length > 0) {
       const pipeline = redis.pipeline();
       for (const student of studentRows) {
-        pipeline.del(cacheKeys.dashboard(student.id));
+        pipeline.del(cacheKeys.dashboard.user(student.id));
+        pipeline.del(`dashboard:user:${student.id}:role:student`);
       }
       await pipeline.exec();
       logCache("INVALIDATE_DASHBOARDS_DIVISION", `division:${divisionId}`, {
@@ -183,12 +204,12 @@ export async function invalidateStudentDashboardsInDivision(divisionId: number) 
  * Invalidates timetable entries cache and pipelines student dashboards.
  */
 export async function invalidateTimetableUpdated(divisionId: number) {
-  await invalidateKey(cacheKeys.timetable(divisionId));
+  await invalidateKey(cacheKeys.timetable.division(divisionId));
   await invalidateStudentDashboardsInDivision(divisionId);
 }
 
 export async function invalidateAttendanceUpdated(divisionId: number) {
-  await invalidateKey(cacheKeys.attendance(divisionId));
+  await invalidateKey(cacheKeys.attendance.division(divisionId));
   await invalidateStudentDashboardsInDivision(divisionId);
 }
 
@@ -197,7 +218,7 @@ export async function invalidateAttendanceUpdated(divisionId: number) {
  * Invalidates subjects lists cache.
  */
 export async function invalidateSubjectsUpdated(divisionId: number, semesterId: number) {
-  await invalidateKey(cacheKeys.subjects(divisionId, semesterId));
+  await invalidateKey(cacheKeys.subjects.division(divisionId, semesterId));
 }
 
 /**
@@ -211,14 +232,14 @@ export async function invalidateCircularUpdated(circular: {
 }) {
   const type = circular.targetType;
   if (type === "ALL") {
-    await invalidateKey(cacheKeys.circularsGlobal());
+    await invalidateKey(cacheKeys.circulars.global());
   } else if (type === "FACULTY") {
-    await invalidateKey(cacheKeys.circularsFaculty());
+    await invalidateKey(cacheKeys.circulars.faculty());
   } else if (type === "YEAR" && circular.targetYear) {
-    await invalidateKey(cacheKeys.circularsYear(circular.targetYear));
+    await invalidateKey(cacheKeys.circulars.year(circular.targetYear));
   } else if (type === "DIVISION" && circular.recipientDivisions) {
     for (const divId of circular.recipientDivisions) {
-      await invalidateKey(cacheKeys.circularsDiv(divId));
+      await invalidateKey(cacheKeys.circulars.division(divId));
     }
   }
 }

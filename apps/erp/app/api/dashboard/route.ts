@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── 4. Redis cache lookup ─────────────────────────────────────────────────
-    const cacheKey = cacheKeys.dashboard(userId);
+    const cacheKey = cacheKeys.dashboard.user(userId);
     let source: "cache" | "db" = "cache";
 
     let cachedData = null;

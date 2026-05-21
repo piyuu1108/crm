@@ -10,7 +10,7 @@ import {
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { remember, cacheKeys, TTL } from "@/app/lib/cache";
+import { remember, cacheTags, TTL } from "@/app/lib/cache";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ interface CachedSubject {
 
 async function getDivisionSubjects(divisionId: number, semesterId: number): Promise<CachedSubject[]> {
   return remember(
-    cacheKeys.subjects.division(divisionId, semesterId),
+    cacheTags.subjects.division(divisionId, semesterId),
     TTL.SUBJECTS,
     async () => {
       const rows = await db
@@ -238,7 +238,7 @@ export async function GET(req: NextRequest) {
     // ── FACULTY: Only assigned subjects ──────────────────────────────
     if (activeRole === "faculty") {
       const result = await remember(
-        cacheKeys.subjects.faculty(userId),
+        cacheTags.subjects.faculty(userId),
         TTL.SUBJECTS,
         async () => {
           const rows = await db

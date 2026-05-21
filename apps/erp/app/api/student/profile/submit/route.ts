@@ -3,7 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, studentDocuments } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
-import { invalidateDashboard } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 import {
   validateAllSteps,
   type PersonalInfoData,
@@ -128,7 +128,7 @@ export async function POST(req: NextRequest) {
       .where(eq(students.id, studentDbId));
 
     try {
-      await invalidateDashboard(studentDbId);
+      await clearCache(cacheTags.dashboard.user(studentDbId));
     } catch (cacheError) {
       console.warn("[student profile submit] cache clear failed:", cacheError);
     }

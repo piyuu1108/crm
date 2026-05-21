@@ -3,7 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
-import { invalidateCircularUpdated } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 const VALID_TARGET_TYPES = ["ALL", "FACULTY", "YEAR", "DIVISION"] as const;
 type TargetType = (typeof VALID_TARGET_TYPES)[number];
@@ -111,11 +111,21 @@ export async function POST(req: NextRequest) {
     }
 
     // Invalidate cached circular lists for target visibility
-    await invalidateCircularUpdated({
-      targetType,
-      targetYear: targetYear ? Number(targetYear) : null,
-      recipientDivisions: targetDivisionIds ? targetDivisionIds.map(Number) : [],
-    });
+    try {
+      if (targetType === "ALL") {
+        await clearCache(cacheTags.circulars.global());
+      } else if (targetType === "FACULTY") {
+        await clearCache(cacheTags.circulars.faculty());
+      } else if (targetType === "YEAR" && targetYear) {
+        await clearCache(cacheTags.circulars.year(Number(targetYear)));
+      } else if (targetType === "DIVISION" && targetDivisionIds) {
+        for (const divId of targetDivisionIds) {
+          await clearCache(cacheTags.circulars.division(Number(divId)));
+        }
+      }
+    } catch (cacheError) {
+      console.warn("[Cache Error] Failed to invalidate circular cache:", cacheError);
+    }
 
     return NextResponse.json(
       {

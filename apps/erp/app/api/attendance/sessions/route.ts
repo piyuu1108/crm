@@ -14,11 +14,11 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, sql, count } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
-import { remember, cacheKeys, TTL, invalidateAttendanceUpdated } from "@/app/lib/cache";
+import { remember, cacheTags, TTL, clearCache } from "@/app/lib/cache";
 
 async function getDivisionAttendance(divisionId: number) {
   return remember(
-    cacheKeys.attendance.division(divisionId),
+    cacheTags.attendance.division(divisionId),
     TTL.ATTENDANCE,
     async () => {
       const rawSessions = await db
@@ -389,7 +389,8 @@ export async function POST(req: NextRequest) {
       absentStudentIds: [],
     });
 
-    await invalidateAttendanceUpdated(entry.divisionId);
+    await clearCache(cacheTags.attendance.division(entry.divisionId));
+    await clearCache(cacheTags.dashboard.division(entry.divisionId));
 
     const records = studentsInDivision.map((s) => ({
       studentId: s.id,

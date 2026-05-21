@@ -1,7 +1,7 @@
-import { redis } from "@/app/lib/redis";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { unstable_cache, revalidateTag } from "next/cache";
 
 // Centralized TTL management (values in hours per user spec)
 export const CACHE_CONFIG = {
@@ -23,10 +23,11 @@ export const TTL = {
   ATTENDANCE: hoursToSeconds(CACHE_CONFIG.ATTENDANCE_HOURS),
 } as const;
 
-// Deterministic key builders
-export const cacheKeys = {
+// Deterministic key/tag builders
+export const cacheTags = {
   dashboard: {
     user: (userId: number) => `erp:dashboard:user:${userId}` as const,
+    division: (divisionId: number) => `erp:dashboard:division:${divisionId}` as const,
   },
   timetable: {
     division: (divisionId: number) => `erp:timetable:division:${divisionId}` as const,
@@ -45,6 +46,11 @@ export const cacheKeys = {
   attendance: {
     division: (divisionId: number) => `erp:attendance:division:${divisionId}` as const,
   },
+  admin: {
+    divisionsList: (page: number, limit: number) => `erp:admin:divisions:list:page:${page}:limit:${limit}` as const,
+    facultyList: (page: number, limit: number, search: string, status: string, sortBy: string, sortOrder: string) =>
+      `erp:admin:faculty:list:page:${page}:limit:${limit}:search:${search}:status:${status}:sortBy:${sortBy}:sortOrder:${sortOrder}` as const,
+  },
 } as const;
 
 /**
@@ -54,192 +60,34 @@ export function semesterToAcademicYear(semesterId: number): number {
   return Math.ceil(semesterId / 2);
 }
 
-// Logging helper
-function logCache(action: string, key: string, metadata: Record<string, any> = {}) {
-  console.log(`[Cache ${action}] key=${key} ${Object.keys(metadata).map(k => `${k}=${metadata[k]}`).join(" ")}`);
-}
-
-interface RememberOptions {
-  profiler?: {
-    measureAsyncWait: <U>(name: string, type: string, fn: () => Promise<U>) => Promise<U>;
-  };
-  profilerNamePrefix?: string;
-}
-
 /**
- * High-reliability typed cache wrapper with graceful Redis connection failure recovery.
+ * High-reliability typed cache wrapper using Next.js unstable_cache.
+ * Accepts an optional array of secondary tags for multi-tag grouping.
  */
 export async function remember<T>(
   key: string,
   ttlSeconds: number,
   fetchFn: () => Promise<T>,
-  options?: RememberOptions
+  tags?: string[]
 ): Promise<T> {
-  const profiler = options?.profiler;
-  const prefix = options?.profilerNamePrefix ?? "cache";
-
-  let cachedValue: any = null;
-  let didReadSucceed = false;
-
-  try {
-    const start = Date.now();
-    const fetchFromRedis = async () => {
-      try {
-        return await redis.get(key);
-      } catch (redisError) {
-        console.warn(`[Redis GET Error] Failed to read key "${key}":`, redisError);
-        return null;
-      }
-    };
-
-    if (profiler) {
-      cachedValue = await profiler.measureAsyncWait(`${prefix}:redisGet`, "redis", fetchFromRedis);
-    } else {
-      cachedValue = await fetchFromRedis();
+  console.log(`[Cache REMEMBER] key=${key} tags=${tags ? tags.join(",") : "none"}`);
+  return unstable_cache(
+    async () => {
+      console.log(`[Cache MISS - Fetching Source] key=${key}`);
+      return fetchFn();
+    },
+    [key],
+    {
+      tags: tags ? [key, ...tags] : [key],
+      revalidate: ttlSeconds,
     }
-    
-    didReadSucceed = true;
-    const duration = Date.now() - start;
-
-    if (cachedValue !== null && cachedValue !== undefined) {
-      logCache("HIT", key, { durationMs: duration });
-      if (typeof cachedValue === "string") {
-        try {
-          return JSON.parse(cachedValue) as T;
-        } catch {
-          return cachedValue as unknown as T;
-        }
-      }
-      return cachedValue as T;
-    }
-  } catch (err) {
-    console.error(`[Cache Critical Error] Failed during Redis GET flow for key "${key}":`, err);
-  }
-
-  if (didReadSucceed) {
-    logCache("MISS", key);
-  }
-
-  // Fallback to database/source fetch on cache miss or Redis read failure
-  const freshValue = await fetchFn();
-
-  try {
-    const start = Date.now();
-    const writeToRedis = async () => {
-      try {
-        // Store as serialized JSON
-        await redis.set(key, JSON.stringify(freshValue), { ex: ttlSeconds });
-      } catch (redisError) {
-        console.warn(`[Redis SET Error] Failed to write key "${key}":`, redisError);
-      }
-    };
-
-    if (profiler) {
-      await profiler.measureAsyncWait(`${prefix}:redisSet`, "redis", writeToRedis);
-    } else {
-      await writeToRedis();
-    }
-    
-    const duration = Date.now() - start;
-    logCache("SET", key, { durationMs: duration, ttl: ttlSeconds });
-  } catch (err) {
-    console.error(`[Cache Critical Error] Failed during Redis SET flow for key "${key}":`, err);
-  }
-
-  return freshValue;
+  )();
 }
 
 /**
- * Delete a specific key from Redis.
+ * Delete/purge a tag from Next.js Data Cache.
  */
-export async function invalidateKey(key: string) {
-  try {
-    const start = Date.now();
-    await redis.del(key);
-    logCache("INVALIDATE", key, { durationMs: Date.now() - start });
-  } catch (err) {
-    console.error(`[Cache Error] Failed to invalidate key "${key}":`, err);
-  }
-}
-
-/**
- * Invalidate the dashboard cache of a specific user.
- * Deletes both the new nested key format and the legacy string-formatted key for backward compatibility.
- */
-export async function invalidateDashboard(userId: number) {
-  await invalidateKey(cacheKeys.dashboard.user(userId));
-  await invalidateKey(`dashboard:user:${userId}:role:student`);
-}
-
-/**
- * Pipelined deletion helper to invalidate dashboards of all students in a division.
- */
-export async function invalidateStudentDashboardsInDivision(divisionId: number) {
-  try {
-    const start = Date.now();
-    const studentRows = await db
-      .select({ id: students.id })
-      .from(students)
-      .where(eq(students.currentDivisionId, divisionId));
-
-    if (studentRows.length > 0) {
-      const pipeline = redis.pipeline();
-      for (const student of studentRows) {
-        pipeline.del(cacheKeys.dashboard.user(student.id));
-        pipeline.del(`dashboard:user:${student.id}:role:student`);
-      }
-      await pipeline.exec();
-      logCache("INVALIDATE_DASHBOARDS_DIVISION", `division:${divisionId}`, {
-        count: studentRows.length,
-        durationMs: Date.now() - start,
-      });
-    }
-  } catch (err) {
-    console.error(`[Cache Error] Failed to invalidate student dashboards in division ${divisionId}:`, err);
-  }
-}
-
-/**
- * Event invalidation trigger: TIMETABLE_UPDATED.
- * Invalidates timetable entries cache and pipelines student dashboards.
- */
-export async function invalidateTimetableUpdated(divisionId: number) {
-  await invalidateKey(cacheKeys.timetable.division(divisionId));
-  await invalidateStudentDashboardsInDivision(divisionId);
-}
-
-export async function invalidateAttendanceUpdated(divisionId: number) {
-  await invalidateKey(cacheKeys.attendance.division(divisionId));
-  await invalidateStudentDashboardsInDivision(divisionId);
-}
-
-/**
- * Event invalidation trigger: SUBJECTS_UPDATED.
- * Invalidates subjects lists cache.
- */
-export async function invalidateSubjectsUpdated(divisionId: number, semesterId: number) {
-  await invalidateKey(cacheKeys.subjects.division(divisionId, semesterId));
-}
-
-/**
- * Event invalidation trigger: CIRCULAR_UPDATED.
- * Invalidates specific circular segments depending on the target configuration.
- */
-export async function invalidateCircularUpdated(circular: {
-  targetType: string;
-  targetYear?: number | null;
-  recipientDivisions?: number[];
-}) {
-  const type = circular.targetType;
-  if (type === "ALL") {
-    await invalidateKey(cacheKeys.circulars.global());
-  } else if (type === "FACULTY") {
-    await invalidateKey(cacheKeys.circulars.faculty());
-  } else if (type === "YEAR" && circular.targetYear) {
-    await invalidateKey(cacheKeys.circulars.year(circular.targetYear));
-  } else if (type === "DIVISION" && circular.recipientDivisions) {
-    for (const divId of circular.recipientDivisions) {
-      await invalidateKey(cacheKeys.circulars.division(divId));
-    }
-  }
+export async function clearCache(key: string): Promise<void> {
+  console.log(`[Cache INVALIDATE] tag/key=${key}`);
+  (revalidateTag as any)(key);
 }

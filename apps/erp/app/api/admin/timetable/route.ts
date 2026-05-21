@@ -10,7 +10,7 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, inArray } from "drizzle-orm";
-import { invalidateTimetableUpdated } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -328,7 +328,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    await invalidateTimetableUpdated(divId);
+    await clearCache(cacheTags.timetable.division(divId));
+    await clearCache(cacheTags.dashboard.division(divId));
 
     return ok({ saved: newEntries.length, status: "draft" });
   } catch (error) {

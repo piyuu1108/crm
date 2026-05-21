@@ -8,8 +8,7 @@ import {
   faculty,
 } from "@/app/lib/schema";
 import { eq, and, ne } from "drizzle-orm";
-import { redis } from "@/app/lib/redis";
-import { invalidateSubjectsUpdated } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 
@@ -144,14 +143,10 @@ export async function PUT(
     // Invalidate cached subjects for all affected divisions and faculties
     for (const assignment of assignmentRows) {
       if (assignment.divisionId && assignment.semesterId) {
-        await invalidateSubjectsUpdated(assignment.divisionId, assignment.semesterId);
+        await clearCache(cacheTags.subjects.division(assignment.divisionId, assignment.semesterId));
       }
       if (assignment.facultyId) {
-        try {
-          await redis.del(`erp:subjects:faculty:${assignment.facultyId}`);
-        } catch (e) {
-          console.warn("[Cache Invalidation Error] Failed to delete subjects faculty key:", e);
-        }
+        await clearCache(cacheTags.subjects.faculty(assignment.facultyId));
       }
     }
 

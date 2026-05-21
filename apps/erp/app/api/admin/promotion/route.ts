@@ -9,7 +9,7 @@ import {
   studentEnrollmentHistory,
 } from "@/app/lib/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
-import { redis } from "@/app/lib/redis";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown) {
@@ -187,18 +187,13 @@ export async function POST(req: NextRequest) {
 
     // ── Invalidate relevant caches ────────────────────────────────────
     try {
-      const cachePatterns = [
-        "divisions:*",
-        "dashboard:*",
-      ];
-      for (const pattern of cachePatterns) {
-        const keys = await redis.keys(pattern);
-        if (keys.length > 0) {
-          await redis.del(...keys);
-        }
-      }
-    } catch (redisError) {
-      console.warn("[Promotion] Cache invalidation failed:", redisError);
+      // Invalidate HOD divisions list cache
+      await clearCache(cacheTags.admin.divisionsList(1, 1000));
+      // Invalidate dashboards of both source and target divisions
+      await clearCache(cacheTags.dashboard.division(sourceDivisionId));
+      await clearCache(cacheTags.dashboard.division(targetDivisionId));
+    } catch (cacheError) {
+      console.warn("[Promotion] Cache invalidation failed:", cacheError);
     }
 
     return ok({

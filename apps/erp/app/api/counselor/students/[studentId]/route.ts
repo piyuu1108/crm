@@ -7,7 +7,7 @@ import {
   divisions,
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
-import { invalidateDashboard } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -123,7 +123,7 @@ export async function PATCH(
     await db.update(students).set({ status: nextStatus }).where(eq(students.id, id));
 
     try {
-      await invalidateDashboard(id);
+      await clearCache(cacheTags.dashboard.user(id));
     } catch (cacheError) {
       console.warn("[counselor student verify] cache clear failed:", cacheError);
     }

@@ -3,7 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
-import { invalidateCircularUpdated } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 export async function DELETE(
   req: NextRequest,
@@ -60,11 +60,22 @@ export async function DELETE(
     await db.delete(circulars).where(eq(circulars.slug, slug));
 
     // Invalidate cached circular lists
-    await invalidateCircularUpdated({
-      targetType: existing.targetType,
-      targetYear: existing.targetYear,
-      recipientDivisions: divisionIds,
-    });
+    try {
+      const targetType = existing.targetType;
+      if (targetType === "ALL") {
+        await clearCache(cacheTags.circulars.global());
+      } else if (targetType === "FACULTY") {
+        await clearCache(cacheTags.circulars.faculty());
+      } else if (targetType === "YEAR" && existing.targetYear) {
+        await clearCache(cacheTags.circulars.year(existing.targetYear));
+      } else if (targetType === "DIVISION" && divisionIds) {
+        for (const divId of divisionIds) {
+          await clearCache(cacheTags.circulars.division(divId));
+        }
+      }
+    } catch (cacheError) {
+      console.warn("[Cache Error] Failed to invalidate circular cache:", cacheError);
+    }
 
     return NextResponse.json({ success: true, data: "Deleted successfully" });
   } catch (error) {

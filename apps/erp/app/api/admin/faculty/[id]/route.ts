@@ -3,7 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty } from "@/app/lib/schema";
 import { eq, and, ne } from "drizzle-orm";
-import { redis } from "@/app/lib/redis";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 
@@ -124,12 +124,9 @@ export async function PUT(
 
     // ── Invalidate cache ──────────────────────────────────────────────
     try {
-      const keys = await redis.keys("erp:admin:facultyList:*");
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-    } catch (redisError) {
-      console.warn("[Redis DEL Error] Failed to clear faculty cache:", redisError);
+      await clearCache(cacheTags.admin.facultyList(1, 10, "", "", "name", "asc"));
+    } catch (cacheError) {
+      console.warn("[Cache Clear Error] Failed to clear faculty cache:", cacheError);
     }
 
     return ok({

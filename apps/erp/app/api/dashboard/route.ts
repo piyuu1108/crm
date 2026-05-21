@@ -13,8 +13,7 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
-import { redis } from "@/app/lib/redis";
-import { cacheKeys, TTL } from "@/app/lib/cache";
+import { remember, cacheTags, TTL } from "@/app/lib/cache";
 import { RequestProfiler } from "@/app/lib/profiler";
 
 const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
@@ -52,76 +51,59 @@ export async function GET(req: NextRequest) {
       return err(`Forbidden: role '${forbiddenRole}' is not assigned to this user`, 403);
     }
 
-    // ── 4. Redis cache lookup ─────────────────────────────────────────────────
-    const cacheKey = cacheKeys.dashboard.user(userId);
-    let source: "cache" | "db" = "cache";
+    // ── 4. Cache lookup using Adapter Pattern ───────────────────────────────
+    const cacheKey = cacheTags.dashboard.user(userId);
+    const tags = activeRole === "student" && auth.divisionId
+      ? [cacheTags.dashboard.division(auth.divisionId)]
+      : [];
 
-    let cachedData = null;
+    let isDbFetch = false;
+
     try {
-      const getRedis = async () => {
-        try {
-          return await redis.get(cacheKey);
-        } catch (e) {
-          console.warn("[Redis GET Error] Falling back to DB:", e);
-          return null;
-        }
-      };
-      cachedData = await profiler.measureAsyncWait("cache:redisGet", "redis", getRedis);
-    } catch (err) {
-      console.error("[Cache Error] Redis GET failed:", err);
-    }
+      const payloadData = await remember(
+        cacheKey,
+        TTL.DASHBOARD,
+        async () => {
+          isDbFetch = true;
+          console.log(`[Dashboard Cache] MISS for key: ${cacheKey}. Fetching from DB...`);
+          const [userInfo, dashboard] = await Promise.all([
+            profiler.measureAsyncWait(
+              "db:resolveUserInfo",
+              "db",
+              () => resolveUserInfo(userId, activeRole, rolesArray)
+            ),
+            profiler.measureAsyncWait(
+              `db:buildDashboard:${activeRole}`,
+              "db",
+              () => buildDashboard(activeRole as Role, userId, auth)
+            ),
+          ]);
 
-    let payloadData: any;
-    if (cachedData) {
-      payloadData = typeof cachedData === "string" ? JSON.parse(cachedData) : cachedData;
-      console.log(`[Dashboard Cache] HIT for key: ${cacheKey}`);
-    } else {
-      source = "db";
-      console.log(`[Dashboard Cache] MISS for key: ${cacheKey}. Fetching from DB...`);
-      const [userInfo, dashboard] = await Promise.all([
-        profiler.measureAsyncWait(
-          "db:resolveUserInfo",
-          "db",
-          () => resolveUserInfo(userId, activeRole, rolesArray)
-        ),
-        profiler.measureAsyncWait(
-          `db:buildDashboard:${activeRole}`,
-          "db",
-          () => buildDashboard(activeRole as Role, userId, auth)
-        ),
-      ]);
+          if (!userInfo) {
+            throw new Error("User record not found");
+          }
 
-      if (!userInfo) {
+          return {
+            user: {
+              ...userInfo,
+              roles: rolesArray,
+              activeRole,
+            },
+            dashboard,
+          };
+        },
+        tags
+      );
+
+      profiler.finish();
+      return ok(payloadData, isDbFetch ? "db" : "cache");
+    } catch (e: any) {
+      if (e.message === "User record not found") {
         profiler.finish();
         return err("User record not found", 404);
       }
-
-      payloadData = profiler.measureCpuSection("cpu:assemblePayload", () => ({
-        user: {
-          ...userInfo,
-          roles: rolesArray,
-          activeRole,
-        },
-        dashboard,
-      }));
-
-      // Cache write
-      try {
-        const setRedis = async () => {
-          try {
-            await redis.set(cacheKey, JSON.stringify(payloadData), { ex: TTL.DASHBOARD });
-          } catch (e) {
-            console.warn("[Redis SET Error] Failed to cache:", e);
-          }
-        };
-        await profiler.measureAsyncWait("cache:redisSet", "redis", setRedis);
-      } catch (err) {
-        console.error("[Cache Error] Redis SET failed:", err);
-      }
+      throw e;
     }
-
-    profiler.finish();
-    return ok(payloadData, source);
   } catch (error) {
     console.error("[/api/dashboard] Unhandled error:", error);
     profiler.finish();

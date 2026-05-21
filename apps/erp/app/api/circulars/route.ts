@@ -9,13 +9,13 @@ import {
   facultySubjectAssignments,
 } from "@/app/lib/schema";
 import { desc, eq, and, or, inArray, count } from "drizzle-orm";
-import { remember, cacheKeys, TTL, semesterToAcademicYear } from "@/app/lib/cache";
+import { remember, cacheTags, TTL, semesterToAcademicYear } from "@/app/lib/cache";
 
 // ─── Cache Helpers ────────────────────────────────────────────────────────────
 
 async function getGlobalCirculars() {
   return remember(
-    cacheKeys.circulars.global(),
+    cacheTags.circulars.global(),
     TTL.CIRCULARS,
     async () => {
       const rows = await db
@@ -30,7 +30,7 @@ async function getGlobalCirculars() {
 
 async function getYearCirculars(year: number) {
   return remember(
-    cacheKeys.circulars.year(year),
+    cacheTags.circulars.year(year),
     TTL.CIRCULARS,
     async () => {
       const rows = await db
@@ -45,7 +45,7 @@ async function getYearCirculars(year: number) {
 
 async function getDivisionCirculars(divisionId: number) {
   return remember(
-    cacheKeys.circulars.division(divisionId),
+    cacheTags.circulars.division(divisionId),
     TTL.CIRCULARS,
     async () => {
       const divRows = await db
@@ -66,7 +66,7 @@ async function getDivisionCirculars(divisionId: number) {
 
 async function getFacultyCirculars() {
   return remember(
-    cacheKeys.circulars.faculty(),
+    cacheTags.circulars.faculty(),
     TTL.CIRCULARS,
     async () => {
       const rows = await db

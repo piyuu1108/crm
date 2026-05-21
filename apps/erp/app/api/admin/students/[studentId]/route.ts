@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
-import { invalidateDashboard } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -96,7 +96,7 @@ export async function PATCH(
       .where(eq(students.id, id));
 
     try {
-      await invalidateDashboard(id);
+      await clearCache(cacheTags.dashboard.user(id));
     } catch (cacheError) {
       console.warn("[admin student verify] cache clear failed:", cacheError);
     }

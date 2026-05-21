@@ -11,7 +11,7 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { remember, cacheKeys, TTL } from "@/app/lib/cache";
+import { remember, cacheTags, TTL } from "@/app/lib/cache";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
       }
 
       const entries = await remember(
-        cacheKeys.timetable.division(auth.divisionId),
+        cacheTags.timetable.division(auth.divisionId),
         TTL.TIMETABLE,
         async () => {
           return db
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
     } else if (activeRole === "faculty" || activeRole === "hod") {
       const entries = await remember(
-        cacheKeys.timetable.faculty(userId),
+        cacheTags.timetable.faculty(userId),
         TTL.TIMETABLE,
         async () => {
           return db
@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
       const allEntries = await Promise.all(
         divisionIds.map((divId) =>
           remember(
-            cacheKeys.timetable.division(divId),
+            cacheTags.timetable.division(divId),
             TTL.TIMETABLE,
             async () => {
               return db

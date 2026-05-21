@@ -7,7 +7,7 @@ import {
 } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
-import { invalidateAttendanceUpdated } from "@/app/lib/cache";
+import { cacheTags, clearCache } from "@/app/lib/cache";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -112,7 +112,8 @@ export async function POST(req: NextRequest) {
       absentStudentIds: updatedAbsentIds,
     });
 
-    await invalidateAttendanceUpdated(session.divisionId);
+    await clearCache(cacheTags.attendance.division(session.divisionId));
+    await clearCache(cacheTags.dashboard.division(session.divisionId));
 
     return ok({ saved: records.length });
   } catch (error) {

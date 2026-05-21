@@ -3,7 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions, courses, semesters, students, counselorDivisionAssignments, facultySubjectAssignments, faculty, subjects, academicYears } from "@/app/lib/schema";
 import { eq, and, count, asc, desc, sql, max, inArray } from "drizzle-orm";
-import { redis } from "@/app/lib/redis";
+import { remember, cacheTags, clearCache } from "@/app/lib/cache";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown, source: "db" | "cache" = "db") {
@@ -47,118 +47,111 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
     const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get("limit") || "1000", 10)));
 
-    const cacheKey = `divisions:list:page:${page}:limit:${limit}`;
+    const cacheKey = cacheTags.admin.divisionsList(page, limit);
+    let isDbFetch = false;
 
-    try {
-      const cachedData = await redis.get(cacheKey);
-      if (cachedData) {
-        return ok(cachedData, "cache");
-      }
-    } catch (redisError) {
-      console.warn("[Redis GET Error] Falling back to DB:", redisError);
-    }
+    const payloadData = await remember(
+      cacheKey,
+      120, // 2 minutes (TTL in seconds)
+      async () => {
+        isDbFetch = true;
+        // Count total divisions
+        const [totalResult] = await db
+          .select({ total: count() })
+          .from(divisions);
 
-    // Count total divisions
-    const [totalResult] = await db
-      .select({ total: count() })
-      .from(divisions);
+        const total = totalResult?.total ?? 0;
+        const totalPages = Math.ceil(total / limit);
+        const offset = (page - 1) * limit;
 
-    const total = totalResult?.total ?? 0;
-    const totalPages = Math.ceil(total / limit);
-    const offset = (page - 1) * limit;
+        // Fetch divisions with student counts
+        const rows = await db
+          .select({
+            id: divisions.id,
+            displayName: divisions.displayName,
+            specialization: divisions.specialization,
+            batchYear: divisions.batchYear,
+            semesterNo: divisions.semesterNo,
+            divisionNo: divisions.divisionNo,
+            courseCode: divisions.courseCode,
+            courseName: divisions.courseName,
+            maxCapacity: divisions.maxCapacity,
+            createdAt: divisions.createdAt,
+            studentCount: sql<number>`(SELECT COUNT(*) FROM students WHERE students.current_division_id = ${divisions.id})`.as("student_count"),
+          })
+          .from(divisions)
+          .orderBy(desc(divisions.createdAt))
+          .limit(limit)
+          .offset(offset);
 
-    // Fetch divisions with student counts
-    const rows = await db
-      .select({
-        id: divisions.id,
-        displayName: divisions.displayName,
-        specialization: divisions.specialization,
-        batchYear: divisions.batchYear,
-        semesterNo: divisions.semesterNo,
-        divisionNo: divisions.divisionNo,
-        courseCode: divisions.courseCode,
-        courseName: divisions.courseName,
-        maxCapacity: divisions.maxCapacity,
-        createdAt: divisions.createdAt,
-        studentCount: sql<number>`(SELECT COUNT(*) FROM students WHERE students.current_division_id = ${divisions.id})`.as("student_count"),
-      })
-      .from(divisions)
-      .orderBy(desc(divisions.createdAt))
-      .limit(limit)
-      .offset(offset);
+        // Fetch counselor assignments for these divisions
+        const divisionIds = rows.map((r) => r.id);
+        let counselorMap: Record<number, string> = {};
+        let assignmentsMap: Record<number, any[]> = {};
 
-    // Fetch counselor assignments for these divisions
-    const divisionIds = rows.map((r) => r.id);
-    let counselorMap: Record<number, string> = {};
-    let assignmentsMap: Record<number, any[]> = {};
+        if (divisionIds.length > 0) {
+          const counselors = await db
+            .select({
+              divisionId: counselorDivisionAssignments.divisionId,
+              facultyName: faculty.name,
+            })
+            .from(counselorDivisionAssignments)
+            .innerJoin(faculty, eq(counselorDivisionAssignments.facultyId, faculty.id))
+            .where(inArray(counselorDivisionAssignments.divisionId, divisionIds));
 
-    if (divisionIds.length > 0) {
-      const counselors = await db
-        .select({
-          divisionId: counselorDivisionAssignments.divisionId,
-          facultyName: faculty.name,
-        })
-        .from(counselorDivisionAssignments)
-        .innerJoin(faculty, eq(counselorDivisionAssignments.facultyId, faculty.id))
-        .where(inArray(counselorDivisionAssignments.divisionId, divisionIds));
+          for (const c of counselors) {
+            // First counselor found for each division
+            if (!counselorMap[c.divisionId]) {
+              counselorMap[c.divisionId] = c.facultyName;
+            }
+          }
 
-      for (const c of counselors) {
-        // First counselor found for each division
-        if (!counselorMap[c.divisionId]) {
-          counselorMap[c.divisionId] = c.facultyName;
+          const divisionAssignments = await db
+            .select({
+              divisionId: facultySubjectAssignments.divisionId,
+              facultyName: faculty.name,
+              subjectName: subjects.name,
+              facultyCode: faculty.facultyCode,
+              subjectShortCode: subjects.shortCode,
+              subjectCode: subjects.code,
+              subjectType: subjects.subjectType,
+              subjectCredit: subjects.credit,
+            })
+            .from(facultySubjectAssignments)
+            .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+            .leftJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+            .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
+
+          for (const a of divisionAssignments) {
+            if (!assignmentsMap[a.divisionId]) {
+              assignmentsMap[a.divisionId] = [];
+            }
+            assignmentsMap[a.divisionId].push({
+              subjectName: a.subjectName || "",
+              facultyName: a.facultyName || "",
+              subjectShortCode: a.subjectShortCode || (a.subjectName ? a.subjectName.substring(0, 3).toUpperCase() : ""),
+              facultyCode: a.facultyCode || (a.facultyName ? a.facultyName.split(' ').map(n => n[0]).join('') : ""),
+              subjectCode: a.subjectCode,
+              subjectType: a.subjectType,
+              subjectCredit: a.subjectCredit,
+            });
+          }
         }
+
+        const divisionsWithCounselors = rows.map((r) => ({
+          ...r,
+          counselorName: counselorMap[r.id] || null,
+          assignments: assignmentsMap[r.id] || [],
+        }));
+
+        return {
+          divisions: divisionsWithCounselors,
+          pagination: { page, limit, total, totalPages },
+        };
       }
+    );
 
-      const divisionAssignments = await db
-        .select({
-          divisionId: facultySubjectAssignments.divisionId,
-          facultyName: faculty.name,
-          subjectName: subjects.name,
-          facultyCode: faculty.facultyCode,
-          subjectShortCode: subjects.shortCode,
-          subjectCode: subjects.code,
-          subjectType: subjects.subjectType,
-          subjectCredit: subjects.credit,
-        })
-        .from(facultySubjectAssignments)
-        .leftJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
-        .leftJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-        .where(inArray(facultySubjectAssignments.divisionId, divisionIds));
-
-      for (const a of divisionAssignments) {
-        if (!assignmentsMap[a.divisionId]) {
-          assignmentsMap[a.divisionId] = [];
-        }
-        assignmentsMap[a.divisionId].push({
-          subjectName: a.subjectName || "",
-          facultyName: a.facultyName || "",
-          subjectShortCode: a.subjectShortCode || (a.subjectName ? a.subjectName.substring(0, 3).toUpperCase() : ""),
-          facultyCode: a.facultyCode || (a.facultyName ? a.facultyName.split(' ').map(n => n[0]).join('') : ""),
-          subjectCode: a.subjectCode,
-          subjectType: a.subjectType,
-          subjectCredit: a.subjectCredit,
-        });
-      }
-    }
-
-    const divisionsWithCounselors = rows.map((r) => ({
-      ...r,
-      counselorName: counselorMap[r.id] || null,
-      assignments: assignmentsMap[r.id] || [],
-    }));
-
-    const payloadData = {
-      divisions: divisionsWithCounselors,
-      pagination: { page, limit, total, totalPages },
-    };
-
-    try {
-      await redis.set(cacheKey, payloadData, { ex: 120 });
-    } catch (redisError) {
-      console.warn("[Redis SET Error] Failed to cache data:", redisError);
-    }
-
-    return ok(payloadData, "db");
+    return ok(payloadData, isDbFetch ? "db" : "cache");
   } catch (error) {
     console.error("[GET /api/admin/divisions] Error:", error);
     return err("Internal server error", 500);
@@ -319,12 +312,9 @@ export async function POST(req: NextRequest) {
 
     // Invalidate cache (outside transaction — non-critical)
     try {
-      const keys = await redis.keys("divisions:*");
-      if (keys.length > 0) {
-        await redis.del(...keys);
-      }
-    } catch (redisError) {
-      console.warn("[Redis DEL Error] Failed to invalidate cache:", redisError);
+      await clearCache(cacheTags.admin.divisionsList(1, 1000));
+    } catch (cacheError) {
+      console.warn("[Cache Clear Error] Failed to invalidate cache:", cacheError);
     }
 
     return NextResponse.json({ success: true, data: created }, { status: 201 });

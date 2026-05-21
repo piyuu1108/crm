@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty, facultyRoles, roles, facultySubjectAssignments, divisions, subjects } from "@/app/lib/schema";
 import { eq, and, like, count, asc, desc, or, sql, inArray } from "drizzle-orm";
@@ -53,8 +53,11 @@ export async function GET(req: NextRequest) {
       300, // 5 minutes
       async () => {
         isDbFetch = true;
-        // Build WHERE conditions
-        const conditions = [];
+        const { payload: authPayload } = auth;
+        const courseId = requireCourseId(authPayload!);
+
+        // Build WHERE conditions — always scope to HOD's course
+        const conditions = [eq(faculty.courseId, courseId)];
 
         if (search) {
           conditions.push(
@@ -62,7 +65,7 @@ export async function GET(req: NextRequest) {
               like(faculty.name, `%${search}%`),
               like(faculty.facultyCode, `%${search}%`),
               like(faculty.email, `%${search}%`)
-            )
+            )!
           );
         }
 
@@ -246,6 +249,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const auth2 = await authorize(req);
+    if ("error" in auth2 && auth2.error) return auth2.error;
+    const courseId = requireCourseId(auth2.payload!);
+
     // ── Create faculty member ─────────────────────────────────────────
     // SRS §3.3: Temporary password = faculty code (mandatory change on first login)
     const passwordHash = await bcrypt.hash("pass@123", 10);
@@ -257,6 +264,7 @@ export async function POST(req: NextRequest) {
         email: email.trim(),
         mobile: mobile.trim(),
         facultyCode: facultyCode.trim(),
+        courseId,                             // ← from session, never from body
         designation: designation?.trim() || null,
         passwordHash,
         mustChangePwd: true,

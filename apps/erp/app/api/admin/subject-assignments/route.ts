@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   facultySubjectAssignments,
@@ -35,6 +35,8 @@ export async function GET(req: NextRequest) {
   try {
     const auth = await authorize(req);
     if ("error" in auth && auth.error) return auth.error;
+
+    const courseId = requireCourseId(auth.payload!);
 
     const url = new URL(req.url);
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
@@ -93,7 +95,7 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .offset(offset);
 
-    // Fetch dropdown data
+    // Fetch dropdown data — all scoped to HOD's course
     const allDivisions = await db
       .select({
         id: divisions.id,
@@ -103,17 +105,19 @@ export async function GET(req: NextRequest) {
         batchYear: divisions.batchYear,
       })
       .from(divisions)
+      .where(eq(divisions.courseId, courseId))
       .orderBy(divisions.displayName);
 
     const allFaculty = await db
       .select({ id: faculty.id, name: faculty.name, designation: faculty.designation })
       .from(faculty)
-      .where(eq(faculty.isActive, true))
+      .where(and(eq(faculty.isActive, true), eq(faculty.courseId, courseId)))
       .orderBy(faculty.name);
 
     const allSubjects = await db
       .select({ id: subjects.id, name: subjects.name, code: subjects.code, subjectType: subjects.subjectType })
       .from(subjects)
+      .where(eq(subjects.courseId, courseId))
       .orderBy(subjects.name);
 
     return ok({

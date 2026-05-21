@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { faculty } from "@/app/lib/schema";
+import { faculty, students } from "@/app/lib/schema";
 import { eq, ilike, and } from "drizzle-orm";
 
 /**
@@ -21,14 +21,28 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Any authenticated user can search faculty
+    // Any authenticated user can search faculty — scoped to their course
     const { searchParams } = new URL(req.url);
     const query = searchParams.get("q")?.trim() || "";
 
-    const conditions = [eq(faculty.isActive, true)];
-    if (query.length > 0) {
-      conditions.push(ilike(faculty.name, `%${query}%`));
+    // Resolve the caller's course:
+    //  - Faculty/HOD: courseId is directly in the JWT
+    //  - Students: look up their courseId via the students table
+    let courseId: number | undefined = payload.courseId;
+
+    if (!courseId && payload.roles.includes("student")) {
+      const [studentRow] = await db
+        .select({ courseId: students.courseId })
+        .from(students)
+        .where(eq(students.id, payload.userId))
+        .limit(1);
+      courseId = studentRow?.courseId ?? undefined;
     }
+
+    // Build WHERE: always active; filter by course if known
+    const conditions: ReturnType<typeof eq>[] = [eq(faculty.isActive, true)];
+    if (courseId) conditions.push(eq(faculty.courseId, courseId));
+    if (query.length > 0) conditions.push(ilike(faculty.name, `%${query}%`));
 
     const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
 

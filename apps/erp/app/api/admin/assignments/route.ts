@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
       return err("Forbidden: HOD access required", 403);
     }
 
-    // 1. Get all divisions (each carries its own semester_id)
+    const courseId = requireCourseId(auth);
+
+    // 1. Get divisions scoped to HOD's course (each carries its own semester_id)
     const allDivisions = await db
       .select({
         id: divisions.id,
@@ -31,9 +33,10 @@ export async function GET(req: NextRequest) {
         semesterId: divisions.semesterId,
       })
       .from(divisions)
+      .where(eq(divisions.courseId, courseId))
       .orderBy(divisions.displayName);
 
-    // 2. Get all faculty
+    // 2. Get faculty scoped to HOD's course
     const allFaculty = await db
       .select({
         id: faculty.id,
@@ -41,6 +44,7 @@ export async function GET(req: NextRequest) {
         designation: faculty.designation,
       })
       .from(faculty)
+      .where(eq(faculty.courseId, courseId))
       .orderBy(faculty.name);
 
     // 3. Get all active counselor assignments — scoped to each division's semester

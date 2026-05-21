@@ -26,6 +26,7 @@ async function ensureQuizPlaceholderEntities() {
       email: "quiz-placeholder@erp.local",
       mobile: "0000000000",
       passwordHash: "placeholder",
+      courseId: 2, // BCA course — quiz placeholder belongs to the default course
     });
   }
 
@@ -41,6 +42,7 @@ async function ensureQuizPlaceholderEntities() {
       code: "QUIZ",
       name: "Quiz",
       subjectType: "theory",
+      courseId: 2, // BCA course — quiz placeholder belongs to the default course
     });
   }
 }

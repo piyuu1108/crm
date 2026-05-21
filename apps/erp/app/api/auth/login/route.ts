@@ -33,6 +33,7 @@ export async function POST(request: Request) {
         mustChangePwd: faculty.mustChangePwd,
         isActive: faculty.isActive,
         facultyCode: faculty.facultyCode,
+        courseId: faculty.courseId,
       })
       .from(faculty)
       .where(eq(faculty.email, identifier))
@@ -106,6 +107,7 @@ export async function POST(request: Request) {
         email: user.email,
         roles: userRolesList,
         facultyCode: user.facultyCode,
+        courseId: user.courseId,            // strict course isolation
         counselorDivisionIds: counselorDivisionIds.length > 0 ? counselorDivisionIds : undefined,
         academicYearId,
       };

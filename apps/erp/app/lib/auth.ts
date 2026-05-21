@@ -9,6 +9,9 @@ export type AuthPayload = {
   roles: string[];
   activeRole?: string;
 
+  // All faculty/HOD — course they belong to
+  courseId?: number;
+
   // Student
   divisionId?: number;
   semesterId?: number;

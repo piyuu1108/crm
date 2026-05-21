@@ -10,6 +10,9 @@ export interface AuthContext {
   forbiddenRole?: string;
   facultyCode?: string;
 
+  // Faculty / HOD — course they belong to (undefined for students)
+  courseId?: number;
+
   // Student
   divisionId?: number;
   semesterId?: number;
@@ -22,6 +25,18 @@ export interface AuthContext {
 }
 
 const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
+
+/**
+ * Asserts that courseId is present in the auth context.
+ * Use in HOD/faculty-only routes to ensure course isolation is enforced.
+ * Throws if courseId is missing (indicates a broken JWT or misconfigured account).
+ */
+export function requireCourseId(auth: AuthContext): number {
+  if (!auth.courseId) {
+    throw new Error("courseId missing from auth context — faculty account may not be linked to a course");
+  }
+  return auth.courseId;
+}
 
 /**
  * Extracts and validates the authentication context by verifying the JWT directly from cookies.
@@ -44,6 +59,7 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     userId,
     roles,
     facultyCode,
+    courseId,
     divisionId,
     semesterId,
     counselorDivisionIds,
@@ -55,6 +71,9 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
   }
 
   // Structural validation of enriched academic fields
+  if (courseId !== undefined && typeof courseId !== "number") {
+    return null;
+  }
   if (divisionId !== undefined && typeof divisionId !== "number") {
     return null;
   }
@@ -106,6 +125,7 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     isRoleForbidden,
     forbiddenRole,
     facultyCode,
+    courseId,
     divisionId,
     semesterId,
     counselorDivisionIds,

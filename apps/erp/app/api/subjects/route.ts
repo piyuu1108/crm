@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   subjects,
@@ -115,8 +115,9 @@ export async function GET(req: NextRequest) {
 
     const { userId, roles: rolesArray, activeRole } = auth;
 
-    // ── HOD: All subjects in the system ──────────────────────────────
+    // ── HOD: All subjects scoped to this course ───────────────────────
     if (activeRole === "hod") {
+      const courseId = requireCourseId(auth);
       const rows = await db
         .select({
           id: subjects.id,
@@ -130,7 +131,8 @@ export async function GET(req: NextRequest) {
           externalPracticalMax: subjects.externalPracticalMax,
           practicalPassingMarks: subjects.practicalPassingMarks,
         })
-        .from(subjects);
+        .from(subjects)
+        .where(eq(subjects.courseId, courseId));
 
       // Enrich with assignment info — scoped to each division's current semester
       const assignments = await db

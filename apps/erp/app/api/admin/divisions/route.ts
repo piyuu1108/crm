@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions, courses, semesters, students, counselorDivisionAssignments, facultySubjectAssignments, faculty, subjects, academicYears } from "@/app/lib/schema";
 import { eq, and, count, asc, desc, sql, max, inArray } from "drizzle-orm";
@@ -55,16 +55,20 @@ export async function GET(req: NextRequest) {
       120, // 2 minutes (TTL in seconds)
       async () => {
         isDbFetch = true;
-        // Count total divisions
+        const { payload: authPayload } = auth;
+        const courseId = requireCourseId(authPayload!);
+
+        // Count total divisions scoped to this HOD's course
         const [totalResult] = await db
           .select({ total: count() })
-          .from(divisions);
+          .from(divisions)
+          .where(eq(divisions.courseId, courseId));
 
         const total = totalResult?.total ?? 0;
         const totalPages = Math.ceil(total / limit);
         const offset = (page - 1) * limit;
 
-        // Fetch divisions with student counts
+        // Fetch divisions with student counts, scoped to course
         const rows = await db
           .select({
             id: divisions.id,
@@ -80,6 +84,7 @@ export async function GET(req: NextRequest) {
             studentCount: sql<number>`(SELECT COUNT(*) FROM students WHERE students.current_division_id = ${divisions.id})`.as("student_count"),
           })
           .from(divisions)
+          .where(eq(divisions.courseId, courseId))
           .orderBy(desc(divisions.createdAt))
           .limit(limit)
           .offset(offset);
@@ -190,14 +195,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Fetch course info (do not hardcode) ───────────────────────────
+    // ── Fetch course info from session courseId (never trust LIMIT 1) ─────
+    const auth2 = await authorize(req);
+    if ("error" in auth2 && auth2.error) return auth2.error;
+    const courseId = requireCourseId(auth2.payload!);
+
     const [course] = await db
       .select({ id: courses.id, code: courses.code, name: courses.name })
       .from(courses)
+      .where(eq(courses.id, courseId))
       .limit(1);
 
     if (!course) {
-      return err("No course configured in the system. Please create a course first.", 400);
+      return err("Your account is not linked to a valid course. Contact admin.", 400);
     }
 
     // ── All creation logic wrapped in a single transaction ────────────

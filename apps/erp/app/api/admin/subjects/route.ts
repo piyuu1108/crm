@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { subjects, facultySubjectAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, count, inArray } from "drizzle-orm";
@@ -17,7 +17,6 @@ function err(message: string, status: number, errors?: Record<string, string>) {
   );
 }
 
-// ─── Auth guard — JWT double-verification + HOD role check ────────────────────
 async function authorize(req: NextRequest) {
   const payload = await getAuthContext(req);
   if (!payload) return { error: err("Unauthorized", 401) };
@@ -30,13 +29,15 @@ async function authorize(req: NextRequest) {
   return { payload };
 }
 
-// ─── GET /api/admin/subjects — List all subjects with assignment info ──────────
+// ─── GET /api/admin/subjects — List subjects scoped to HOD's course ────────────
 export async function GET(req: NextRequest) {
   try {
     const auth = await authorize(req);
     if ("error" in auth && auth.error) return auth.error;
 
-    // Fetch all subjects
+    const courseId = requireCourseId(auth.payload!);
+
+    // Fetch subjects scoped to this HOD's course
     const rows = await db
       .select({
         id: subjects.id,
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
         createdAt: subjects.createdAt,
       })
       .from(subjects)
+      .where(eq(subjects.courseId, courseId))
       .orderBy(subjects.code);
 
     const subjectIds = rows.map((r) => r.id);
@@ -100,6 +102,8 @@ export async function POST(req: NextRequest) {
   try {
     const auth = await authorize(req);
     if ("error" in auth && auth.error) return auth.error;
+
+    const courseId = requireCourseId(auth.payload!);
 
     const body = await req.json();
     const formData: SubjectFormData = {
@@ -152,6 +156,7 @@ export async function POST(req: NextRequest) {
         code: trimmedCode,
         name: formData.name.trim(),
         subjectType: type,
+        courseId,                              // ← from session, never from body
         // Theory marks (null if not applicable)
         internalTheoryMax: hasTheory ? Number(formData.internalTheoryMax) : null,
         externalTheoryMax: hasTheory ? Number(formData.externalTheoryMax) : null,

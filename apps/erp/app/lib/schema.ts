@@ -103,6 +103,7 @@ export const divisions = pgTable("divisions", {
 
 export const faculty = pgTable("faculty", {
   id: serial("id").primaryKey(),
+  courseId: integer("course_id").notNull().references(() => courses.id),
   facultyCode: varchar("faculty_code", { length: 20 }).notNull().unique(),
   name: varchar("name", { length: 100 }).notNull(),
   email: varchar("email", { length: 150 }).notNull().unique(),

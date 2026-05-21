@@ -162,7 +162,7 @@ async function buildDashboard(role: Role, userId: number, auth: AuthContext) {
     case "counselor":
       return buildCounselorDashboard(userId, auth);
     case "hod":
-      return buildHodDashboard();
+      return buildHodDashboard(auth.courseId ?? 0);
     default:
       return {};
   }
@@ -387,15 +387,15 @@ async function buildCounselorDashboard(facultyId: number, auth: AuthContext) {
   };
 }
 
-async function buildHodDashboard() {
+async function buildHodDashboard(courseId: number) {
   const [totalStudentsRow, activeStudentsRow, totalFacultyRow, pendingRows] =
     await Promise.all([
-      db.select({ count: count() }).from(students),
+      db.select({ count: count() }).from(students).where(eq(students.courseId, courseId)),
       db
         .select({ count: count() })
         .from(students)
-        .where(or(eq(students.status, "approved"), eq(students.status, "active"))),
-      db.select({ count: count() }).from(faculty).where(eq(faculty.isActive, true)),
+        .where(and(eq(students.courseId, courseId), or(eq(students.status, "approved"), eq(students.status, "active")))),
+      db.select({ count: count() }).from(faculty).where(and(eq(faculty.isActive, true), eq(faculty.courseId, courseId))),
       db
         .select({
           id: studentRequests.id,
@@ -408,7 +408,7 @@ async function buildHodDashboard() {
         })
         .from(studentRequests)
         .innerJoin(students, eq(studentRequests.studentId, students.id))
-        .where(eq(studentRequests.status, "pending"))
+        .where(and(eq(studentRequests.status, "pending"), eq(students.courseId, courseId)))
         .orderBy(sql`${studentRequests.createdAt} DESC`)
         .limit(10),
     ]);

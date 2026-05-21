@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   timetableEntries,
@@ -173,7 +173,8 @@ export async function GET(req: NextRequest) {
         )
       );
 
-    // 6. Get all divisions for the selector dropdown
+    // 6. Get divisions for selector dropdown — scoped to HOD's course
+    const courseId = requireCourseId(auth);
     const allDivisions = await db
       .select({
         id: divisions.id,
@@ -183,7 +184,8 @@ export async function GET(req: NextRequest) {
         batchYear: divisions.batchYear,
         publishStatus: divisions.publishStatus,
       })
-      .from(divisions);
+      .from(divisions)
+      .where(eq(divisions.courseId, courseId));
 
     return ok({
       division: {

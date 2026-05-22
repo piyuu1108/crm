@@ -17,7 +17,7 @@ import {
   toast,
   type Key,
 } from "@heroui/react";
-import { ArrowLeft, ArrowRight, Check, CircleCheck, Picture } from "@gravity-ui/icons";
+import { ArrowLeft, ArrowRight, Check, CircleCheck, Picture, Eye, ArrowDownToLine, TrashBin } from "@gravity-ui/icons";
 import {
   uploadFileToStorage,
   useFacultyProfileQuery,
@@ -669,37 +669,123 @@ export function FacultyProfileStepper() {
                 </Alert.Content>
               </Alert>
 
-              <div className="rounded-xl border-2 border-dashed border-divider p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-default/10">
-                    <Picture className="size-5" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Profile Photo</p>
+              <div
+                className={`
+                  relative rounded-xl border-2 border-dashed p-4 transition-all duration-200
+                  ${getFieldError(errors, "profilePhotoUrl")
+                    ? "border-danger bg-danger/5"
+                    : documents.profilePhotoUrl
+                      ? "border-success/40 bg-success/5"
+                      : "border-divider hover:border-accent/40 hover:bg-accent/5"
+                  }
+                `}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`
+                      flex h-10 w-10 shrink-0 items-center justify-center rounded-lg
+                      ${documents.profilePhotoUrl ? "bg-success/10 text-success" : "bg-default/10 text-muted-foreground"}
+                    `}
+                  >
                     {documents.profilePhotoUrl ? (
-                      <p className="text-xs text-success">Uploaded</p>
+                      <CircleCheck className="size-5" />
                     ) : (
-                      <p className="text-xs text-muted-foreground">Not uploaded</p>
+                      <Picture className="size-5" />
                     )}
+                  </div>
+
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">Profile Photo</p>
+                      <span className="rounded bg-danger/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-danger">
+                        Required
+                      </span>
+                    </div>
+
+                    {documents.profilePhotoUrl ? (
+                      <div className="space-y-3 pt-1">
+                        {/* Preview Media Container */}
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-success/30 shadow-sm bg-muted">
+                            <img
+                              src={`/api/student/profile-photo?key=${encodeURIComponent(documents.profilePhotoUrl)}`}
+                              alt="Profile Photo"
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-success">
+                              ✓ Uploaded successfully
+                            </p>
+                            <p className="truncate text-[10px] text-muted-foreground" title={documents.profilePhotoUrl}>
+                              {documents.profilePhotoUrl.split("/").pop()}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons Group */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* View Preview Button */}
+                          <a
+                            href={`/api/student/profile-photo?key=${encodeURIComponent(documents.profilePhotoUrl)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-divider bg-content1 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-default/10 hover:text-foreground transition-all duration-200"
+                            title="Open profile photo in a new tab to preview"
+                          >
+                            <Eye className="size-3.5" />
+                            <span>Preview</span>
+                          </a>
+
+                          {/* Download Button */}
+                          <a
+                            href={`/api/student/profile-photo?key=${encodeURIComponent(documents.profilePhotoUrl)}&download=true`}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-divider bg-content1 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-default/10 hover:text-foreground transition-all duration-200"
+                            title="Download profile photo to your device"
+                          >
+                            <ArrowDownToLine className="size-3.5" />
+                            <span>Download</span>
+                          </a>
+
+                          {/* Remove Button */}
+                          <button
+                            type="button"
+                            onClick={() => setDocuments({ profilePhotoUrl: undefined })}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-danger/20 bg-danger/5 px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 transition-all duration-200"
+                            title="Remove this photo"
+                          >
+                            <TrashBin className="size-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : uploadingPhoto ? (
+                      <div className="flex items-center gap-2">
+                        <Spinner size="sm" />
+                        <span className="text-xs text-muted-foreground">Uploading…</span>
+                      </div>
+                    ) : (
+                      <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-accent hover:underline">
+                        Choose file
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) void handleUploadPhoto(file);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    )}
+
                     {getFieldError(errors, "profilePhotoUrl") && (
                       <p className="text-xs text-danger">
                         {getFieldError(errors, "profilePhotoUrl")}
                       </p>
                     )}
                   </div>
-                  <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-accent hover:underline">
-                    {uploadingPhoto ? "Uploading..." : "Choose file"}
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) void handleUploadPhoto(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
                 </div>
               </div>
 
@@ -759,10 +845,40 @@ export function FacultyProfileStepper() {
                 <ReviewField label="Experience" value={`${professional.experienceYears} years`} />
                 <ReviewField label="Specialization" value={professional.specialization} />
                 <ReviewField label="Designation" value={professional.designation} />
-                <ReviewField
-                  label="Profile Photo"
-                  value={documents.profilePhotoUrl ? "✓ Uploaded" : "Missing"}
-                />
+                <div>
+                  <p className="text-xs text-muted-foreground">Profile Photo</p>
+                  {documents.profilePhotoUrl ? (
+                    <div className="mt-1.5 flex items-center gap-3">
+                      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md border border-success/30 shadow-sm bg-muted">
+                        <img
+                          src={`/api/student/profile-photo?key=${encodeURIComponent(documents.profilePhotoUrl)}`}
+                          alt="Profile Photo"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <a
+                          href={`/api/student/profile-photo?key=${encodeURIComponent(documents.profilePhotoUrl)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
+                        >
+                          <Eye className="size-3" />
+                          <span>Preview</span>
+                        </a>
+                        <a
+                          href={`/api/student/profile-photo?key=${encodeURIComponent(documents.profilePhotoUrl)}&download=true`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:underline"
+                        >
+                          <ArrowDownToLine className="size-3" />
+                          <span>Download</span>
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-danger">Missing</p>
+                  )}
+                </div>
               </div>
 
               {!isComplete && (

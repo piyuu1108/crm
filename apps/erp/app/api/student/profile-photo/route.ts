@@ -25,29 +25,28 @@ export async function GET(req: NextRequest) {
 
   if (studentMatch) {
     const studentId = Number(studentMatch[1]);
-    if (auth.roles.includes("student")) {
-      // Students can only access their own files
-      isAuthorized = auth.userId === studentId;
-    } else if (auth.roles.some((role) => ["faculty", "counselor", "hod"].includes(role))) {
+    if (auth.roles.some((role) => ["faculty", "counselor", "hod"].includes(role))) {
       // Faculty, Counselor, and HOD can view any student files
       isAuthorized = true;
+    } else if (auth.roles.includes("student")) {
+      // Students can only access their own files
+      isAuthorized = auth.userId === studentId;
     }
   } else if (facultyMatch) {
     const facultyId = Number(facultyMatch[1]);
     const isCircular = key.includes("/circular_attachment_");
-    const isProfilePhoto = key.includes("/profile_photo_");
 
-    if (auth.roles.includes("student")) {
-      // Students can view circulars and faculty profile photos
-      isAuthorized = isCircular || isProfilePhoto;
-    } else if (auth.roles.some((role) => ["faculty", "counselor", "hod"].includes(role))) {
+    if (auth.roles.some((role) => ["faculty", "counselor", "hod"].includes(role))) {
       if (auth.roles.includes("hod")) {
         // HOD can view any faculty files
         isAuthorized = true;
       } else {
-        // Other faculty can view circulars, their own files, or other faculty profile photos
-        isAuthorized = isCircular || isProfilePhoto || auth.userId === facultyId;
+        // Other faculty can view circulars or their own files
+        isAuthorized = isCircular || auth.userId === facultyId;
       }
+    } else if (auth.roles.includes("student")) {
+      // Students can view circulars
+      isAuthorized = isCircular;
     }
   }
 

@@ -8,6 +8,7 @@ import {
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { publishNotification } from "@/app/lib/notifications";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -123,6 +124,20 @@ export async function PATCH(
 
       const nextStatus = action === "approve" ? "approved" : "rejected";
       await db.update(students).set({ status: nextStatus }).where(eq(students.id, id));
+
+      publishNotification({
+        title: action === "approve" ? "Profile Approved" : "Profile Rejected",
+        message: action === "approve"
+          ? "Your profile has been approved by your counselor."
+          : "Your profile was rejected. Please review your details and re-submit.",
+        notificationType: "counselor_action",
+        receiverUserId: id,
+        receiverRole: "student",
+        priority: action === "approve" ? "medium" : "high",
+        createdBy: auth.payload.userId,
+        relatedEntityType: "students",
+        relatedEntityId: id,
+      });
 
       try {
         await clearCache(cacheTags.dashboard.user(id));

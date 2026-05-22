@@ -8,7 +8,9 @@ import {
   facultySubjectAssignments,
   timetableEntries,
   rooms,
+  students,
 } from "@/app/lib/schema";
+import { publishNotification } from "@/app/lib/notifications";
 import { SimplifiedPayload, ValidationError } from "./timetable-validator";
 
 async function ensureQuizPlaceholderEntities() {
@@ -263,6 +265,28 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
         clearCache(cacheTags.dashboard.division(divId)),
       ])
     );
+
+    // Notify students in affected divisions
+    try {
+      const divisionStudents = await db
+        .select({ id: students.id, currentDivisionId: students.currentDivisionId })
+        .from(students)
+        .where(inArray(students.currentDivisionId, divisionIds));
+
+      for (const student of divisionStudents) {
+        publishNotification({
+          title: "Timetable Updated",
+          message: "A new timetable has been published or updated for your division. Please check your schedule.",
+          notificationType: "timetable_change",
+          receiverUserId: student.id,
+          receiverRole: "student",
+          relatedEntityType: "divisions",
+          relatedEntityId: student.currentDivisionId || undefined,
+        });
+      }
+    } catch (notifyErr) {
+      console.warn("[timetable notify] Failed to send update notifications:", notifyErr);
+    }
 
     // Count total lectures
     const totalInserted = payloads.reduce((acc, p) => acc + p.lectures.length, 0);

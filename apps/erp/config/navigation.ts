@@ -13,6 +13,7 @@ import {
   PencilToSquare,
   Gift,
   ArrowShapeTurnUpRight,
+  Bell,
 } from "@gravity-ui/icons";
 import type { SVGProps } from "react";
 
@@ -47,6 +48,12 @@ export const navigationConfig: NavSection[] = [
         title: "Circulars",
         href: "/app/circulars",
         icon: FileText,
+        roles: ["student", "faculty", "counselor", "hod", "admin"],
+      },
+      {
+        title: "Notifications",
+        href: "/app/notifications",
+        icon: Bell,
         roles: ["student", "faculty", "counselor", "hod", "admin"],
       },
     ],

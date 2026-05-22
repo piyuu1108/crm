@@ -3,6 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { publishNotification } from "@/app/lib/notifications";
 
 /**
  * GET /api/requests/[id]
@@ -166,6 +167,28 @@ export async function PATCH(
         updatedAt: new Date(),
       })
       .where(eq(studentRequests.id, id));
+
+    // Notify the student about the faculty decision
+    const [requestDetail] = await db
+      .select({
+        studentId: studentRequests.studentId,
+        subject: studentRequests.subject,
+      })
+      .from(studentRequests)
+      .where(eq(studentRequests.id, id));
+
+    if (requestDetail) {
+      publishNotification({
+        title: status === "approved" ? "Request Approved" : "Request Rejected",
+        message: `Your request '${requestDetail.subject}' has been ${status} by the faculty.`,
+        notificationType: "approval",
+        receiverUserId: requestDetail.studentId,
+        receiverRole: "student",
+        createdBy: payload.userId,
+        relatedEntityType: "student_requests",
+        relatedEntityId: id,
+      });
+    }
 
     const [updated] = await db
       .select({

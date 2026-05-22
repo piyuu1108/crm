@@ -3,6 +3,7 @@ import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty, semesters } from "@/app/lib/schema";
 import { eq, and, desc, count, sql } from "drizzle-orm";
+import { publishNotification } from "@/app/lib/notifications";
 
 /**
  * GET /api/requests
@@ -208,6 +209,18 @@ export async function POST(req: NextRequest) {
         attachmentSize: attachmentSize || null,
       })
       .returning();
+
+    publishNotification({
+      title: `New Request: ${subject.trim()}`,
+      message: `${student.fullName} has submitted a new request of type '${requestType.trim()}'.`,
+      notificationType: "leave_request",
+      receiverUserId: targetFacultyId,
+      receiverRole: "faculty",
+      priority: "medium",
+      createdBy: payload.userId,
+      relatedEntityType: "student_requests",
+      relatedEntityId: insertedRow.id,
+    });
 
     const inserted = {
       ...insertedRow,

@@ -54,6 +54,8 @@ export interface CounselorDashboardData {
 export interface HodDashboardData {
   totalStudents: number;
   activeStudents: number;
+  approvedStudents: number;
+  unapprovedStudents: number;
   totalFaculty: number;
   pendingRequestsCount: number;
   pendingRequests: StudentRequest[];

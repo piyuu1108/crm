@@ -204,7 +204,7 @@ export function AttendanceSheet({
         <Alert.Content>
           <Alert.Title>No students</Alert.Title>
           <Alert.Description>
-            No approved students found in this division.
+            No students found in this division.
           </Alert.Description>
         </Alert.Content>
       </Alert>

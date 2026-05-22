@@ -14,7 +14,8 @@ interface HodDashboardProps {
 export function HodDashboard({ data }: HodDashboardProps) {
   const {
     totalStudents,
-    activeStudents,
+    approvedStudents = 0,
+    unapprovedStudents = 0,
     totalFaculty,
     pendingRequestsCount,
     pendingRequests,
@@ -35,7 +36,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
         <KpiCard
           label="Total Students"
           value={totalStudents}
-          sublabel={`${activeStudents} active`}
+          sublabel={`${approvedStudents} approved · ${unapprovedStudents} unapproved`}
           icon={<Persons />}
           color="accent"
         />
@@ -67,7 +68,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
               </div>
             </Card.Header>
             <Card.Content className="px-5 pb-5">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div className="rounded-xl border border-divider p-4 text-center">
                   <div className="text-3xl font-bold text-accent">
                     {totalStudents}
@@ -78,10 +79,18 @@ export function HodDashboard({ data }: HodDashboardProps) {
                 </div>
                 <div className="rounded-xl border border-divider p-4 text-center">
                   <div className="text-3xl font-bold text-success">
-                    {activeStudents}
+                    {approvedStudents}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    Active Students
+                    Approved Profiles
+                  </div>
+                </div>
+                <div className="rounded-xl border border-divider p-4 text-center">
+                  <div className="text-3xl font-bold text-warning">
+                    {unapprovedStudents}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Unapproved Profiles
                   </div>
                 </div>
                 <div className="rounded-xl border border-divider p-4 text-center">

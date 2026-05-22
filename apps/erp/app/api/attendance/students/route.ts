@@ -69,10 +69,7 @@ export async function GET(req: NextRequest) {
         enrollmentId: students.enrollmentId,
       })
       .from(students)
-      .where(and(
-        eq(students.currentDivisionId, divisionId),
-        eq(students.status, "approved")
-      ))
+      .where(eq(students.currentDivisionId, divisionId))
       .orderBy(students.fullName);
 
     return ok({ students: studentList, divisionId });

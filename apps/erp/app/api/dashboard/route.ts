@@ -388,13 +388,13 @@ async function buildCounselorDashboard(facultyId: number, auth: AuthContext) {
 }
 
 async function buildHodDashboard(courseId: number) {
-  const [totalStudentsRow, activeStudentsRow, totalFacultyRow, pendingRows] =
+  const [totalStudentsRow, approvedStudentsRow, totalFacultyRow, pendingRows] =
     await Promise.all([
       db.select({ count: count() }).from(students).where(eq(students.courseId, courseId)),
       db
         .select({ count: count() })
         .from(students)
-        .where(and(eq(students.courseId, courseId), or(eq(students.status, "approved"), eq(students.status, "active")))),
+        .where(and(eq(students.courseId, courseId), eq(students.status, "approved"))),
       db.select({ count: count() }).from(faculty).where(and(eq(faculty.isActive, true), eq(faculty.courseId, courseId))),
       db
         .select({
@@ -413,9 +413,15 @@ async function buildHodDashboard(courseId: number) {
         .limit(10),
     ]);
 
+  const totalStudents = Number(totalStudentsRow[0]?.count ?? 0);
+  const approvedStudents = Number(approvedStudentsRow[0]?.count ?? 0);
+  const unapprovedStudents = totalStudents - approvedStudents;
+
   return {
-    totalStudents: Number(totalStudentsRow[0]?.count ?? 0),
-    activeStudents: Number(activeStudentsRow[0]?.count ?? 0),
+    totalStudents,
+    activeStudents: totalStudents, // Since college pre-creates all accounts, they are all active
+    approvedStudents,
+    unapprovedStudents,
     totalFaculty: Number(totalFacultyRow[0]?.count ?? 0),
     pendingRequestsCount: pendingRows.length,
     pendingRequests: pendingRows,

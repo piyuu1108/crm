@@ -9,6 +9,8 @@ import {
   CircleCheck,
   FileText,
   Picture,
+  Eye,
+  ArrowDownToLine,
 } from "@gravity-ui/icons";
 import {
   useSaveStepMutation,
@@ -88,6 +90,12 @@ const DOC_CONFIGS: DocConfig[] = [
     icon: FileText,
   },
 ];
+
+function isImageFile(key: string | undefined | null): boolean {
+  if (!key) return false;
+  const lower = key.toLowerCase();
+  return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".webp");
+}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -258,17 +266,67 @@ export function StepDocuments({ profile, onSaved, onSaving }: StepDocumentsProps
                   </div>
 
                   {isUploaded ? (
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-xs text-success" title={fileKey}>
-                        ✓ Uploaded
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(doc.key)}
-                        className="text-xs text-danger hover:underline"
-                      >
-                        <TrashBin className="size-3" />
-                      </button>
+                    <div className="space-y-3 pt-1">
+                      {/* Preview Media Container */}
+                      <div className="flex items-center gap-3">
+                        {isImageFile(fileKey) ? (
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-success/30 shadow-sm bg-muted">
+                            <img
+                              src={`/api/student/profile-photo?key=${encodeURIComponent(fileKey)}`}
+                              alt={doc.label}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-divider bg-default/10 text-muted-foreground shadow-sm">
+                            <FileText className="size-6 text-danger" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-success">
+                            ✓ Uploaded successfully
+                          </p>
+                          <p className="truncate text-[10px] text-muted-foreground" title={fileKey}>
+                            {fileKey.split("/").pop()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons Group */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* View Preview Button */}
+                        <a
+                          href={`/api/student/profile-photo?key=${encodeURIComponent(fileKey)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-divider bg-content1 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-default/10 hover:text-foreground transition-all duration-200"
+                          title="Open document in a new tab to preview"
+                        >
+                          <Eye className="size-3.5" />
+                          <span>Preview</span>
+                        </a>
+
+                        {/* Download Button */}
+                        <a
+                          href={`/api/student/profile-photo?key=${encodeURIComponent(fileKey)}&download=true`}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-divider bg-content1 px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-default/10 hover:text-foreground transition-all duration-200"
+                          title="Download document to your device"
+                        >
+                          <ArrowDownToLine className="size-3.5" />
+                          <span>Download</span>
+                        </a>
+
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile(doc.key)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-danger/20 bg-danger/5 px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-danger/10 transition-all duration-200"
+                          title="Remove this document"
+                        >
+                          <TrashBin className="size-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      </div>
                     </div>
                   ) : isCurrentlyUploading ? (
                     <div className="flex items-center gap-2">

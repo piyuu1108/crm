@@ -32,14 +32,20 @@ export async function GET(req: NextRequest) {
     );
     const body = new Blob([view], { type: contentType });
 
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400, stale-while-revalidate=43200",
+    };
+
+    if (searchParams.get("download") === "true") {
+      const filename = key.split("/").pop() || "document";
+      headers["Content-Disposition"] = `attachment; filename="${filename}"`;
+    }
+
     // 🚀 FIX: Return the binary buffer directly with image headers
     return new NextResponse(body, {
       status: 200,
-      headers: {
-        "Content-Type": contentType,
-        // Highly Recommended: Cache the image to reduce repeated S3 bucket reads & save costs
-        "Cache-Control": "public, max-age=86400, stale-while-revalidate=43200",
-      },
+      headers,
     });
   } catch (error) {
     console.error("[GET /api/student/profile-photo]", error);

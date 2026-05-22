@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { db } from "@/app/lib/db";
-import {
-  faculty,
-  facultyContactInfo,
-  facultyDocuments,
-  facultyPersonalInfo,
-  facultyProfessionalInfo,
-} from "@/app/lib/schema";
+import { faculty } from "@/app/lib/schema";
 import { getAuthContext } from "@/app/lib/api-auth";
 import {
   validateFacultyStep1,
   validateFacultyStep2,
   validateFacultyStep3,
   validateFacultyStep4,
+  type FacultyPersonalInfoData,
+  type FacultyContactInfoData,
+  type FacultyProfessionalInfoData,
+  type FacultyDocumentsData,
 } from "@/app/lib/validations/faculty-profile";
-
-function isSchemaMissingError(error: unknown): boolean {
-  const code = (error as { code?: string; cause?: { code?: string } })?.code;
-  const causeCode = (error as { cause?: { code?: string } })?.cause?.code;
-  return code === "42703" || code === "42P01" || causeCode === "42703" || causeCode === "42P01";
-}
 
 async function getAuthenticatedFacultyId(req: NextRequest): Promise<number | null> {
   const auth = await getAuthContext(req);
@@ -43,150 +34,65 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let baseRows: Array<{
-      id: number;
-      name: string;
-      dob: string | null;
-      gender: string | null;
-      mobile: string;
-      qualification: string | null;
-      experienceYears: number | null;
-      specialization: string | null;
-      designation: string | null;
-    }> = [];
-    let personalRows: Array<{ fullName: string; dob: string | null; gender: string | null }> =
-      [];
-    let contactRows: Array<{
-      mobile: string;
-      alternateMobile: string | null;
-      address: string | null;
-    }> = [];
-    let professionalRows: Array<{
-      qualification: string | null;
-      experienceYears: number | null;
-      specialization: string | null;
-      designation: string | null;
-    }> = [];
-    let documentsRows: Array<{ profilePhotoUrl: string }> = [];
+    // Fetch full faculty record in a single query
+    const [row] = await db
+      .select({
+        id: faculty.id,
+        name: faculty.name,
+        dob: faculty.dob,
+        gender: faculty.gender,
+        mobile: faculty.mobile,
+        alternateMobile: faculty.alternateMobile,
+        address: faculty.address,
+        qualification: faculty.qualification,
+        experienceYears: faculty.experienceYears,
+        specialization: faculty.specialization,
+        designation: faculty.designation,
+        profilePhotoUrl: faculty.profilePhotoUrl,
+      })
+      .from(faculty)
+      .where(eq(faculty.id, facultyId))
+      .limit(1);
 
-    let schemaReady = true;
-    try {
-      [baseRows, personalRows, contactRows, professionalRows, documentsRows] =
-        await Promise.all([
-          db
-            .select({
-              id: faculty.id,
-              name: faculty.name,
-              dob: faculty.dob,
-              gender: faculty.gender,
-              mobile: faculty.mobile,
-              qualification: faculty.qualification,
-              experienceYears: faculty.experienceYears,
-              specialization: faculty.specialization,
-              designation: faculty.designation,
-            })
-            .from(faculty)
-            .where(eq(faculty.id, facultyId))
-            .limit(1),
-          db
-            .select({
-              fullName: facultyPersonalInfo.fullName,
-              dob: facultyPersonalInfo.dob,
-              gender: facultyPersonalInfo.gender,
-            })
-            .from(facultyPersonalInfo)
-            .where(eq(facultyPersonalInfo.facultyId, facultyId))
-            .limit(1),
-          db
-            .select({
-              mobile: facultyContactInfo.mobile,
-              alternateMobile: facultyContactInfo.alternateMobile,
-              address: facultyContactInfo.address,
-            })
-            .from(facultyContactInfo)
-            .where(eq(facultyContactInfo.facultyId, facultyId))
-            .limit(1),
-          db
-            .select({
-              qualification: facultyProfessionalInfo.qualification,
-              experienceYears: facultyProfessionalInfo.experienceYears,
-              specialization: facultyProfessionalInfo.specialization,
-              designation: facultyProfessionalInfo.designation,
-            })
-            .from(facultyProfessionalInfo)
-            .where(eq(facultyProfessionalInfo.facultyId, facultyId))
-            .limit(1),
-          db
-            .select({
-              profilePhotoUrl: facultyDocuments.profilePhotoUrl,
-            })
-            .from(facultyDocuments)
-            .where(eq(facultyDocuments.facultyId, facultyId))
-            .limit(1),
-        ]);
-    } catch (err) {
-      if (isSchemaMissingError(err)) {
-        schemaReady = false;
-        baseRows = await db
-          .select({
-            id: faculty.id,
-            name: faculty.name,
-            dob: faculty.dob,
-            gender: faculty.gender,
-            mobile: faculty.mobile,
-            qualification: faculty.qualification,
-            experienceYears: faculty.experienceYears,
-            specialization: faculty.specialization,
-            designation: faculty.designation,
-          })
-          .from(faculty)
-          .where(eq(faculty.id, facultyId))
-          .limit(1);
-        personalRows = [];
-        contactRows = [];
-        professionalRows = [];
-        documentsRows = [];
-      } else {
-        throw err;
-      }
-    }
-
-    const base = baseRows[0];
-    if (!base) {
+    if (!row) {
       return NextResponse.json(
         { success: false, error: "Faculty not found" },
         { status: 404 }
       );
     }
 
-    const step1Data = {
-      fullName: personalRows[0]?.fullName ?? base.name,
-      dob: personalRows[0]?.dob ?? base.dob ?? "",
-      gender: personalRows[0]?.gender ?? base.gender ?? "",
-    };
-    const step2Data = {
-      mobile: contactRows[0]?.mobile ?? base.mobile,
-      alternateMobile: contactRows[0]?.alternateMobile ?? undefined,
-      address: contactRows[0]?.address ?? undefined,
-    };
-    const step3Data = {
-      qualification: professionalRows[0]?.qualification ?? base.qualification ?? "",
-      experienceYears:
-        professionalRows[0]?.experienceYears ?? base.experienceYears ?? 0,
-      specialization: professionalRows[0]?.specialization ?? base.specialization ?? "",
-      designation: professionalRows[0]?.designation ?? base.designation ?? "",
-    };
-    const step4Data = {
-      profilePhotoUrl: documentsRows[0]?.profilePhotoUrl ?? undefined,
+    // Map database fields to the stepper step shapes for validation
+    const step1Data: FacultyPersonalInfoData = {
+      fullName: row.name,
+      dob: row.dob ?? "",
+      gender: row.gender ?? "",
     };
 
-    console.log("[POST /api/faculty/profile/submit] Validation inputs:", {
-      step1: step1Data,
-      step2: step2Data,
-      step3: step3Data,
-      step4: step4Data,
-    });
+    const step2Data: FacultyContactInfoData = {
+      mobile: row.mobile,
+      alternateMobile: row.alternateMobile ?? undefined,
+      address: row.address
+        ? {
+            line1: row.address.line1,
+            city: row.address.city,
+            pincode: row.address.pincode,
+            kind: row.address.kind,
+          }
+        : undefined,
+    };
 
+    const step3Data: FacultyProfessionalInfoData = {
+      qualification: row.qualification ?? "",
+      experienceYears: row.experienceYears ?? 0,
+      specialization: row.specialization ?? "",
+      designation: row.designation ?? "",
+    };
+
+    const step4Data: FacultyDocumentsData = {
+      profilePhotoUrl: row.profilePhotoUrl ?? undefined,
+    };
+
+    // Run validations across all steps
     const step1 = validateFacultyStep1(step1Data);
     const step2 = validateFacultyStep2(step2Data);
     const step3 = validateFacultyStep3(step3Data);
@@ -205,24 +111,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (schemaReady) {
-      await db
-        .update(faculty)
-        .set({
-          profileCompletion: "complete",
-          profileStep: 5,
-        })
-        .where(eq(faculty.id, facultyId));
-    }
+    // Persist completion state
+    await db
+      .update(faculty)
+      .set({
+        profileCompletion: "complete",
+        profileStep: 5,
+      })
+      .where(eq(faculty.id, facultyId));
 
     return NextResponse.json({
       success: true,
       data: {
-        profileCompletion: schemaReady ? "complete" : "incomplete",
-        schemaReady,
-        warning: schemaReady
-          ? undefined
-          : "Faculty profile migration is pending. Completion state cannot be persisted yet.",
+        profileCompletion: "complete",
       },
     });
   } catch (error) {

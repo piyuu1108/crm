@@ -14,10 +14,17 @@ export interface FacultyPersonalInfoData {
   gender: string;
 }
 
+export interface FacultyAddressData {
+  line1: string;
+  city: string;
+  pincode: string; // 6 digits exactly
+  kind: "home" | "other";
+}
+
 export interface FacultyContactInfoData {
   mobile: string;
   alternateMobile?: string;
-  address?: string;
+  address?: FacultyAddressData;
 }
 
 export interface FacultyProfessionalInfoData {
@@ -32,6 +39,7 @@ export interface FacultyDocumentsData {
 }
 
 export const GENDERS = ["male", "female", "other"] as const;
+export const FACULTY_ADDRESS_KINDS = ["home", "other"] as const;
 
 function required(value: unknown, field: string, label: string): ValidationError | null {
   if (
@@ -55,6 +63,11 @@ function isValidDate(value: string | undefined | null): boolean {
   return !isNaN(d.getTime());
 }
 
+function isValidPincode(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return /^\d{6}$/.test(value.trim());
+}
+
 export function validateFacultyStep1(data: FacultyPersonalInfoData): ValidationResult {
   const errors: ValidationError[] = [];
   const full = required(data.fullName, "fullName", "Full Name");
@@ -75,17 +88,40 @@ export function validateFacultyStep1(data: FacultyPersonalInfoData): ValidationR
 
 export function validateFacultyStep2(data: FacultyContactInfoData): ValidationResult {
   const errors: ValidationError[] = [];
+
   const mobile = required(data.mobile, "mobile", "Mobile");
   if (mobile) errors.push(mobile);
   else if (!isValidPhone(data.mobile)) {
     errors.push({ field: "mobile", message: "Mobile must be 10 digits" });
   }
+
   if (data.alternateMobile && !isValidPhone(data.alternateMobile)) {
     errors.push({
       field: "alternateMobile",
       message: "Alternate mobile must be 10 digits",
     });
   }
+
+  // Address is optional for faculty, but if provided all sub-fields must be valid
+  if (data.address) {
+    const addr = data.address;
+
+    if (!addr.line1 || addr.line1.trim() === "") {
+      errors.push({ field: "address.line1", message: "Address Line 1 is required" });
+    }
+    if (!addr.city || addr.city.trim() === "") {
+      errors.push({ field: "address.city", message: "City is required" });
+    }
+    if (!addr.pincode || addr.pincode.trim() === "") {
+      errors.push({ field: "address.pincode", message: "Pincode is required" });
+    } else if (!isValidPincode(addr.pincode)) {
+      errors.push({ field: "address.pincode", message: "Pincode must be exactly 6 digits" });
+    }
+    if (!addr.kind || !FACULTY_ADDRESS_KINDS.includes(addr.kind)) {
+      errors.push({ field: "address.kind", message: "Address type is required" });
+    }
+  }
+
   return { valid: errors.length === 0, errors };
 }
 

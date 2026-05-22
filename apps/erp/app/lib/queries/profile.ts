@@ -4,6 +4,7 @@
  * Per AGENTS.md: mandatory for all API interactions,
  * no direct fetch in components.
  */
+import type { StudentAddressData } from "@/app/lib/validations/profile";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ export interface ProfileData {
   mobile: string | null;
   parentMobile: string | null;
   optionalMobile: string | null;
-  address: string | null;
+  address: StudentAddressData | null;
   aadhaarStudent: string | null;
   aadhaarParent: string | null;
   courseId: number;

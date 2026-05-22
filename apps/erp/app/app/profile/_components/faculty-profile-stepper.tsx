@@ -27,6 +27,7 @@ import {
 } from "@/app/lib/queries/faculty-profile";
 import {
   GENDERS,
+  FACULTY_ADDRESS_KINDS,
   validateFacultyStep1,
   validateFacultyStep2,
   validateFacultyStep3,
@@ -75,7 +76,7 @@ export function FacultyProfileStepper() {
   const [contact, setContact] = useState<FacultyContactInfoData>({
     mobile: "",
     alternateMobile: "",
-    address: "",
+    address: { line1: "", city: "", pincode: "", kind: "home" },
   });
   const [professional, setProfessional] = useState<FacultyProfessionalInfoData>({
     qualification: "",
@@ -112,7 +113,14 @@ export function FacultyProfileStepper() {
     setContact({
       mobile: profile.mobile ?? "",
       alternateMobile: profile.alternateMobile ?? "",
-      address: profile.address ?? "",
+      address: profile.address
+        ? {
+            line1: profile.address.line1,
+            city: profile.address.city,
+            pincode: profile.address.pincode,
+            kind: profile.address.kind,
+          }
+        : { line1: "", city: "", pincode: "", kind: "home" },
     });
     setProfessional({
       qualification: profile.qualification ?? "",
@@ -433,15 +441,113 @@ export function FacultyProfileStepper() {
                     <FieldError>{getFieldError(errors, "alternateMobile")}</FieldError>
                   )}
                 </TextField>
+
+                {/* Address kind */}
+                <div className="sm:col-span-2">
+                  <Select
+                    value={(contact.address as { kind?: string })?.kind ?? null}
+                    onChange={(key: Key | null) =>
+                      setContact((p) => ({
+                        ...p,
+                        address: {
+                          line1: (p.address as { line1?: string })?.line1 ?? "",
+                          city: (p.address as { city?: string })?.city ?? "",
+                          pincode: (p.address as { pincode?: string })?.pincode ?? "",
+                          kind: String(key ?? "home") as "home" | "other",
+                        },
+                      }))
+                    }
+                  >
+                    <Label>Address Type</Label>
+                    <Select.Trigger>
+                      <Select.Value />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        {FACULTY_ADDRESS_KINDS.map((k) => (
+                          <ListBox.Item key={k} id={k}>
+                            <span className="capitalize">{k === "home" ? "Home" : "Other"}</span>
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </Select.Popover>
+                    {getFieldError(errors, "address.kind") && (
+                      <FieldError>{getFieldError(errors, "address.kind")}</FieldError>
+                    )}
+                  </Select>
+                </div>
+
+                {/* Address line 1 */}
                 <div className="sm:col-span-2">
                   <TextField
-                    value={contact.address ?? ""}
-                    onChange={(v) => setContact((p) => ({ ...p, address: v }))}
+                    isInvalid={!!getFieldError(errors, "address.line1")}
+                    value={(contact.address as { line1?: string })?.line1 ?? ""}
+                    onChange={(v) =>
+                      setContact((p) => ({
+                        ...p,
+                        address: {
+                          line1: v,
+                          city: (p.address as { city?: string })?.city ?? "",
+                          pincode: (p.address as { pincode?: string })?.pincode ?? "",
+                          kind: ((p.address as { kind?: string })?.kind ?? "home") as "home" | "other",
+                        },
+                      }))
+                    }
                   >
-                    <Label>Address</Label>
-                    <Input />
+                    <Label>Address Line 1</Label>
+                    <Input placeholder="Building / street / locality" />
+                    {getFieldError(errors, "address.line1") && (
+                      <FieldError>{getFieldError(errors, "address.line1")}</FieldError>
+                    )}
                   </TextField>
                 </div>
+
+                {/* City */}
+                <TextField
+                  isInvalid={!!getFieldError(errors, "address.city")}
+                  value={(contact.address as { city?: string })?.city ?? ""}
+                  onChange={(v) =>
+                    setContact((p) => ({
+                      ...p,
+                      address: {
+                        line1: (p.address as { line1?: string })?.line1 ?? "",
+                        city: v,
+                        pincode: (p.address as { pincode?: string })?.pincode ?? "",
+                        kind: ((p.address as { kind?: string })?.kind ?? "home") as "home" | "other",
+                      },
+                    }))
+                  }
+                >
+                  <Label>City</Label>
+                  <Input placeholder="e.g. Ahmedabad" />
+                  {getFieldError(errors, "address.city") && (
+                    <FieldError>{getFieldError(errors, "address.city")}</FieldError>
+                  )}
+                </TextField>
+
+                {/* Pincode */}
+                <TextField
+                  isInvalid={!!getFieldError(errors, "address.pincode")}
+                  value={(contact.address as { pincode?: string })?.pincode ?? ""}
+                  onChange={(v) =>
+                    setContact((p) => ({
+                      ...p,
+                      address: {
+                        line1: (p.address as { line1?: string })?.line1 ?? "",
+                        city: (p.address as { city?: string })?.city ?? "",
+                        pincode: v.replace(/\D/g, "").slice(0, 6),
+                        kind: ((p.address as { kind?: string })?.kind ?? "home") as "home" | "other",
+                      },
+                    }))
+                  }
+                >
+                  <Label>Pincode</Label>
+                  <Input placeholder="6-digit pincode" maxLength={6} inputMode="numeric" />
+                  {getFieldError(errors, "address.pincode") && (
+                    <FieldError>{getFieldError(errors, "address.pincode")}</FieldError>
+                  )}
+                </TextField>
               </div>
               <div className="flex justify-end">
                 <Button
@@ -641,7 +747,14 @@ export function FacultyProfileStepper() {
                 <ReviewField label="Email" value={profile.email} />
                 <ReviewField label="Mobile" value={contact.mobile} />
                 <ReviewField label="Alt Mobile" value={contact.alternateMobile} />
-                <ReviewField label="Address" value={contact.address} />
+                <ReviewField
+                  label="Address"
+                  value={
+                    contact.address && typeof contact.address === "object"
+                      ? `${contact.address.line1}, ${contact.address.city} - ${contact.address.pincode}`
+                      : null
+                  }
+                />
                 <ReviewField label="Qualification" value={professional.qualification} />
                 <ReviewField label="Experience" value={`${professional.experienceYears} years`} />
                 <ReviewField label="Specialization" value={professional.specialization} />

@@ -76,7 +76,9 @@ export function StepReview({ profile }: StepReviewProps) {
     mobile: profile.mobile ?? "",
     parentMobile: profile.parentMobile ?? undefined,
     optionalMobile: profile.optionalMobile ?? undefined,
-    address: profile.address ?? "",
+    address: profile.address ?? {
+      current: { line1: "", city: "", pincode: "", kind: "home" },
+    },
     aadhaarStudent: profile.aadhaarStudent ?? undefined,
     aadhaarParent: profile.aadhaarParent ?? undefined,
   };
@@ -172,7 +174,20 @@ export function StepReview({ profile }: StepReviewProps) {
         <ReviewField label="Mobile" value={profile.mobile} />
         <ReviewField label="Parent Mobile" value={profile.parentMobile} />
         <ReviewField label="Optional Mobile" value={profile.optionalMobile} />
-        <ReviewField label="Address" value={profile.address} />
+        <ReviewField
+          label="Stay Address"
+          value={
+            profile.address?.current
+              ? `${profile.address.current.line1}, ${profile.address.current.city} - ${profile.address.current.pincode} (${profile.address.current.kind})`
+              : null
+          }
+        />
+        {profile.address?.home && (
+          <ReviewField
+            label="Home Address"
+            value={`${profile.address.home.line1}, ${profile.address.home.city} - ${profile.address.home.pincode}`}
+          />
+        )}
         <ReviewField label="Student Aadhaar" value={profile.aadhaarStudent} />
         <ReviewField label="Parent Aadhaar" value={profile.aadhaarParent} />
       </ReviewSection>

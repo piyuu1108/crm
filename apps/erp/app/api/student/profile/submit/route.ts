@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
       mobile: student.mobile ?? "",
       parentMobile: student.parentMobile ?? undefined,
       optionalMobile: student.optionalMobile ?? undefined,
-      address: student.address ?? "",
+      address: (student.address as import("@/app/lib/validations/profile").StudentAddressData | null) ?? {
+        current: { line1: "", city: "", pincode: "", kind: "home" },
+      },
       aadhaarStudent: student.aadhaarStudent ?? undefined,
       aadhaarParent: student.aadhaarParent ?? undefined,
     };

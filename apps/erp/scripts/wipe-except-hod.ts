@@ -75,11 +75,7 @@ async function wipeExceptHod() {
     
     // Delete related faculty data first for non-HODs
     await sql`DELETE FROM faculty_roles WHERE faculty_id NOT IN (${sql.unsafe(idsStr)})`;
-    await sql`DELETE FROM faculty_documents WHERE faculty_id NOT IN (${sql.unsafe(idsStr)})`;
-    await sql`DELETE FROM faculty_professional_info WHERE faculty_id NOT IN (${sql.unsafe(idsStr)})`;
-    await sql`DELETE FROM faculty_contact_info WHERE faculty_id NOT IN (${sql.unsafe(idsStr)})`;
-    await sql`DELETE FROM faculty_personal_info WHERE faculty_id NOT IN (${sql.unsafe(idsStr)})`;
-    
+
     // Delete the faculty themselves
     await sql`DELETE FROM faculty WHERE id NOT IN (${sql.unsafe(idsStr)})`;
   } else {

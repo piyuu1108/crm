@@ -1,3 +1,4 @@
+import type { FacultyAddress } from "@/app/lib/schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { authMeQueryKey } from "./auth";
 
@@ -10,7 +11,7 @@ export interface FacultyProfileData {
   gender: string | null;
   mobile: string | null;
   alternateMobile: string | null;
-  address: string | null;
+  address: FacultyAddress | null;
   qualification: string | null;
   experienceYears: number | null;
   specialization: string | null;
@@ -152,7 +153,7 @@ export function useSaveFacultyStepMutation() {
             const d = variables.data as {
               mobile?: string;
               alternateMobile?: string;
-              address?: string;
+              address?: FacultyAddress;
             };
             updated.mobile = d.mobile ?? old.mobile;
             updated.alternateMobile = d.alternateMobile ?? old.alternateMobile;

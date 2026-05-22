@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { faculty, facultyDocuments, students } from "@/app/lib/schema";
+import { faculty, students } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 
 function isSchemaMissingError(error: unknown): boolean {
@@ -78,32 +78,20 @@ export async function GET(req: NextRequest) {
             name: faculty.name,
             email: faculty.email,
             facultyCode: faculty.facultyCode,
+            profilePhotoUrl: faculty.profilePhotoUrl,
           })
           .from(faculty)
           .where(eq(faculty.id, userId))
           .limit(1);
 
         if (facultyRows[0]) {
-          let facultyDocRows: Array<{ profilePhotoUrl: string }> = [];
-          try {
-            facultyDocRows = await db
-              .select({
-                profilePhotoUrl: facultyDocuments.profilePhotoUrl,
-              })
-              .from(facultyDocuments)
-              .where(eq(facultyDocuments.facultyId, facultyRows[0].id))
-              .limit(1);
-          } catch (err) {
-            if (!isSchemaMissingError(err)) throw err;
-          }
-
           userInfo = {
             id: facultyRows[0].id,
             name: facultyRows[0].name,
             email: facultyRows[0].email,
             facultyCode: facultyRows[0].facultyCode,
-            profilePhoto: facultyDocRows[0]?.profilePhotoUrl
-              ? `/api/student/profile-photo?key=${encodeURIComponent(facultyDocRows[0].profilePhotoUrl)}`
+            profilePhoto: facultyRows[0].profilePhotoUrl
+              ? `/api/student/profile-photo?key=${encodeURIComponent(facultyRows[0].profilePhotoUrl)}`
               : undefined,
           };
         }
@@ -115,32 +103,20 @@ export async function GET(req: NextRequest) {
           name: faculty.name,
           email: faculty.email,
           facultyCode: faculty.facultyCode,
+          profilePhotoUrl: faculty.profilePhotoUrl,
         })
         .from(faculty)
         .where(eq(faculty.id, userId))
         .limit(1);
 
       if (rows[0]) {
-        let facultyDocRows: Array<{ profilePhotoUrl: string }> = [];
-        try {
-          facultyDocRows = await db
-            .select({
-              profilePhotoUrl: facultyDocuments.profilePhotoUrl,
-            })
-            .from(facultyDocuments)
-            .where(eq(facultyDocuments.facultyId, rows[0].id))
-            .limit(1);
-        } catch (err) {
-          if (!isSchemaMissingError(err)) throw err;
-        }
-
         userInfo = {
           id: rows[0].id,
           name: rows[0].name,
           email: rows[0].email,
           facultyCode: rows[0].facultyCode,
-          profilePhoto: facultyDocRows[0]?.profilePhotoUrl
-            ? `/api/student/profile-photo?key=${encodeURIComponent(facultyDocRows[0].profilePhotoUrl)}`
+          profilePhoto: rows[0].profilePhotoUrl
+            ? `/api/student/profile-photo?key=${encodeURIComponent(rows[0].profilePhotoUrl)}`
             : undefined,
         };
       } else {

@@ -47,6 +47,11 @@ function isValidAadhaar(value: string | undefined | null): boolean {
   return /^\d{12}$/.test(value.replace(/\s+/g, ""));
 }
 
+function isValidPincode(value: string | undefined | null): boolean {
+  if (!value) return false;
+  return /^\d{6}$/.test(value.trim());
+}
+
 function isValidPercent(value: unknown): boolean {
   const n = Number(value);
   return !isNaN(n) && n >= 0 && n <= 100;
@@ -61,11 +66,32 @@ export interface PersonalInfoData {
   bloodGroup?: string;
 }
 
+export type AddressKind = "home" | "hostel" | "pg" | "relative";
+
+export interface CurrentAddressData {
+  line1: string;
+  city: string;
+  pincode: string; // 6 digits exactly
+  kind: AddressKind;
+}
+
+export interface HomeAddressData {
+  line1: string;
+  city: string;
+  pincode: string; // 6 digits exactly
+}
+
+export interface StudentAddressData {
+  current: CurrentAddressData;
+  /** Required when current.kind is "hostel" or "pg" */
+  home?: HomeAddressData;
+}
+
 export interface ContactInfoData {
   mobile: string;
   parentMobile?: string;
   optionalMobile?: string;
-  address: string;
+  address: StudentAddressData;
   aadhaarStudent?: string;
   aadhaarParent?: string;
 }
@@ -96,6 +122,8 @@ const GENDERS = ["male", "female", "other"] as const;
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 const CATEGORIES = ["SC", "ST", "OBC", "Open"] as const;
 const BOARDS = ["GSEB", "CBSE", "ICSE", "IB", "STATE", "OTHER"] as const;
+export const ADDRESS_KINDS: AddressKind[] = ["home", "hostel", "pg", "relative"];
+const HOSTEL_KINDS: AddressKind[] = ["hostel", "pg"];
 
 export function validateStep1(data: PersonalInfoData): ValidationResult {
   const errors: ValidationError[] = [];
@@ -127,6 +155,7 @@ export function validateStep1(data: PersonalInfoData): ValidationResult {
 export function validateStep2(data: ContactInfoData): ValidationResult {
   const errors: ValidationError[] = [];
 
+  // Mobile
   const rMobile = required(data.mobile, "mobile", "Mobile Number");
   if (rMobile) errors.push(rMobile);
   else if (!isValidPhone(data.mobile)) {
@@ -141,8 +170,61 @@ export function validateStep2(data: ContactInfoData): ValidationResult {
     errors.push({ field: "optionalMobile", message: "Optional Mobile must be a 10-digit number" });
   }
 
-  const rAddress = required(data.address, "address", "Address");
-  if (rAddress) errors.push(rAddress);
+  // Current address
+  const addr = data.address;
+  if (!addr || !addr.current) {
+    errors.push({ field: "address.current.line1", message: "Current address is required" });
+  } else {
+    const cur = addr.current;
+
+    const rLine1 = required(cur.line1, "address.current.line1", "Address Line 1");
+    if (rLine1) errors.push(rLine1);
+    else {
+      const mLine1 = maxLen(cur.line1, "address.current.line1", "Address Line 1", 200);
+      if (mLine1) errors.push(mLine1);
+    }
+
+    const rCity = required(cur.city, "address.current.city", "City");
+    if (rCity) errors.push(rCity);
+    else {
+      const mCity = maxLen(cur.city, "address.current.city", "City", 100);
+      if (mCity) errors.push(mCity);
+    }
+
+    const rPincode = required(cur.pincode, "address.current.pincode", "Pincode");
+    if (rPincode) errors.push(rPincode);
+    else if (!isValidPincode(cur.pincode)) {
+      errors.push({ field: "address.current.pincode", message: "Pincode must be exactly 6 digits" });
+    }
+
+    if (!cur.kind || !ADDRESS_KINDS.includes(cur.kind)) {
+      errors.push({ field: "address.current.kind", message: "Address type is required" });
+    }
+
+    // Home address required when kind is hostel or pg
+    if (cur.kind && HOSTEL_KINDS.includes(cur.kind)) {
+      const home = addr.home;
+      if (!home) {
+        errors.push({ field: "address.home.line1", message: "Home address is required for hostel/PG residents" });
+      } else {
+        const rHLine1 = required(home.line1, "address.home.line1", "Home Address Line 1");
+        if (rHLine1) errors.push(rHLine1);
+        else {
+          const mHLine1 = maxLen(home.line1, "address.home.line1", "Home Address Line 1", 200);
+          if (mHLine1) errors.push(mHLine1);
+        }
+
+        const rHCity = required(home.city, "address.home.city", "Home City");
+        if (rHCity) errors.push(rHCity);
+
+        const rHPincode = required(home.pincode, "address.home.pincode", "Home Pincode");
+        if (rHPincode) errors.push(rHPincode);
+        else if (!isValidPincode(home.pincode)) {
+          errors.push({ field: "address.home.pincode", message: "Home Pincode must be exactly 6 digits" });
+        }
+      }
+    }
+  }
 
   if (data.aadhaarStudent && !isValidAadhaar(data.aadhaarStudent)) {
     errors.push({ field: "aadhaarStudent", message: "Student Aadhaar must be 12 digits" });
@@ -188,32 +270,26 @@ export function validateStep3(data: AcademicInfoData): ValidationResult {
 export function validateStep4(data: DocumentsData, category?: string, board?: string): ValidationResult {
   const errors: ValidationError[] = [];
 
-  // Profile photo is required
   if (!data.profilePhoto) {
     errors.push({ field: "profilePhoto", message: "Profile Photo is required" });
   }
 
-  // LC is required
   if (!data.lcCertificate) {
     errors.push({ field: "lcCertificate", message: "LC (Leaving Certificate) is required" });
   }
 
-  // 10th marksheet required
   if (!data.marksheet10th) {
     errors.push({ field: "marksheet10th", message: "10th Marksheet is required" });
   }
 
-  // 12th marksheet required
   if (!data.marksheet12th) {
     errors.push({ field: "marksheet12th", message: "12th Marksheet is required" });
   }
 
-  // Caste certificate required for non-Open categories
   if (category && category !== "Open" && !data.casteCertificate) {
     errors.push({ field: "casteCertificate", message: "Caste Certificate is required for your category" });
   }
 
-  // Migration certificate required if board is not GSEB
   if (board && board !== "GSEB" && !data.migrationCertificate) {
     errors.push({ field: "migrationCertificate", message: "Migration Certificate is required for non-GSEB board" });
   }

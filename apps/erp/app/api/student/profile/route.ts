@@ -234,7 +234,24 @@ export async function PUT(req: NextRequest) {
           mobile: stepData.mobile.replace(/\s+/g, ""),
           parentMobile: stepData.parentMobile?.replace(/\s+/g, "") || null,
           optionalMobile: stepData.optionalMobile?.replace(/\s+/g, "") || null,
-          address: stepData.address.trim(),
+          address: {
+            current: {
+              line1: stepData.address.current.line1.trim(),
+              city: stepData.address.current.city.trim(),
+              pincode: stepData.address.current.pincode.trim(),
+              kind: stepData.address.current.kind,
+            },
+            ...((["hostel", "pg"] as string[]).includes(stepData.address.current.kind) &&
+            stepData.address.home
+              ? {
+                  home: {
+                    line1: stepData.address.home.line1.trim(),
+                    city: stepData.address.home.city.trim(),
+                    pincode: stepData.address.home.pincode.trim(),
+                  },
+                }
+              : {}),
+          },
           aadhaarStudent: stepData.aadhaarStudent?.replace(/\s+/g, "") || null,
           aadhaarParent: stepData.aadhaarParent?.replace(/\s+/g, "") || null,
         };

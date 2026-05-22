@@ -12,7 +12,41 @@ import {
   primaryKey,
   uniqueIndex,
   index,
+  jsonb,
 } from "drizzle-orm/pg-core";
+
+// ─── ADDRESS TYPES ──────────────────────────────────────────────────────────
+
+/** Structured address stored as JSONB in students.address */
+export interface StudentCurrentAddress {
+  line1: string;   // Street / locality / hostel name
+  city: string;
+  pincode: string; // Exactly 6 digits
+  kind: "home" | "hostel" | "pg" | "relative";
+}
+
+export interface StudentHomeAddress {
+  line1: string;
+  city: string;
+  pincode: string; // Exactly 6 digits
+}
+
+/**
+ * Top-level JSONB shape for students.address.
+ * `home` is required when current.kind is "hostel" or "pg".
+ */
+export interface StudentAddress {
+  current: StudentCurrentAddress;
+  home?: StudentHomeAddress;
+}
+
+/** Structured address stored as JSONB in faculty.address */
+export interface FacultyAddress {
+  line1: string;
+  city: string;
+  pincode: string; // Exactly 6 digits
+  kind: "home" | "other";
+}
 
 // -- CORE LOOKUP / MASTER TABLES --
 
@@ -112,6 +146,10 @@ export const faculty = pgTable("faculty", {
   mustChangePwd: boolean("must_change_pwd").notNull().default(true),
   gender: varchar("gender", { length: 10 }),
   dob: date("dob"),
+  /** Structured address — see FacultyAddress interface */
+  address: jsonb("address").$type<FacultyAddress>(),
+  alternateMobile: varchar("alternate_mobile", { length: 15 }),
+  profilePhotoUrl: varchar("profile_photo_url", { length: 255 }),
   qualification: varchar("qualification", { length: 100 }),
   experienceYears: integer("experience_years"),
   specialization: varchar("specialization", { length: 150 }),
@@ -120,41 +158,6 @@ export const faculty = pgTable("faculty", {
   profileStep: integer("profile_step").notNull().default(1),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const facultyPersonalInfo = pgTable("faculty_personal_info", {
-  id: serial("id").primaryKey(),
-  facultyId: integer("faculty_id").notNull().unique().references(() => faculty.id),
-  fullName: varchar("full_name", { length: 150 }).notNull(),
-  dob: date("dob"),
-  gender: varchar("gender", { length: 10 }),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-export const facultyContactInfo = pgTable("faculty_contact_info", {
-  id: serial("id").primaryKey(),
-  facultyId: integer("faculty_id").notNull().unique().references(() => faculty.id),
-  mobile: varchar("mobile", { length: 15 }).notNull(),
-  alternateMobile: varchar("alternate_mobile", { length: 15 }),
-  address: text("address"),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-export const facultyProfessionalInfo = pgTable("faculty_professional_info", {
-  id: serial("id").primaryKey(),
-  facultyId: integer("faculty_id").notNull().unique().references(() => faculty.id),
-  qualification: varchar("qualification", { length: 100 }),
-  experienceYears: integer("experience_years"),
-  specialization: varchar("specialization", { length: 150 }),
-  designation: varchar("designation", { length: 100 }),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-export const facultyDocuments = pgTable("faculty_documents", {
-  id: serial("id").primaryKey(),
-  facultyId: integer("faculty_id").notNull().unique().references(() => faculty.id),
-  profilePhotoUrl: varchar("profile_photo_url", { length: 255 }).notNull(),
-  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
 });
 
 export const facultyRoles = pgTable("faculty_roles", {
@@ -173,7 +176,7 @@ export const students = pgTable("students", {
   spid: varchar("spid", { length: 30 }).unique(),
   enrollmentId: varchar("enrollment_id", { length: 30 }).unique(),
   abcId: varchar("abc_id", { length: 30 }).unique(),
-  
+
   fullName: varchar("full_name", { length: 150 }).notNull(),
   dob: date("dob"),
   gender: varchar("gender", { length: 10 }),
@@ -182,7 +185,8 @@ export const students = pgTable("students", {
   mobile: varchar("mobile", { length: 15 }).unique(),
   parentMobile: varchar("parent_mobile", { length: 15 }),
   optionalMobile: varchar("optional_mobile", { length: 15 }),
-  address: text("address"),
+  /** Structured address — see StudentAddress interface */
+  address: jsonb("address").$type<StudentAddress>(),
   aadhaarStudent: varchar("aadhaar_student", { length: 20 }),
   aadhaarParent: varchar("aadhaar_parent", { length: 20 }),
 

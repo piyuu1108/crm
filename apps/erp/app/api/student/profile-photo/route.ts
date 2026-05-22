@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, S3_BUCKET } from "@/app/lib/storage";
+import { getAuthContext } from "@/app/lib/api-auth";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -8,6 +9,50 @@ export async function GET(req: NextRequest) {
 
   if (!key) {
     return new NextResponse("Key required", { status: 400 });
+  }
+
+  // 1. Authenticate user
+  const auth = await getAuthContext(req);
+  if (!auth) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  // 2. Authorize access to S3 key
+  let isAuthorized = false;
+
+  const studentMatch = key.match(/^students\/(\d+)\//);
+  const facultyMatch = key.match(/^faculty\/(\d+)\//);
+
+  if (studentMatch) {
+    const studentId = Number(studentMatch[1]);
+    if (auth.roles.includes("student")) {
+      // Students can only access their own files
+      isAuthorized = auth.userId === studentId;
+    } else if (auth.roles.some((role) => ["faculty", "counselor", "hod"].includes(role))) {
+      // Faculty, Counselor, and HOD can view any student files
+      isAuthorized = true;
+    }
+  } else if (facultyMatch) {
+    const facultyId = Number(facultyMatch[1]);
+    const isCircular = key.includes("/circular_attachment_");
+    const isProfilePhoto = key.includes("/profile_photo_");
+
+    if (auth.roles.includes("student")) {
+      // Students can view circulars and faculty profile photos
+      isAuthorized = isCircular || isProfilePhoto;
+    } else if (auth.roles.some((role) => ["faculty", "counselor", "hod"].includes(role))) {
+      if (auth.roles.includes("hod")) {
+        // HOD can view any faculty files
+        isAuthorized = true;
+      } else {
+        // Other faculty can view circulars, their own files, or other faculty profile photos
+        isAuthorized = isCircular || isProfilePhoto || auth.userId === facultyId;
+      }
+    }
+  }
+
+  if (!isAuthorized) {
+    return new NextResponse("Forbidden", { status: 403 });
   }
 
   try {
@@ -34,7 +79,7 @@ export async function GET(req: NextRequest) {
 
     const headers: Record<string, string> = {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400, stale-while-revalidate=43200",
+      "Cache-Control": "private, no-cache, no-store, must-revalidate", // 🚀 Security: do not allow public caching of sensitive documents
     };
 
     if (searchParams.get("download") === "true") {
@@ -42,7 +87,6 @@ export async function GET(req: NextRequest) {
       headers["Content-Disposition"] = `attachment; filename="${filename}"`;
     }
 
-    // 🚀 FIX: Return the binary buffer directly with image headers
     return new NextResponse(body, {
       status: 200,
       headers,

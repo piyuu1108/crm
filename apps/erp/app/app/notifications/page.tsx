@@ -122,7 +122,7 @@ export default function NotificationsPage() {
   const [dateRangeFilter, setDateRangeFilter] = useState<string>("all");
 
   // ─── Selection & Sorting ───────────────────────────────────────────────────
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectedKeys, setSelectedKeys] = useState<Selection>(new Set());
   const [sortDescriptor, setSortDescriptor] = useState<SortDescriptor>({
     column: "createdAt",
     direction: "descending",
@@ -194,7 +194,7 @@ export default function NotificationsPage() {
       try {
         await markReadMutation.mutateAsync({ ids });
         toast.success("Notifications updated successfully");
-        setSelectedIds(new Set());
+        setSelectedKeys(new Set());
       } catch (err: any) {
         toast.danger("Failed to update notifications", {
           description: err.message || "Please try again.",
@@ -266,30 +266,14 @@ export default function NotificationsPage() {
 
   const totalPages = Math.ceil(pagination.total / rowsPerPage) || 1;
 
-  // ─── Bulk Select Logic ─────────────────────────────────────────────────────
-  const isAllSelected = sortedItems.length > 0 && sortedItems.every((item) => selectedIds.has(item.id));
-  const isSomeSelected = sortedItems.some((item) => selectedIds.has(item.id)) && !isAllSelected;
+  // ─── Selection Logic ───────────────────────────────────────────────────────
+  const selectedCount = selectedKeys === "all" ? sortedItems.length : selectedKeys.size;
 
-  const handleSelectAllToggle = () => {
-    if (isAllSelected) {
-      const newSelected = new Set(selectedIds);
-      sortedItems.forEach((item) => newSelected.delete(item.id));
-      setSelectedIds(newSelected);
-    } else {
-      const newSelected = new Set(selectedIds);
-      sortedItems.forEach((item) => newSelected.add(item.id));
-      setSelectedIds(newSelected);
-    }
-  };
-
-  const handleSelectRow = (id: number) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
+  const handleMarkAsReadSelected = () => {
+    const idsToMark = selectedKeys === "all"
+      ? sortedItems.map((item) => item.id)
+      : Array.from(selectedKeys).map((k) => Number(k));
+    handleMarkAsRead(idsToMark);
   };
 
   const handleViewDetails = (notif: Notification) => {
@@ -330,13 +314,13 @@ export default function NotificationsPage() {
         </div>
         <div className="flex items-center gap-2">
           {["faculty", "counselor", "hod", "admin"].includes(activeRole || "") && (
-            <Button variant="secondary" size="sm" className="font-semibold" onPress={() => setIsSimulateOpen(true)}>
+            <Button variant="outline" size="sm" onPress={() => setIsSimulateOpen(true)}>
               <Plus className="size-4 mr-1" />
               Simulate Event
             </Button>
           )}
           {metrics.unread > 0 && (
-            <Button variant="secondary" size="sm" onPress={handleMarkAllAsRead}>
+            <Button variant="outline" size="sm" onPress={handleMarkAllAsRead}>
               <Check className="size-4 mr-1" />
               Mark All Read
             </Button>
@@ -399,7 +383,7 @@ export default function NotificationsPage() {
 
             {/* Clear filters */}
             {hasActiveFilters && (
-              <Button variant="secondary" size="sm" onPress={handleClearFilters}>
+              <Button variant="outline" size="sm" onPress={handleClearFilters}>
                 Clear Filters
               </Button>
             )}
@@ -408,7 +392,7 @@ export default function NotificationsPage() {
           <div className="flex items-center gap-3">
             {/* Column Selector */}
             <Dropdown>
-              <Button variant="secondary" size="sm">
+              <Button variant="outline" size="sm">
                 Columns <Gear className="size-4 ml-1" />
                 <ChevronDown className="size-4 ml-1" />
               </Button>
@@ -441,7 +425,7 @@ export default function NotificationsPage() {
 
           {/* Read Status */}
           <Dropdown>
-            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+            <Button variant="outline" size="sm" className="text-xs font-semibold">
               <span className="text-muted-foreground mr-1">Status:</span>
               {isReadFilter === "all" ? "All" : isReadFilter === "false" ? "Unread" : "Read"}
               <ChevronDown className="size-3.5 ml-1" />
@@ -475,7 +459,7 @@ export default function NotificationsPage() {
 
           {/* Priority */}
           <Dropdown>
-            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+            <Button variant="outline" size="sm" className="text-xs font-semibold">
               <span className="text-muted-foreground mr-1">Priority:</span>
               <span className="capitalize">{priorityFilter === "all" ? "All" : priorityFilter}</span>
               <ChevronDown className="size-3.5 ml-1" />
@@ -513,7 +497,7 @@ export default function NotificationsPage() {
 
           {/* Notification Type */}
           <Dropdown>
-            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+            <Button variant="outline" size="sm" className="text-xs font-semibold">
               <span className="text-muted-foreground mr-1">Event:</span>
               {typeFilter === "all"
                 ? "All Events"
@@ -583,7 +567,7 @@ export default function NotificationsPage() {
 
           {/* Date range filter */}
           <Dropdown>
-            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+            <Button variant="outline" size="sm" className="text-xs font-semibold">
               <span className="text-muted-foreground mr-1">Date:</span>
               {dateRangeFilter === "all"
                 ? "All Time"
@@ -630,16 +614,16 @@ export default function NotificationsPage() {
       </div>
 
       {/* ─── Bulk Action Banner ──────────────────────────────────────────────── */}
-      {selectedIds.size > 0 && (
+      {selectedCount > 0 && (
         <div className="flex items-center justify-between p-3 rounded-xl bg-primary/10 border border-primary/20 animate-fade-in">
           <span className="text-xs font-semibold text-primary">
-            {selectedIds.size} row{selectedIds.size > 1 ? "s" : ""} selected
+            {selectedCount} row{selectedCount > 1 ? "s" : ""} selected
           </span>
           <Button
             size="sm"
             variant="primary"
             className="font-semibold"
-            onPress={() => handleMarkAsRead(Array.from(selectedIds))}
+            onPress={handleMarkAsReadSelected}
           >
             Mark as Read
           </Button>
@@ -680,14 +664,17 @@ export default function NotificationsPage() {
                 className="min-w-[800px]"
                 sortDescriptor={sortDescriptor}
                 onSortChange={handleSortChange}
+                selectedKeys={selectedKeys}
+                selectionMode="multiple"
+                onSelectionChange={setSelectedKeys}
               >
                 <Table.Header>
-                  <Table.Column className="w-[50px] text-center">
-                    <Checkbox
-                      isSelected={isAllSelected}
-                      onChange={handleSelectAllToggle}
-                      aria-label="Select all notifications"
-                    />
+                  <Table.Column className="w-[50px] text-center pr-0">
+                    <Checkbox aria-label="Select all" slot="selection">
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox>
                   </Table.Column>
                   {visibleColumns.has("priority") && (
                     <Table.Column allowsSorting id="priority" className="w-[100px]">
@@ -699,7 +686,7 @@ export default function NotificationsPage() {
                     </Table.Column>
                   )}
                   {visibleColumns.has("title") && (
-                    <Table.Column allowsSorting id="title" className="min-w-[200px]">
+                    <Table.Column allowsSorting isRowHeader id="title" className="min-w-[200px]">
                       {({ sortDirection }) => (
                         <SortableColumnHeader sortDirection={sortDirection}>
                           Title
@@ -754,12 +741,15 @@ export default function NotificationsPage() {
                         key={notif.id}
                         className={`transition-colors hover:bg-default-50/50 ${!notif.isRead ? "bg-primary/5 hover:bg-primary/10" : ""}`}
                       >
-                        <Table.Cell className="text-center">
+                        <Table.Cell className="text-center pr-0">
                           <Checkbox
-                            isSelected={selectedIds.has(notif.id)}
-                            onChange={() => handleSelectRow(notif.id)}
                             aria-label={`Select notification ${notif.title}`}
-                          />
+                            slot="selection"
+                          >
+                            <Checkbox.Control>
+                              <Checkbox.Indicator />
+                            </Checkbox.Control>
+                          </Checkbox>
                         </Table.Cell>
 
                         {visibleColumns.has("priority") && (
@@ -903,8 +893,8 @@ export default function NotificationsPage() {
                     <Select
                       isRequired
                       className="w-full"
-                      selectedKey={simReceiverRole}
-                      onSelectionChange={(key) => setSimReceiverRole(key as string)}
+                      value={simReceiverRole}
+                      onChange={(key) => setSimReceiverRole(key as string)}
                     >
                       <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Receiver Role</Label>
                       <Select.Trigger>
@@ -925,8 +915,8 @@ export default function NotificationsPage() {
                     <Select
                       isRequired
                       className="w-full"
-                      selectedKey={simType}
-                      onSelectionChange={(key) => setSimType(key as string)}
+                      value={simType}
+                      onChange={(key) => setSimType(key as string)}
                     >
                       <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Event Type</Label>
                       <Select.Trigger>
@@ -952,8 +942,8 @@ export default function NotificationsPage() {
                     <Select
                       isRequired
                       className="w-full"
-                      selectedKey={simPriority}
-                      onSelectionChange={(key) => setSimPriority(key as string)}
+                      value={simPriority}
+                      onChange={(key) => setSimPriority(key as string)}
                     >
                       <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Priority Override</Label>
                       <Select.Trigger>

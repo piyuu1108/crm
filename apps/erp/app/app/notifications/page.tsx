@@ -13,6 +13,11 @@ import {
   Card,
   Checkbox,
   toast,
+  Modal,
+  Select,
+  ListBox,
+  TextArea,
+  TextField,
   type Selection,
   type SortDescriptor,
 } from "@heroui/react";
@@ -435,79 +440,192 @@ export default function NotificationsPage() {
           </div>
 
           {/* Read Status */}
-          <div className="flex items-center gap-1.5 bg-background px-3 py-1.5 rounded-lg border border-divider">
-            <span className="text-[11px] text-muted-foreground">Status:</span>
-            <select
-              value={isReadFilter}
-              onChange={(e) => {
-                setIsReadFilter(e.target.value);
-                setPage(1);
-              }}
-              className="bg-transparent text-xs font-semibold outline-none cursor-pointer text-foreground"
-            >
-              <option value="all">All</option>
-              <option value="false">Unread</option>
-              <option value="true">Read</option>
-            </select>
-          </div>
+          <Dropdown>
+            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+              <span className="text-muted-foreground mr-1">Status:</span>
+              {isReadFilter === "all" ? "All" : isReadFilter === "false" ? "Unread" : "Read"}
+              <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+            <Dropdown.Popover>
+              <Dropdown.Menu
+                aria-label="Filter Status"
+                selectionMode="single"
+                selectedKeys={new Set([isReadFilter])}
+                onSelectionChange={(keys) => {
+                  const key = Array.from(keys)[0] as string;
+                  setIsReadFilter(key || "all");
+                  setPage(1);
+                }}
+              >
+                <Dropdown.Item id="all" key="all" textValue="All">
+                  <Dropdown.ItemIndicator />
+                  <Label>All</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="false" key="false" textValue="Unread">
+                  <Dropdown.ItemIndicator />
+                  <Label>Unread</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="true" key="true" textValue="Read">
+                  <Dropdown.ItemIndicator />
+                  <Label>Read</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
 
           {/* Priority */}
-          <div className="flex items-center gap-1.5 bg-background px-3 py-1.5 rounded-lg border border-divider">
-            <span className="text-[11px] text-muted-foreground">Priority:</span>
-            <select
-              value={priorityFilter}
-              onChange={(e) => {
-                setPriorityFilter(e.target.value);
-                setPage(1);
-              }}
-              className="bg-transparent text-xs font-semibold outline-none cursor-pointer text-foreground"
-            >
-              <option value="all">All Priorities</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
+          <Dropdown>
+            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+              <span className="text-muted-foreground mr-1">Priority:</span>
+              <span className="capitalize">{priorityFilter === "all" ? "All" : priorityFilter}</span>
+              <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+            <Dropdown.Popover>
+              <Dropdown.Menu
+                aria-label="Filter Priority"
+                selectionMode="single"
+                selectedKeys={new Set([priorityFilter])}
+                onSelectionChange={(keys) => {
+                  const key = Array.from(keys)[0] as string;
+                  setPriorityFilter(key || "all");
+                  setPage(1);
+                }}
+              >
+                <Dropdown.Item id="all" key="all" textValue="All Priorities">
+                  <Dropdown.ItemIndicator />
+                  <Label>All Priorities</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="low" key="low" textValue="Low">
+                  <Dropdown.ItemIndicator />
+                  <Label>Low</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="medium" key="medium" textValue="Medium">
+                  <Dropdown.ItemIndicator />
+                  <Label>Medium</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="high" key="high" textValue="High">
+                  <Dropdown.ItemIndicator />
+                  <Label>High</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
 
           {/* Notification Type */}
-          <div className="flex items-center gap-1.5 bg-background px-3 py-1.5 rounded-lg border border-divider">
-            <span className="text-[11px] text-muted-foreground">Event:</span>
-            <select
-              value={typeFilter}
-              onChange={(e) => {
-                setTypeFilter(e.target.value);
-                setPage(1);
-              }}
-              className="bg-transparent text-xs font-semibold outline-none cursor-pointer text-foreground"
-            >
-              <option value="all">All Events</option>
-              <option value="leave_request">Leave Requests</option>
-              <option value="timetable_change">Timetable Changes</option>
-              <option value="approval">Approvals</option>
-              <option value="assignment_update">Assignment Updates</option>
-              <option value="fee_event">Fees / Bills</option>
-              <option value="counselor_action">Counselor Actions</option>
-              <option value="admin_action">Administrative Actions</option>
-            </select>
-          </div>
+          <Dropdown>
+            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+              <span className="text-muted-foreground mr-1">Event:</span>
+              {typeFilter === "all"
+                ? "All Events"
+                : typeFilter === "leave_request"
+                ? "Leave Requests"
+                : typeFilter === "timetable_change"
+                ? "Timetable Changes"
+                : typeFilter === "approval"
+                ? "Approvals"
+                : typeFilter === "assignment_update"
+                ? "Assignment Updates"
+                : typeFilter === "fee_event"
+                ? "Fees / Bills"
+                : typeFilter === "counselor_action"
+                ? "Counselor Actions"
+                : typeFilter === "admin_action"
+                ? "Administrative Actions"
+                : typeFilter}
+              <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+            <Dropdown.Popover>
+              <Dropdown.Menu
+                aria-label="Filter Event Type"
+                selectionMode="single"
+                selectedKeys={new Set([typeFilter])}
+                onSelectionChange={(keys) => {
+                  const key = Array.from(keys)[0] as string;
+                  setTypeFilter(key || "all");
+                  setPage(1);
+                }}
+              >
+                <Dropdown.Item id="all" key="all" textValue="All Events">
+                  <Dropdown.ItemIndicator />
+                  <Label>All Events</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="leave_request" key="leave_request" textValue="Leave Requests">
+                  <Dropdown.ItemIndicator />
+                  <Label>Leave Requests</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="timetable_change" key="timetable_change" textValue="Timetable Changes">
+                  <Dropdown.ItemIndicator />
+                  <Label>Timetable Changes</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="approval" key="approval" textValue="Approvals">
+                  <Dropdown.ItemIndicator />
+                  <Label>Approvals</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="assignment_update" key="assignment_update" textValue="Assignment Updates">
+                  <Dropdown.ItemIndicator />
+                  <Label>Assignment Updates</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="fee_event" key="fee_event" textValue="Fees / Bills">
+                  <Dropdown.ItemIndicator />
+                  <Label>Fees / Bills</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="counselor_action" key="counselor_action" textValue="Counselor Actions">
+                  <Dropdown.ItemIndicator />
+                  <Label>Counselor Actions</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="admin_action" key="admin_action" textValue="Administrative Actions">
+                  <Dropdown.ItemIndicator />
+                  <Label>Administrative Actions</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
 
           {/* Date range filter */}
-          <div className="flex items-center gap-1.5 bg-background px-3 py-1.5 rounded-lg border border-divider">
-            <span className="text-[11px] text-muted-foreground">Date:</span>
-            <select
-              value={dateRangeFilter}
-              onChange={(e) => {
-                setDateRangeFilter(e.target.value);
-                setPage(1);
-              }}
-              className="bg-transparent text-xs font-semibold outline-none cursor-pointer text-foreground"
-            >
-              <option value="all">All Time</option>
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-            </select>
-          </div>
+          <Dropdown>
+            <Button variant="secondary" size="sm" className="bg-background border border-divider text-xs font-semibold">
+              <span className="text-muted-foreground mr-1">Date:</span>
+              {dateRangeFilter === "all"
+                ? "All Time"
+                : dateRangeFilter === "today"
+                ? "Today"
+                : dateRangeFilter === "week"
+                ? "This Week"
+                : dateRangeFilter === "month"
+                ? "This Month"
+                : dateRangeFilter}
+              <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+            <Dropdown.Popover>
+              <Dropdown.Menu
+                aria-label="Filter Date"
+                selectionMode="single"
+                selectedKeys={new Set([dateRangeFilter])}
+                onSelectionChange={(keys) => {
+                  const key = Array.from(keys)[0] as string;
+                  setDateRangeFilter(key || "all");
+                  setPage(1);
+                }}
+              >
+                <Dropdown.Item id="all" key="all" textValue="All Time">
+                  <Dropdown.ItemIndicator />
+                  <Label>All Time</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="today" key="today" textValue="Today">
+                  <Dropdown.ItemIndicator />
+                  <Label>Today</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="week" key="week" textValue="This Week">
+                  <Dropdown.ItemIndicator />
+                  <Label>This Week</Label>
+                </Dropdown.Item>
+                <Dropdown.Item id="month" key="month" textValue="This Month">
+                  <Dropdown.ItemIndicator />
+                  <Label>This Month</Label>
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
         </div>
       </div>
 
@@ -565,11 +683,10 @@ export default function NotificationsPage() {
               >
                 <Table.Header>
                   <Table.Column className="w-[50px] text-center">
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected}
+                    <Checkbox
+                      isSelected={isAllSelected}
                       onChange={handleSelectAllToggle}
-                      className="h-4 w-4 rounded border-divider cursor-pointer accent-primary"
+                      aria-label="Select all notifications"
                     />
                   </Table.Column>
                   {visibleColumns.has("priority") && (
@@ -638,11 +755,10 @@ export default function NotificationsPage() {
                         className={`transition-colors hover:bg-default-50/50 ${!notif.isRead ? "bg-primary/5 hover:bg-primary/10" : ""}`}
                       >
                         <Table.Cell className="text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(notif.id)}
+                          <Checkbox
+                            isSelected={selectedIds.has(notif.id)}
                             onChange={() => handleSelectRow(notif.id)}
-                            className="h-4 w-4 rounded border-divider cursor-pointer accent-primary"
+                            aria-label={`Select notification ${notif.title}`}
                           />
                         </Table.Cell>
 
@@ -758,115 +874,137 @@ export default function NotificationsPage() {
       )}
 
       {/* ─── Simulation Modal Dialog ────────────────────────────────────────── */}
-      {isSimulateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
-          <Card className="w-full max-w-md border border-divider shadow-2xl bg-card">
-            <Card.Content className="p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-divider pb-3">
-                <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+      <Modal isOpen={isSimulateOpen} onOpenChange={setIsSimulateOpen}>
+        <Modal.Backdrop>
+          <Modal.Container placement="center">
+            <Modal.Dialog className="w-full max-w-md">
+              <Modal.CloseTrigger />
+              <Modal.Header>
+                <div className="flex items-center gap-2">
                   <Bell className="size-5 text-secondary" />
-                  Simulate Business Event
-                </h3>
-                <Button size="sm" variant="ghost" className="min-w-0 p-1 size-7" onPress={() => setIsSimulateOpen(false)}>
-                  ✕
-                </Button>
-              </div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    Simulate Business Event
+                  </h3>
+                </div>
+              </Modal.Header>
 
-              <form onSubmit={handleSimulateSubmit} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Receiver User ID (number)*</label>
-                  <Input
-                    placeholder="Enter recipient user ID (e.g. student/faculty ID number)"
+              <Modal.Body>
+                <form id="simulate-event-form" onSubmit={handleSimulateSubmit} className="flex flex-col gap-4 py-2">
+                  <TextField
+                    isRequired
                     value={simReceiverId}
-                    onChange={(e) => setSimReceiverId(e.target.value)}
-                    required
-                  />
-                </div>
+                    onChange={(v) => setSimReceiverId(v)}
+                  >
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Receiver User ID (number)</Label>
+                    <Input placeholder="Enter recipient user ID (e.g. student/faculty ID number)" />
+                  </TextField>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Receiver Role*</label>
-                    <select
-                      value={simReceiverRole}
-                      onChange={(e) => setSimReceiverRole(e.target.value)}
-                      className="w-full p-2 text-sm bg-background border border-divider rounded-xl outline-none"
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select
+                      isRequired
+                      className="w-full"
+                      selectedKey={simReceiverRole}
+                      onSelectionChange={(key) => setSimReceiverRole(key as string)}
                     >
-                      <option value="student">Student</option>
-                      <option value="faculty">Faculty</option>
-                      <option value="counselor">Counselor</option>
-                      <option value="hod">HOD</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                      <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Receiver Role</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="student" textValue="Student">Student<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="faculty" textValue="Faculty">Faculty<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="counselor" textValue="Counselor">Counselor<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="hod" textValue="HOD">HOD<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="admin" textValue="Admin">Admin<ListBox.ItemIndicator /></ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+
+                    <Select
+                      isRequired
+                      className="w-full"
+                      selectedKey={simType}
+                      onSelectionChange={(key) => setSimType(key as string)}
+                    >
+                      <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Event Type</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="leave_request" textValue="Leave Request">Leave Request<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="timetable_change" textValue="Timetable Change">Timetable Change<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="approval" textValue="Approval">Approval<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="assignment_update" textValue="Assignment Update">Assignment Update<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="fee_event" textValue="Fee / Billing Alert">Fee / Billing Alert<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="counselor_action" textValue="Counselor Alert">Counselor Alert<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="admin_action" textValue="Admin Alert">Admin Alert<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="system_alert" textValue="System Notice">System Notice<ListBox.ItemIndicator /></ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
                   </div>
 
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Event Type*</label>
-                    <select
-                      value={simType}
-                      onChange={(e) => setSimType(e.target.value)}
-                      className="w-full p-2 text-sm bg-background border border-divider rounded-xl outline-none"
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select
+                      isRequired
+                      className="w-full"
+                      selectedKey={simPriority}
+                      onSelectionChange={(key) => setSimPriority(key as string)}
                     >
-                      <option value="leave_request">Leave Request</option>
-                      <option value="timetable_change">Timetable Change</option>
-                      <option value="approval">Approval</option>
-                      <option value="assignment_update">Assignment Update</option>
-                      <option value="fee_event">Fee / Billing Alert</option>
-                      <option value="counselor_action">Counselor Alert</option>
-                      <option value="admin_action">Admin Alert</option>
-                      <option value="system_alert">System Notice</option>
-                    </select>
+                      <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Priority Override</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="low" textValue="Low">Low<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="medium" textValue="Medium">Medium<ListBox.ItemIndicator /></ListBox.Item>
+                          <ListBox.Item id="high" textValue="High">High<ListBox.ItemIndicator /></ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Priority Override</label>
-                    <select
-                      value={simPriority}
-                      onChange={(e) => setSimPriority(e.target.value)}
-                      className="w-full p-2 text-sm bg-background border border-divider rounded-xl outline-none"
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Title*</label>
-                  <Input
-                    placeholder="E.g. Outstanding Tuition Fee Alert"
+                  <TextField
+                    isRequired
                     value={simTitle}
-                    onChange={(e) => setSimTitle(e.target.value)}
-                    required
-                  />
-                </div>
+                    onChange={(v) => setSimTitle(v)}
+                  >
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Title</Label>
+                    <Input placeholder="E.g. Outstanding Tuition Fee Alert" />
+                  </TextField>
 
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground">Message*</label>
-                  <textarea
-                    placeholder="Enter full notification content..."
+                  <TextField
+                    isRequired
                     value={simMessage}
-                    onChange={(e) => setSimMessage(e.target.value)}
-                    required
-                    className="w-full p-2.5 min-h-[80px] text-sm bg-background border border-divider rounded-xl outline-none resize-none"
-                  />
-                </div>
+                    onChange={(v) => setSimMessage(v)}
+                  >
+                    <Label className="text-xs font-semibold text-muted-foreground mb-1.5">Message</Label>
+                    <TextArea
+                      placeholder="Enter full notification content..."
+                      rows={4}
+                    />
+                  </TextField>
+                </form>
+              </Modal.Body>
 
-                <div className="flex justify-end gap-2 border-t border-divider pt-3 mt-1">
-                  <Button size="sm" variant="secondary" onPress={() => setIsSimulateOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" variant="primary" type="submit">
-                    Broadcast Notification
-                  </Button>
-                </div>
-              </form>
-            </Card.Content>
-          </Card>
-        </div>
-      )}
+              <Modal.Footer>
+                <Button variant="secondary" onPress={() => setIsSimulateOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" type="submit" form="simulate-event-form">
+                  Broadcast Notification
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </div>
   );
 }

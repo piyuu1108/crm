@@ -22,6 +22,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { navigationConfig, Role } from "@/config/navigation";
 import { authMeQueryKey } from "@/app/lib/queries/auth";
 import { fetchWithTimeout } from "@/app/lib/http";
+import { useNotificationsQuery } from "@/app/lib/queries/notifications";
 
 // SSR-safe: ThemeSwitcher reads useThemeConfig() which needs the client-only provider
 const ThemeSwitcher = dynamic(
@@ -87,6 +88,8 @@ export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const pageTitle = usePageTitle(pathname, activeRole);
+  const { data: notificationsData } = useNotificationsQuery({}, activeRole);
+  const unreadCount = notificationsData?.metrics?.unread ?? 0;
 
   const handleLogout = async () => {
     // 1. Tell server to clear httpOnly cookie
@@ -174,12 +177,20 @@ export function Navbar() {
       <div className="flex items-center gap-2">
         {/* Notifications Bell */}
         <Badge.Anchor>
-          <Button isIconOnly variant="tertiary" size="sm" aria-label="Notifications">
+          <Button
+            isIconOnly
+            variant="tertiary"
+            size="sm"
+            aria-label="Notifications"
+            onPress={() => router.push("/app/notifications")}
+          >
             <Bell className="size-5" />
           </Button>
-          <Badge color="danger" size="sm">
-            3
-          </Badge>
+          {unreadCount > 0 && (
+            <Badge color="danger" size="sm">
+              {unreadCount}
+            </Badge>
+          )}
         </Badge.Anchor>
 
         {/* Theme Switcher — same as login page */}

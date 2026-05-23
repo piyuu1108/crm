@@ -14,6 +14,7 @@ import {
 import { navigationConfig, Role, type NavItem } from "@/config/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { useLayoutStore } from "@/app/lib/store/use-layout-store";
+import { useQuery } from "@tanstack/react-query";
 
 
 // ─── Active-state helpers ─────────────────────────────────────────────────────
@@ -193,6 +194,23 @@ function SidebarNavContent({
   const router = useRouter();
   const { activeRole, user } = useAuthStore();
 
+  const isStudent = activeRole === "student";
+  const isFaculty = activeRole === "faculty" || activeRole === "hod" || activeRole === "counselor";
+  const hasRequests = isStudent || isFaculty;
+
+  const { data: requestsData } = useQuery({
+    queryKey: ["requests", "count", activeRole],
+    queryFn: async () => {
+      const apiUrl = isStudent ? "/api/requests" : "/api/requests/faculty";
+      const res = await fetch(`${apiUrl}?status=pending&limit=1`);
+      if (!res.ok) throw new Error("Failed to fetch requests count");
+      return res.json();
+    },
+    enabled: !!activeRole && hasRequests,
+  });
+
+  const pendingRequestsCount = requestsData?.pagination?.total ?? 0;
+
   // activeRole is guaranteed by AuthHydrator — never null here
   const filteredNav = useMemo(
     () =>
@@ -204,22 +222,29 @@ function SidebarNavContent({
               activeRole ? item.roles.includes(activeRole as Role) : false
             )
             .map((item) => {
+              let badge = item.badge;
+              if (item.title === "Requests") {
+                badge = pendingRequestsCount;
+              }
+
+              const mappedItem = {
+                ...item,
+                badge,
+              };
+
               // Also filter children by role
               if (item.children) {
-                return {
-                  ...item,
-                  children: item.children.filter((child) =>
-                    activeRole ? child.roles.includes(activeRole as Role) : false
-                  ),
-                };
+                mappedItem.children = item.children.filter((child) =>
+                  activeRole ? child.roles.includes(activeRole as Role) : false
+                );
               }
-              return item;
+              return mappedItem;
             })
             // Remove parent items whose children all got filtered out
             .filter((item) => !item.children || item.children.length > 0),
         }))
         .filter((section) => section.items.length > 0),
-    [activeRole]
+    [activeRole, pendingRequestsCount]
   );
 
   return (

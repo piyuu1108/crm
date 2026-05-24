@@ -19,7 +19,7 @@ const COLUMNS: TableColumnDef[] = [
   { name: "Member", uid: "name", allowsSorting: true },
   { name: "Designation", uid: "designation", allowsSorting: true },
   { name: "Status", uid: "isActive", allowsSorting: true },
-  { name: "Assignments", uid: "assignments" },
+  { name: "Assignments", uid: "assignments", allowsSorting: true },
   { name: "Mobile", uid: "mobile" },
   { name: "Actions", uid: "actions", className: "text-end" },
 ];

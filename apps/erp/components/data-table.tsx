@@ -156,14 +156,24 @@ export function DataTable<T extends { id: string | number }>({
     const list = [...filteredData];
     if (sortDescriptor.column) {
       list.sort((a, b) => {
-        const val1 = (a[sortDescriptor.column as keyof typeof a] ?? "") as any;
-        const val2 = (b[sortDescriptor.column as keyof typeof b] ?? "") as any;
+        const val1 = a[sortDescriptor.column as keyof typeof a];
+        const val2 = b[sortDescriptor.column as keyof typeof b];
+
+        if (Array.isArray(val1) || Array.isArray(val2)) {
+          const len1 = Array.isArray(val1) ? val1.length : 0;
+          const len2 = Array.isArray(val2) ? val2.length : 0;
+          const cmp = len1 < len2 ? -1 : len1 > len2 ? 1 : 0;
+          return sortDescriptor.direction === "descending" ? -cmp : cmp;
+        }
+
+        const v1 = (val1 ?? "") as any;
+        const v2 = (val2 ?? "") as any;
 
         let cmp = 0;
-        if (typeof val1 === "string" && typeof val2 === "string") {
-          cmp = val1.localeCompare(val2);
+        if (typeof v1 === "string" && typeof v2 === "string") {
+          cmp = v1.localeCompare(v2);
         } else {
-          cmp = val1 < val2 ? -1 : val1 > val2 ? 1 : 0;
+          cmp = v1 < v2 ? -1 : v1 > v2 ? 1 : 0;
         }
         return sortDescriptor.direction === "descending" ? -cmp : cmp;
       });

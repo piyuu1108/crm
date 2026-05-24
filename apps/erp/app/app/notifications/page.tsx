@@ -412,7 +412,7 @@ export default function NotificationsPage() {
           <div className="flex flex-wrap gap-2 items-center">
             {/* Read Status */}
             <Dropdown>
-              <Button variant="outline" size="sm">
+              <Button variant="tertiary" size="sm">
                 Status: {isReadFilter === "all" ? "All" : isReadFilter === "false" ? "Unread" : "Read"}
                 <ChevronDown className="size-3.5 ml-1" />
               </Button>
@@ -445,7 +445,7 @@ export default function NotificationsPage() {
 
             {/* Priority */}
             <Dropdown>
-              <Button variant="outline" size="sm">
+              <Button variant="tertiary" size="sm">
                 Priority: <span className="capitalize">{priorityFilter === "all" ? "All" : priorityFilter}</span>
                 <ChevronDown className="size-3.5 ml-1" />
               </Button>
@@ -482,7 +482,7 @@ export default function NotificationsPage() {
 
             {/* Notification Type */}
             <Dropdown>
-              <Button variant="outline" size="sm">
+              <Button variant="tertiary" size="sm">
                 Event: {typeFilter === "all"
                   ? "All"
                   : typeFilter === "leave_request"
@@ -551,7 +551,7 @@ export default function NotificationsPage() {
 
             {/* Date range filter */}
             <Dropdown>
-              <Button variant="outline" size="sm">
+              <Button variant="tertiary" size="sm">
                 Date: {dateRangeFilter === "all"
                   ? "All Time"
                   : dateRangeFilter === "today"
@@ -596,7 +596,7 @@ export default function NotificationsPage() {
 
             {/* Clear filters */}
             {hasActiveFilters && (
-              <Button variant="outline" size="sm" onPress={handleClearFilters}>
+              <Button variant="tertiary" size="sm" onPress={handleClearFilters}>
                 Clear
               </Button>
             )}

@@ -296,7 +296,7 @@ export default function FacultyPage() {
         refetch={refetch}
         emptyStateMessage="No faculty members found."
         toolbarActions={
-          <Button variant="outline" size="sm">
+          <Button variant="tertiary" size="sm">
             <ArrowDownToLine className="size-4 mr-1" />
             Export
           </Button>

@@ -145,7 +145,7 @@ export default function SubjectAssignmentsPage() {
         emptyStateMessage="No subject assignments found."
         toolbarActions={
           <Dropdown>
-            <Button variant="secondary" size="sm">
+            <Button variant="tertiary" size="sm">
               <Funnel className="size-4" />
               {filterDivisionName ? filterDivisionName : "All Divisions"}
             </Button>

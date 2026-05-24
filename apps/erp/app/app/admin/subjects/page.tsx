@@ -355,7 +355,7 @@ export default function SubjectsPage() {
         emptyStateMessage="No subjects found."
         toolbarActions={
           <Button
-            variant="outline"
+            variant="tertiary"
             size="sm"
             onPress={() => data && exportSubjectsCSV(data)}
             isDisabled={!data || data.length === 0}

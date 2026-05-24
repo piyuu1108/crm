@@ -11,7 +11,9 @@ import {
   toast,
   Spinner,
   Chip,
+  Checkbox,
   type SortDescriptor,
+  type Selection,
 } from "@heroui/react";
 import { ArrowDownUp, Columns3, ChevronUp } from "lucide-react";
 
@@ -58,6 +60,26 @@ interface ReusableTableProps<T extends { id: string | number }> {
   isError?: boolean;
   error?: any;
   refetch?: () => void;
+  toolbarActions?: React.ReactNode;
+  emptyStateMessage?: string;
+  selectionMode?: "none" | "single" | "multiple";
+  selectedKeys?: Selection;
+  onSelectionChange?: (keys: Selection) => void;
+  onRowAction?: (key: React.Key) => void;
+  getRowClassName?: (item: T) => string;
+
+  // Controlled/Server-side Pagination & Sorting props
+  serverSide?: boolean;
+  page?: number;
+  onPageChange?: (page: number) => void;
+  totalPages?: number;
+  totalItems?: number;
+  itemsPerPage?: number;
+  onItemsPerPageChange?: (limit: number) => void;
+  sortDescriptor?: SortDescriptor;
+  onSortChange?: (descriptor: SortDescriptor) => void;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
 }
 
 export function DataTable<T extends { id: string | number }>({
@@ -73,20 +95,41 @@ export function DataTable<T extends { id: string | number }>({
   isError,
   error,
   refetch,
+  toolbarActions,
+  emptyStateMessage,
+  selectionMode,
+  selectedKeys,
+  onSelectionChange,
+  onRowAction,
+  getRowClassName,
+
+  // Controlled props
+  serverSide = false,
+  page: pageProp,
+  onPageChange,
+  totalPages: totalPagesProp,
+  totalItems: totalItemsProp,
+  itemsPerPage: itemsPerPageProp,
+  onItemsPerPageChange,
+  sortDescriptor: sortDescriptorProp,
+  onSortChange,
+  searchQuery: searchQueryProp,
+  onSearchQueryChange,
 }: ReusableTableProps<T>) {
   const [mounted, setMounted] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [page, setPage] = React.useState(1);
-  const [itemsPerPage, setItemsPerPage] = React.useState(10);
+
+  // Local state as fallbacks
+  const [localSearchQuery, setLocalSearchQuery] = React.useState("");
+  const [localPage, setLocalPage] = React.useState(1);
+  const [localItemsPerPage, setLocalItemsPerPage] = React.useState(10);
+  const [localSortDescriptor, setLocalSortDescriptor] = React.useState<SortDescriptor>({
+    column: columns[0]?.uid || "",
+    direction: "ascending",
+  });
 
   const [visibleColumns, setVisibleColumns] = React.useState<Set<string>>(
     new Set(initialVisibleColumns)
   );
-
-  const [sortDescriptor, setSortDescriptor] = React.useState<SortDescriptor>({
-    column: columns[0]?.uid || "",
-    direction: "ascending",
-  });
 
   React.useEffect(() => {
     const frameId = requestAnimationFrame(() => {
@@ -110,6 +153,12 @@ export function DataTable<T extends { id: string | number }>({
     }
   }, [localStorageKey]);
 
+  // Derived values depending on serverSide vs clientSide
+  const searchVal = serverSide ? (searchQueryProp ?? "") : localSearchQuery;
+  const pageVal = serverSide ? (pageProp ?? 1) : localPage;
+  const itemsPerPageVal = serverSide ? (itemsPerPageProp ?? 10) : localItemsPerPage;
+  const sortDescVal = serverSide ? (sortDescriptorProp ?? { column: "", direction: "ascending" }) : localSortDescriptor;
+
   const handleColumnSelectionChange = (keys: any) => {
     if (keys === "all") {
       const allKeys = columns.map((c) => c.uid);
@@ -127,22 +176,51 @@ export function DataTable<T extends { id: string | number }>({
   };
 
   const handleSortChange = (descriptor: SortDescriptor) => {
-    setSortDescriptor(descriptor);
-    setPage(1);
+    if (serverSide) {
+      onSortChange?.(descriptor);
+      onPageChange?.(1);
+    } else {
+      setLocalSortDescriptor(descriptor);
+      setLocalPage(1);
+    }
 
     const colName = columns.find((c) => c.uid === descriptor.column)?.name || descriptor.column;
     toast.info(`Sorting by ${colName} (${descriptor.direction === "ascending" ? "ascending" : "descending"})`);
   };
 
   const handleSearchChange = (query: string) => {
-    setSearchQuery(query);
-    setPage(1);
+    if (serverSide) {
+      onSearchQueryChange?.(query);
+      onPageChange?.(1);
+    } else {
+      setLocalSearchQuery(query);
+      setLocalPage(1);
+    }
+  };
+
+  const handlePageChange = (p: number) => {
+    if (serverSide) {
+      onPageChange?.(p);
+    } else {
+      setLocalPage(p);
+    }
+  };
+
+  const handleItemsPerPageChange = (limit: number) => {
+    if (serverSide) {
+      onItemsPerPageChange?.(limit);
+      onPageChange?.(1);
+    } else {
+      setLocalItemsPerPage(limit);
+      setLocalPage(1);
+    }
   };
 
   const filteredData = React.useMemo(() => {
-    if (!searchQuery || !searchKeys || searchKeys.length === 0) return data;
+    if (serverSide) return data;
+    if (!searchVal || !searchKeys || searchKeys.length === 0) return data;
 
-    const q = searchQuery.toLowerCase();
+    const q = searchVal.toLowerCase();
     return data.filter((item) =>
       searchKeys.some((key) => {
         const val = item[key];
@@ -150,20 +228,21 @@ export function DataTable<T extends { id: string | number }>({
         return String(val).toLowerCase().includes(q);
       })
     );
-  }, [data, searchQuery, searchKeys]);
+  }, [data, searchVal, searchKeys, serverSide]);
 
   const sortedData = React.useMemo(() => {
+    if (serverSide) return data;
     const list = [...filteredData];
-    if (sortDescriptor.column) {
+    if (sortDescVal.column) {
       list.sort((a, b) => {
-        const val1 = a[sortDescriptor.column as keyof typeof a];
-        const val2 = b[sortDescriptor.column as keyof typeof b];
+        const val1 = a[sortDescVal.column as keyof typeof a];
+        const val2 = b[sortDescVal.column as keyof typeof b];
 
         if (Array.isArray(val1) || Array.isArray(val2)) {
           const len1 = Array.isArray(val1) ? val1.length : 0;
           const len2 = Array.isArray(val2) ? val2.length : 0;
           const cmp = len1 < len2 ? -1 : len1 > len2 ? 1 : 0;
-          return sortDescriptor.direction === "descending" ? -cmp : cmp;
+          return sortDescVal.direction === "descending" ? -cmp : cmp;
         }
 
         const v1 = (val1 ?? "") as any;
@@ -175,42 +254,47 @@ export function DataTable<T extends { id: string | number }>({
         } else {
           cmp = v1 < v2 ? -1 : v1 > v2 ? 1 : 0;
         }
-        return sortDescriptor.direction === "descending" ? -cmp : cmp;
+        return sortDescVal.direction === "descending" ? -cmp : cmp;
       });
     }
     return list;
-  }, [filteredData, sortDescriptor]);
+  }, [filteredData, sortDescVal, serverSide]);
 
-  const totalPages = Math.max(1, Math.ceil(sortedData.length / itemsPerPage));
-  const paginatedData = sortedData.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage
-  );
+  const totalPagesVal = serverSide ? (totalPagesProp ?? 1) : Math.max(1, Math.ceil(sortedData.length / itemsPerPageVal));
+  const totalItemsVal = serverSide ? (totalItemsProp ?? data.length) : sortedData.length;
 
-  const startItem = sortedData.length === 0 ? 0 : (page - 1) * itemsPerPage + 1;
-  const endItem = Math.min(page * itemsPerPage, sortedData.length);
+  const paginatedData = React.useMemo(() => {
+    if (serverSide) return data;
+    return sortedData.slice(
+      (pageVal - 1) * itemsPerPageVal,
+      pageVal * itemsPerPageVal
+    );
+  }, [sortedData, pageVal, itemsPerPageVal, serverSide, data]);
+
+  const startItem = totalItemsVal === 0 ? 0 : (pageVal - 1) * itemsPerPageVal + 1;
+  const endItem = Math.min(pageVal * itemsPerPageVal, totalItemsVal);
 
   const getPageNumbers = () => {
     const pages: (number | "ellipsis")[] = [];
-    if (totalPages <= 3) {
-      for (let i = 1; i <= totalPages; i++) {
+    if (totalPagesVal <= 3) {
+      for (let i = 1; i <= totalPagesVal; i++) {
         pages.push(i);
       }
     } else {
       pages.push(1);
-      if (page <= 2) {
+      if (pageVal <= 2) {
         pages.push(2);
         pages.push("ellipsis");
-        pages.push(totalPages);
-      } else if (page >= totalPages - 1) {
+        pages.push(totalPagesVal);
+      } else if (pageVal >= totalPagesVal - 1) {
         pages.push("ellipsis");
-        pages.push(totalPages - 1);
-        pages.push(totalPages);
+        pages.push(totalPagesVal - 1);
+        pages.push(totalPagesVal);
       } else {
         pages.push("ellipsis");
-        pages.push(page);
+        pages.push(pageVal);
         pages.push("ellipsis");
-        pages.push(totalPages);
+        pages.push(totalPagesVal);
       }
     }
     return pages;
@@ -245,14 +329,14 @@ export function DataTable<T extends { id: string | number }>({
     <div className="flex flex-col gap-4">
       {/* Title / Header */}
       <div className="flex flex-col gap-3">
-        {(title || sortedData.length > 0) && (
+        {(title || totalItemsVal > 0) && (
           <div className="flex flex-wrap items-center gap-2">
             {title && (
               <span className="text-base font-semibold text-foreground">
                 {title}
               </span>
             )}
-            <Chip size="sm" variant="soft">{sortedData.length}</Chip>
+            <Chip size="sm" variant="soft">{totalItemsVal}</Chip>
           </div>
         )}
 
@@ -261,7 +345,7 @@ export function DataTable<T extends { id: string | number }>({
           <SearchField
             aria-label={searchPlaceholder}
             className="w-full sm:w-[280px] md:w-[360px]"
-            value={searchQuery}
+            value={searchVal}
             onChange={handleSearchChange}
           >
             <SearchField.Group>
@@ -273,18 +357,17 @@ export function DataTable<T extends { id: string | number }>({
           <div className="flex flex-wrap items-center gap-2">
             <Dropdown>
               <Button size="sm" variant="tertiary">
-                Rows: {itemsPerPage}
+                Rows: {itemsPerPageVal}
               </Button>
               <Dropdown.Popover>
                 <Dropdown.Menu
                   aria-label="Rows per page"
                   selectionMode="single"
-                  selectedKeys={new Set([String(itemsPerPage)])}
+                  selectedKeys={new Set([String(itemsPerPageVal)])}
                   onSelectionChange={(keys) => {
                     const selected = Array.from(keys)[0] as string;
                     if (selected) {
-                      setItemsPerPage(Number(selected));
-                      setPage(1);
+                      handleItemsPerPageChange(Number(selected));
                     }
                   }}
                 >
@@ -333,6 +416,7 @@ export function DataTable<T extends { id: string | number }>({
                 </Dropdown.Menu>
               </Dropdown.Popover>
             </Dropdown>
+            {toolbarActions}
           </div>
         </div>
       </div>
@@ -344,10 +428,23 @@ export function DataTable<T extends { id: string | number }>({
             <Table.Content
               aria-label={title || "Data table"}
               className="min-w-[700px]"
-              sortDescriptor={sortDescriptor}
+              sortDescriptor={sortDescVal}
               onSortChange={(desc) => handleSortChange(desc as any)}
+              selectionMode={selectionMode}
+              selectedKeys={selectedKeys}
+              onSelectionChange={onSelectionChange}
+              onRowAction={onRowAction}
             >
               <Table.Header>
+                {selectionMode === "multiple" && (
+                  <Table.Column className="w-[44px]">
+                    <Checkbox aria-label="Select all rows" slot="selection">
+                      <Checkbox.Control>
+                        <Checkbox.Indicator />
+                      </Checkbox.Control>
+                    </Checkbox>
+                  </Table.Column>
+                )}
                 {columns.map(
                   (col) =>
                     visibleColumns.has(col.uid) && (
@@ -369,9 +466,32 @@ export function DataTable<T extends { id: string | number }>({
                     )
                 )}
               </Table.Header>
-              <Table.Body>
+              <Table.Body
+                renderEmptyState={() => (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+                    {emptyStateMessage || "No records found."}
+                  </div>
+                )}
+              >
                 {paginatedData.map((item) => (
-                  <Table.Row key={item.id} id={item.id}>
+                  <Table.Row
+                    key={item.id}
+                    id={item.id}
+                    className={getRowClassName ? getRowClassName(item) : undefined}
+                  >
+                    {selectionMode === "multiple" && (
+                      <Table.Cell>
+                        <Checkbox
+                          aria-label="Select row"
+                          slot="selection"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <Checkbox.Control>
+                            <Checkbox.Indicator />
+                          </Checkbox.Control>
+                        </Checkbox>
+                      </Table.Cell>
+                    )}
                     {columns.map(
                       (col) =>
                         visibleColumns.has(col.uid) && (
@@ -393,13 +513,13 @@ export function DataTable<T extends { id: string | number }>({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full pt-1.5 min-w-0">
           <Pagination size="sm" className="w-full flex-col sm:flex-row gap-2">
             <Pagination.Summary>
-              Showing {startItem}-{endItem} of {sortedData.length} results
+              Showing {startItem}-{endItem} of {totalItemsVal} results
             </Pagination.Summary>
             <Pagination.Content>
               <Pagination.Item>
                 <Pagination.Previous
-                  isDisabled={page === 1}
-                  onPress={() => setPage((p) => p - 1)}
+                  isDisabled={pageVal === 1}
+                  onPress={() => handlePageChange(pageVal - 1)}
                 >
                   <Pagination.PreviousIcon />
                   <span className="hidden sm:inline">Previous</span>
@@ -413,8 +533,8 @@ export function DataTable<T extends { id: string | number }>({
                 ) : (
                   <Pagination.Item key={p}>
                     <Pagination.Link
-                      isActive={p === page}
-                      onPress={() => setPage(p as number)}
+                      isActive={p === pageVal}
+                      onPress={() => handlePageChange(p as number)}
                     >
                       {p}
                     </Pagination.Link>
@@ -423,8 +543,8 @@ export function DataTable<T extends { id: string | number }>({
               )}
               <Pagination.Item>
                 <Pagination.Next
-                  isDisabled={page === totalPages || sortedData.length === 0}
-                  onPress={() => setPage((p) => p + 1)}
+                  isDisabled={pageVal === totalPagesVal || totalItemsVal === 0}
+                  onPress={() => handlePageChange(pageVal + 1)}
                 >
                   <span className="hidden sm:inline">Next</span>
                   <Pagination.NextIcon />

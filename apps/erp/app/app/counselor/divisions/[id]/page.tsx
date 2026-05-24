@@ -26,6 +26,17 @@ import {
 import type { DivisionStudent } from "@/app/lib/queries/divisions";
 import { StudentActionsMenu } from "./student-actions-menu";
 import { EditStudentModal } from "@/components/edit-student-modal";
+import { DataTable, type TableColumnDef } from "@/components/data-table";
+
+const COLUMNS: TableColumnDef[] = [
+  { uid: "studentId", name: "Student ID", allowsSorting: true, isRowHeader: true, className: "w-[160px]" },
+  { uid: "fullName", name: "Name", allowsSorting: true },
+  { uid: "email", name: "Email", allowsSorting: true },
+  { uid: "status", name: "Profile Status", allowsSorting: true, className: "w-[130px]" },
+  { uid: "actions", name: "Actions", className: "w-[56px]" },
+];
+
+const INITIAL_VISIBLE_COLUMNS = ["studentId", "fullName", "email", "status", "actions"];
 
 // ─── Specialization badge colors ──────────────────────────────────────────────
 const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
@@ -301,6 +312,78 @@ export default function CounselorDivisionDetailPage() {
     [verifyStudentMutation]
   );
 
+  const renderCell = useCallback((s: any, columnKey: string) => {
+    const ps = profileStatus(s.status);
+    switch (columnKey) {
+      case "studentId":
+        return (
+          <span className="font-mono text-xs font-medium text-accent">
+            {s.studentId || "—"}
+          </span>
+        );
+      case "fullName":
+        return (
+          <span className="text-sm font-medium text-foreground">
+            {s.fullName}
+          </span>
+        );
+      case "email":
+        return (
+          <span className="text-sm text-foreground/80">
+            {s.email}
+          </span>
+        );
+      case "status":
+        return (
+          <Chip
+            color={ps.color}
+            size="sm"
+            variant="soft"
+          >
+            {ps.label}
+          </Chip>
+        );
+      case "actions":
+        return (
+          <StudentActionsMenu
+            ariaLabel={`Actions for ${s.fullName}`}
+            actions={[
+              {
+                id: `edit-${s.id}`,
+                label: "Edit Profile",
+                onAction: () => {
+                  setEditingStudent(s);
+                  setIsEditModalOpen(true);
+                },
+              },
+              {
+                id: `send-password-${s.id}`,
+                label: "Send Password Email",
+                isDisabled: singleEmailMutation.isPending,
+                onAction: () => handleSingleSend(s.id, s.fullName),
+              },
+              {
+                id: `approve-${s.id}`,
+                label: "Approve Profile",
+                isDisabled: verifyStudentMutation.isPending,
+                onAction: () =>
+                  handleReviewAction(s.id, s.fullName, "approve"),
+              },
+              {
+                id: `reject-${s.id}`,
+                label: "Reject Profile",
+                isDisabled: verifyStudentMutation.isPending,
+                onAction: () =>
+                  handleReviewAction(s.id, s.fullName, "reject"),
+              },
+            ]}
+          />
+        );
+      default:
+        return null;
+    }
+  }, [singleEmailMutation.isPending, verifyStudentMutation.isPending, handleSingleSend, handleReviewAction]);
+
   const bulkActions = useMemo<MenuAction[]>(
     () => [
       {
@@ -489,102 +572,21 @@ export default function CounselorDivisionDetailPage() {
                 </p>
               </Card>
             ) : (
-              <Table>
-                <Table.ScrollContainer>
-                  <Table.Content
-                    aria-label="Division students list"
-                    selectedKeys={selectedStudentIds}
-                    selectionMode="multiple"
-                    onSelectionChange={setSelectedStudentIds}
-                    onRowAction={(key) =>
-                      router.push(
-                        `/app/counselor/divisions/${divisionId}/students/${Number(key)}`
-                      )
-                    }
-                  >
-                    <Table.Header>
-                      <Table.Column className="w-[44px]">
-                        <Checkbox aria-label="Select all students" slot="selection">
-                          <Checkbox.Control>
-                            <Checkbox.Indicator />
-                          </Checkbox.Control>
-                        </Checkbox>
-                      </Table.Column>
-                      <Table.Column isRowHeader>Student ID</Table.Column>
-                      <Table.Column>Name</Table.Column>
-                      <Table.Column>Email</Table.Column>
-                      <Table.Column>Status</Table.Column>
-                      <Table.Column className="w-[56px]">Actions</Table.Column>
-                    </Table.Header>
-                    <Table.Body>
-                      {division.students.map((s) => (
-                        <Table.Row key={s.id} id={s.id}>
-                          <Table.Cell>
-                            <Checkbox
-                              aria-label={`Select ${s.fullName}`}
-                              slot="selection"
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <Checkbox.Control>
-                                <Checkbox.Indicator />
-                              </Checkbox.Control>
-                            </Checkbox>
-                          </Table.Cell>
-                          <Table.Cell className="font-mono text-xs font-medium text-accent">
-                            {s.studentId}
-                          </Table.Cell>
-                          <Table.Cell className="font-medium">{s.fullName}</Table.Cell>
-                          <Table.Cell className="text-muted-foreground">{s.email}</Table.Cell>
-                          <Table.Cell>
-                            <Chip
-                              size="sm"
-                              variant="soft"
-                              color={profileStatus(s.status).color}
-                            >
-                              {profileStatus(s.status).label}
-                            </Chip>
-                          </Table.Cell>
-                          <Table.Cell>
-                            <StudentActionsMenu
-                              ariaLabel={`Actions for ${s.fullName}`}
-                              actions={[
-                                {
-                                  id: `edit-${s.id}`,
-                                  label: "Edit Profile",
-                                  onAction: () => {
-                                    setEditingStudent(s);
-                                    setIsEditModalOpen(true);
-                                  },
-                                },
-                                {
-                                  id: `send-password-${s.id}`,
-                                  label: "Send Password Email",
-                                  isDisabled: singleEmailMutation.isPending,
-                                  onAction: () => handleSingleSend(s.id, s.fullName),
-                                },
-                                {
-                                  id: `approve-${s.id}`,
-                                  label: "Approve Profile",
-                                  isDisabled: verifyStudentMutation.isPending,
-                                  onAction: () =>
-                                    handleReviewAction(s.id, s.fullName, "approve"),
-                                },
-                                {
-                                  id: `reject-${s.id}`,
-                                  label: "Reject Profile",
-                                  isDisabled: verifyStudentMutation.isPending,
-                                  onAction: () =>
-                                    handleReviewAction(s.id, s.fullName, "reject"),
-                                },
-                              ]}
-                            />
-                          </Table.Cell>
-                        </Table.Row>
-                      ))}
-                    </Table.Body>
-                  </Table.Content>
-                </Table.ScrollContainer>
-              </Table>
+              <DataTable
+                data={division.students}
+                columns={COLUMNS}
+                initialVisibleColumns={INITIAL_VISIBLE_COLUMNS}
+                searchKeys={["studentId", "fullName", "email"]}
+                searchPlaceholder="Search students..."
+                renderCell={renderCell}
+                localStorageKey={`counselor_division_${divisionId}_students_table`}
+                selectionMode="multiple"
+                selectedKeys={selectedStudentIds}
+                onSelectionChange={setSelectedStudentIds}
+                onRowAction={(key) =>
+                  router.push(`/app/counselor/divisions/${divisionId}/students/${Number(key)}`)
+                }
+              />
             )}
           </div>
         </Tabs.Panel>

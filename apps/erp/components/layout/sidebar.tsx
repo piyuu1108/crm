@@ -243,7 +243,7 @@ export function Sidebar() {
         } ${isCollapsed ? "lg:w-20 w-[260px]" : "w-[260px] lg:w-(--sidebar-width)"}`}
       >
         {/* Header: Company logo & name */}
-        <div className={`px-4 py-5 ${isCollapsed ? "lg:px-3 px-4" : "px-4"}`}>
+        <div className={`px-4 pt-4 pb-2 ${isCollapsed ? "lg:px-3" : ""}`}>
           <div className={`flex items-center ${isCollapsed ? "lg:justify-center justify-start gap-3" : "gap-3"}`}>
             <div className="flex size-8 items-center justify-center rounded-xl shrink-0 bg-default-50 border border-default-100">
               <img src="/logo1.png" alt="Vtcbcsr Logo" className="h-5 w-5 object-contain" />
@@ -260,7 +260,7 @@ export function Sidebar() {
 
         {/* Navigation */}
         <ScrollShadow
-          className={`flex-1 ${isCollapsed ? "lg:px-3 lg:py-4 px-4 py-4" : "px-4 py-4"}`}
+          className={`flex-1 ${isCollapsed ? "lg:px-3 lg:pb-4 lg:pt-1 px-4 pb-4 pt-1" : "px-4 pb-2 pt-1"}`}
           hideScrollBar
         >
           <nav>
@@ -271,7 +271,7 @@ export function Sidebar() {
                   <li
                     className={`overflow-hidden transition-all duration-200 ease-in-out ${
                       isCollapsed ? "lg:h-0 lg:opacity-0 h-7 opacity-100" : "h-7 opacity-100"
-                    } ${sectionIdx > 0 ? "mt-4" : "mt-2"}`}
+                    } ${sectionIdx > 0 ? "mt-3.5" : "mt-5"}`}
                   >
                     <span className="px-3 flex items-center h-full text-[11px] font-bold uppercase tracking-wider text-default-400">
                       {section.section}

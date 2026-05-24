@@ -13,6 +13,7 @@ import {
   Tooltip,
   toast,
   Spinner,
+  type SortDescriptor,
 } from "@heroui/react";
 import {
   Copy,
@@ -20,8 +21,32 @@ import {
   ArrowDownUp,
   Columns3,
   MoreHorizontal,
+  ChevronUp,
 } from "lucide-react";
 import { useFacultyListQuery, type FacultyListItem } from "@/app/lib/queries/faculty";
+
+// ─── Sortable column header ───────────────────────────────────────────────────
+function SortableColumnHeader({
+  children,
+  sortDirection,
+}: {
+  children: React.ReactNode;
+  sortDirection?: "ascending" | "descending";
+}) {
+  return (
+    <span className="flex items-center justify-between w-full">
+      {children}
+      {!!sortDirection && (
+        <ChevronUp
+          className={`size-3.5 transform transition-transform duration-100 ease-out ${
+            sortDirection === "descending" ? "rotate-180" : ""
+          }`}
+        />
+      )}
+    </span>
+  );
+}
+
 
 const COLUMNS = [
   { name: "Code", uid: "facultyCode" },
@@ -44,13 +69,11 @@ export function EmployeeTable() {
     new Set(INITIAL_VISIBLE_COLUMNS)
   );
 
-  const [sortDescriptor, setSortDescriptor] = React.useState<{
-    column: string;
-    direction: "ascending" | "descending";
-  }>({
+  const [sortDescriptor, setSortDescriptor] = React.useState<SortDescriptor>({
     column: "name",
     direction: "ascending",
   });
+
 
   // Fetch all faculty members (limit 1000 for frontend pagination)
   const { data, isLoading, isError, error, refetch } = useFacultyListQuery(
@@ -89,10 +112,19 @@ export function EmployeeTable() {
     localStorage.setItem("hod_faculty_table_columns", JSON.stringify(newKeys));
   };
 
+  const handleSortChange = (descriptor: SortDescriptor) => {
+    setSortDescriptor(descriptor);
+    setPage(1);
+
+    const colName = COLUMNS.find((c) => c.uid === descriptor.column)?.name || descriptor.column;
+    toast.info(`Sorting by ${colName} (${descriptor.direction === "ascending" ? "ascending" : "descending"})`);
+  };
+
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     setPage(1);
   };
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -114,26 +146,8 @@ export function EmployeeTable() {
   }, [data?.faculty, searchQuery]);
 
   const sortedFaculty = React.useMemo(() => {
-    const list = [...filteredFaculty];
-    if (sortDescriptor.column) {
-      list.sort((a, b) => {
-        let first = a[sortDescriptor.column as keyof typeof a];
-        let second = b[sortDescriptor.column as keyof typeof b];
-
-        if (first === undefined || first === null) first = "";
-        if (second === undefined || second === null) second = "";
-
-        let cmp = 0;
-        if (typeof first === "string" && typeof second === "string") {
-          cmp = first.localeCompare(second);
-        } else {
-          cmp = first < second ? -1 : first > second ? 1 : 0;
-        }
-        return sortDescriptor.direction === "descending" ? -cmp : cmp;
-      });
-    }
-    return list;
-  }, [filteredFaculty, sortDescriptor]);
+    return filteredFaculty;
+  }, [filteredFaculty]);
 
   const totalPages = Math.max(1, Math.ceil(sortedFaculty.length / itemsPerPage));
   const paginatedFaculty = sortedFaculty.slice(
@@ -220,10 +234,11 @@ export function EmployeeTable() {
           </SearchField>
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="tertiary" onPress={() => {
-              setSortDescriptor(prev => ({
-                column: prev.column,
-                direction: prev.direction === "ascending" ? "descending" : "ascending"
-              }));
+              const nextDirection = sortDescriptor.direction === "ascending" ? "descending" : "ascending";
+              handleSortChange({
+                column: sortDescriptor.column || "name",
+                direction: nextDirection,
+              });
             }}>
               <ArrowDownUp className="size-4" />
               Sort ({sortDescriptor.direction === "ascending" ? "Asc" : "Desc"})
@@ -262,27 +277,35 @@ export function EmployeeTable() {
               aria-label="All faculties"
               className="min-w-[700px]"
               sortDescriptor={sortDescriptor}
-              onSortChange={(desc) => setSortDescriptor(desc as any)}
+              onSortChange={(desc) => handleSortChange(desc as any)}
             >
               <Table.Header>
                 {visibleColumns.has("facultyCode") && (
                   <Table.Column isRowHeader allowsSorting id="facultyCode">
-                    Code
+                    {({ sortDirection }) => (
+                      <SortableColumnHeader sortDirection={sortDirection}>Code</SortableColumnHeader>
+                    )}
                   </Table.Column>
                 )}
                 {visibleColumns.has("name") && (
                   <Table.Column allowsSorting id="name">
-                    Member
+                    {({ sortDirection }) => (
+                      <SortableColumnHeader sortDirection={sortDirection}>Member</SortableColumnHeader>
+                    )}
                   </Table.Column>
                 )}
                 {visibleColumns.has("designation") && (
                   <Table.Column allowsSorting id="designation">
-                    Role
+                    {({ sortDirection }) => (
+                      <SortableColumnHeader sortDirection={sortDirection}>Role</SortableColumnHeader>
+                    )}
                   </Table.Column>
                 )}
                 {visibleColumns.has("isActive") && (
                   <Table.Column allowsSorting id="isActive">
-                    Status
+                    {({ sortDirection }) => (
+                      <SortableColumnHeader sortDirection={sortDirection}>Status</SortableColumnHeader>
+                    )}
                   </Table.Column>
                 )}
                 {visibleColumns.has("assignments") && (

@@ -64,13 +64,13 @@ function CollapsibleNavItem({
         <Disclosure isExpanded={isExpanded} onExpandedChange={setIsExpanded}>
           <Disclosure.Heading>
             <Disclosure.Trigger
-              className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ease-in-out cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+              className={`group flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-all duration-200 ease-in-out cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                 isParentActive
                   ? "bg-default-100 text-foreground font-medium"
                   : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
               }`}
             >
-              {Icon && <Icon className="size-4.5 shrink-0" />}
+              {Icon && <Icon className="size-4 shrink-0" />}
               <span className="flex-1 truncate">{item.title}</span>
               <ChevronDown
                 className={`size-4 shrink-0 transition-transform duration-200 ease-in-out opacity-70 group-hover:opacity-100 ${
@@ -80,7 +80,7 @@ function CollapsibleNavItem({
             </Disclosure.Trigger>
           </Disclosure.Heading>
           <Disclosure.Content>
-            <Disclosure.Body className="mt-1 flex flex-col gap-1 border-l-2 border-divider ml-[22px] pl-3">
+            <Disclosure.Body className="mt-0.5 flex flex-col gap-0.5 border-l-2 border-divider ml-[20px] pl-2.5">
               {item.children?.map((subItem) => {
                 const isSubActive = subItem.href ? isNavItemActive(pathname, subItem) : false;
                 return (
@@ -93,7 +93,7 @@ function CollapsibleNavItem({
                         onNavigate?.();
                       }
                     }}
-                    className={`block w-full truncate rounded-md px-3 py-1.5 text-sm text-left transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+                    className={`block w-full truncate rounded-md px-2.5 py-1 text-[12px] text-left transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                       isSubActive
                         ? "text-foreground bg-default-100 font-medium"
                         : "text-default-500 hover:text-foreground hover:bg-default-50 font-normal"
@@ -115,7 +115,7 @@ function CollapsibleNavItem({
             <div className="flex w-full justify-center">
               <button
                 type="button"
-                className={`flex items-center justify-center size-10 mx-auto rounded-lg transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+                className={`flex items-center justify-center size-8 mx-auto rounded-lg transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                   isParentActive
                     ? "bg-default-100 text-foreground"
                     : "text-default-500 hover:bg-default-50 hover:text-foreground"
@@ -143,7 +143,7 @@ function CollapsibleNavItem({
                         onNavigate?.();
                       }
                     }}
-                    className={`rounded-md w-full px-3 py-1.5 text-left text-sm transition-colors focus-visible:outline-none ${
+                    className={`rounded-md w-full px-2 py-1 text-left text-xs transition-colors focus-visible:outline-none ${
                       isChildActive
                         ? "text-accent font-medium bg-default-50"
                         : "text-foreground/80 hover:text-accent hover:bg-default-50"
@@ -264,14 +264,14 @@ export function Sidebar() {
           hideScrollBar
         >
           <nav>
-            <ul className="flex flex-col gap-1.5">
-              {filteredNav.map((section) => (
+            <ul className="flex flex-col gap-0.5">
+              {filteredNav.map((section, sectionIdx) => (
                 <React.Fragment key={section.section}>
                   {/* Section label */}
                   <li
                     className={`overflow-hidden transition-all duration-200 ease-in-out ${
                       isCollapsed ? "lg:h-0 lg:opacity-0 h-7 opacity-100" : "h-7 opacity-100"
-                    }`}
+                    } ${sectionIdx > 0 ? "mt-4" : "mt-2"}`}
                   >
                     <span className="px-3 flex items-center h-full text-[11px] font-bold uppercase tracking-wider text-default-400">
                       {section.section}
@@ -307,8 +307,8 @@ export function Sidebar() {
                         }}
                         className={`flex items-center w-full transition-all duration-200 ease-in-out rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                           isCollapsed
-                            ? "lg:justify-center lg:size-10 lg:mx-auto lg:p-0 gap-3 px-3 py-2.5 text-sm"
-                            : "gap-3 px-3 py-2.5 text-sm"
+                            ? "lg:justify-center lg:size-8 lg:mx-auto lg:p-0 gap-2.5 px-2.5 py-1.5 text-[13px]"
+                            : "gap-2.5 px-2.5 py-1.5 text-[13px]"
                         } ${
                           isActive
                             ? "bg-default-100 text-foreground font-medium"
@@ -317,7 +317,7 @@ export function Sidebar() {
                         aria-label={item.title}
                         aria-current={isActive ? "page" : undefined}
                       >
-                        {Icon && <Icon className="size-4.5 shrink-0" />}
+                        {Icon && <Icon className="size-4 shrink-0" />}
                         <span
                           className={`flex-1 text-left truncate ${
                             isCollapsed ? "lg:hidden block" : "block"
@@ -373,8 +373,8 @@ export function Sidebar() {
             }}
             className={`flex items-center w-full rounded-lg transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
               isCollapsed
-                ? "lg:justify-center lg:size-10 lg:mx-auto lg:p-0 gap-3 px-3 py-2.5 text-sm"
-                : "gap-3 px-3 py-2.5 text-sm"
+                ? "lg:justify-center lg:size-8 lg:mx-auto lg:p-0 gap-2.5 px-2.5 py-1.5 text-[13px]"
+                : "gap-2.5 px-2.5 py-1.5 text-[13px]"
             } ${
               pathname.startsWith("/settings")
                 ? "bg-default-100 text-foreground font-medium"
@@ -382,7 +382,7 @@ export function Sidebar() {
             }`}
             aria-label="Settings"
           >
-            <Settings className="size-4.5 shrink-0" />
+            <Settings className="size-4 shrink-0" />
             <span className={`truncate text-left flex-1 ${isCollapsed ? "lg:hidden block" : "block"}`}>
               Settings
             </span>

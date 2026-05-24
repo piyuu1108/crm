@@ -119,17 +119,6 @@ export function Navbar() {
               </Dropdown.Popover>
             </Dropdown>
           ) : null}
-
-          {/* Download button */}
-          {/* <Button
-            size="sm"
-            onPress={() => {
-              toast.info("This feature will be added.");
-            }}
-          >
-            <Download className="size-4" />
-            <span className="hidden sm:inline">Download</span>
-          </Button> */}
         </div>
       </div>
     </header>

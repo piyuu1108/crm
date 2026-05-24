@@ -1,11 +1,13 @@
 "use client";
 
-import React from "react";
-import { Card, Chip } from "@heroui/react";
-import { Persons, ListCheck, SquareChartBar } from "@gravity-ui/icons";
-import { KpiCard } from "./kpi-card";
-import { RequestList } from "./request-list";
+import { Tabs, Button, toast } from "@heroui/react";
+import { Download } from "lucide-react";
+import dynamic from "next/dynamic";
+import { StatCard } from "./stat-card";
 import type { CounselorDashboardData } from "@/app/lib/queries/dashboard";
+
+const StudentsChart = dynamic(() => import("./students-chart").then(m => ({ default: m.StudentsChart })), { ssr: false });
+const AttendanceChart = dynamic(() => import("./attendance-chart").then(m => ({ default: m.AttendanceChart })), { ssr: false });
 
 interface CounselorDashboardProps {
   data: CounselorDashboardData;
@@ -16,90 +18,40 @@ export function CounselorDashboard({ data }: CounselorDashboardProps) {
     assignedDivisions,
     pendingRequestsCount,
     totalStudentsCount,
-    pendingRequests,
   } = data;
 
   return (
-    <div className="flex flex-col gap-s7">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Counselor Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Division oversight and student request management
-        </p>
-      </div>
+    <>
+      {/* Tabs row + actions */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs defaultSelectedKey="overview">
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="Dashboard tabs">
+              <Tabs.Tab id="overview">Overview<Tabs.Indicator /></Tabs.Tab>
+              <Tabs.Tab id="faculties">Faculties<Tabs.Indicator /></Tabs.Tab>
+              <Tabs.Tab id="students">Students<Tabs.Indicator /></Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </Tabs>
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-1 gap-s6 sm:grid-cols-3">
-        <KpiCard
-          label="Assigned Divisions"
-          value={assignedDivisions.length}
-          icon={<SquareChartBar />}
-          color="accent"
-        />
-        <KpiCard
-          label="Students in Divisions"
-          value={totalStudentsCount}
-          icon={<Persons />}
-          color="default"
-        />
-        <KpiCard
-          label="Pending Requests"
-          value={pendingRequestsCount}
-          icon={<ListCheck />}
-          color={pendingRequestsCount > 0 ? "warning" : "default"}
-        />
-      </div>
-
-      {/* Divisions + Requests */}
-      <div className="grid grid-cols-1 gap-s7 lg:grid-cols-3">
-        {/* Assigned Divisions list */}
-        <div className="col-span-1 lg:col-span-2">
-          <Card className="border border-border bg-surface shadow-s1 rounded-rsm">
-            <Card.Header className="px-s6 pt-s6 pb-s3">
-              <div className="flex items-center gap-s3">
-                <SquareChartBar className="size-4 text-accent" />
-                <span className="text-sm font-semibold text-foreground">
-                  Assigned Divisions
-                </span>
-              </div>
-            </Card.Header>
-            <Card.Content className="px-s6 pb-s6">
-              {assignedDivisions.length === 0 ? (
-                <div className="flex h-16 items-center justify-center text-sm text-muted-foreground">
-                  No divisions assigned for current semester
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-s2">
-                  {assignedDivisions.map((div) => (
-                    <Chip key={div.id} color="accent" variant="soft" size="md">
-                      <Chip.Label>{div.displayName}</Chip.Label>
-                    </Chip>
-                  ))}
-                </div>
-              )}
-            </Card.Content>
-          </Card>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onPress={() => toast.info("This feature will be added.")}>Download</Button>
         </div>
-
-        {/* Pending Requests */}
-        <Card className="col-span-1 border border-border bg-surface shadow-s1 rounded-rsm">
-          <Card.Header className="px-s6 pt-s6 pb-s3">
-            <div className="flex items-center gap-s3">
-              <ListCheck className="size-4 text-warning" />
-              <span className="text-sm font-semibold text-foreground">
-                Pending Requests
-              </span>
-            </div>
-          </Card.Header>
-          <Card.Content className="px-s6 pb-s6">
-            <RequestList
-              requests={pendingRequests}
-              emptyMessage="No pending requests"
-            />
-          </Card.Content>
-        </Card>
       </div>
-    </div>
+
+      {/* KPI Stat Cards */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Total Students" value={String(totalStudentsCount)} trend="3.3%" trendDirection="up" />
+        <StatCard title="Total Classes" value={String(assignedDivisions.length)} trend="3.3%" trendDirection="up" />
+        <StatCard title="Total Faculties" value="—" trend="0%" trendDirection="up" />
+        <StatCard title="Pending Requests" value={String(pendingRequestsCount)} trend="0%" trendDirection="up" />
+      </div>
+
+      {/* Charts */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <StudentsChart />
+        <AttendanceChart />
+      </div>
+    </>
   );
 }

@@ -1,199 +1,178 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Avatar, Badge, Button, ScrollShadow, Tooltip } from "@heroui/react";
 import {
-  SquareChartBar,
-  CaretLeft,
-  CaretRight,
-  Xmark,
   ChevronDown,
-  Gear,
-} from "@gravity-ui/icons";
+  Settings,
+} from "lucide-react";
+import { Avatar, Chip, ScrollShadow, Disclosure, Tooltip } from "@heroui/react";
+import { useSidebar } from "@/components/layout/sidebar-context";
 import { navigationConfig, Role, type NavItem } from "@/config/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
-import { useLayoutStore } from "@/app/lib/store/use-layout-store";
 import { useQuery } from "@tanstack/react-query";
 
-
 // ─── Active-state helpers ─────────────────────────────────────────────────────
-// Determines whether a nav item is the "active" match for the current pathname.
-// Uses exact or strict-prefix matching to avoid false positives where one route
-// is a prefix of another (e.g. /internal-exams vs /internal-exams/evaluation).
 function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (!item.href) {
-    // Parent items with children — active if any child is active
     return item.children?.some((child) => isNavItemActive(pathname, child)) ?? false;
   }
-  // Exact match
   if (pathname === item.href) return true;
-  // Strict prefix match (pathname starts with href + "/")
   if (pathname.startsWith(item.href + "/")) return true;
   return false;
 }
 
-// ─── Collapsible Nav Item ─────────────────────────────────────────────────────
+function resolveProfilePhotoSrc(profilePhoto?: string): string | undefined {
+  if (!profilePhoto) return undefined;
+  if (profilePhoto.startsWith("/api/")) return profilePhoto;
+  if (profilePhoto.startsWith("students/") || profilePhoto.startsWith("faculty/")) {
+    return `/api/student/profile-photo?key=${encodeURIComponent(profilePhoto)}`;
+  }
+  return profilePhoto;
+}
+
+// ─── Collapsible sub-menu ─────────────────────────────────────────────────────
 function CollapsibleNavItem({
   item,
   pathname,
-  collapsed,
+  isCollapsed,
   onNavigate,
 }: {
   item: NavItem;
   pathname: string;
-  collapsed: boolean;
+  isCollapsed: boolean;
   onNavigate?: () => void;
 }) {
   const router = useRouter();
   const isParentActive = isNavItemActive(pathname, item);
-  const [isExpanded, setIsExpanded] = useState(isParentActive);
+  const [isExpanded, setIsExpanded] = React.useState(isParentActive);
+
+  React.useEffect(() => {
+    const frameId = requestAnimationFrame(() => {
+      if (isParentActive) {
+        setIsExpanded(true);
+      } else if (isCollapsed) {
+        setIsExpanded(false);
+      }
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [pathname, isParentActive, isCollapsed]);
 
   const Icon = item.icon;
 
-  const handleToggle = useCallback(() => {
-    setIsExpanded((prev) => !prev);
-  }, []);
-
-  // In collapsed mode, show a tooltip with the children list
-  if (collapsed) {
-    return (
-      <Tooltip delay={0}>
-        <Tooltip.Trigger>
-          <div className="flex w-full justify-center">
-            <button
-              type="button"
-              onClick={handleToggle}
-              className={`group relative flex w-full items-center justify-center gap-s5 rounded-rsm px-s3 py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                isParentActive
-                  ? "bg-accent/10 text-accent"
-                  : "text-foreground/70 hover:bg-default hover:text-foreground"
-              }`}
-              aria-label={item.title}
-            >
-              {isParentActive && (
-                <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" />
-              )}
-              {Icon && (
-                <Icon
-                  className={`size-5 transition-colors ${
-                    isParentActive
-                      ? "text-accent"
-                      : "text-foreground/60 group-hover:text-foreground"
-                  }`}
-                />
-              )}
-            </button>
-          </div>
-        </Tooltip.Trigger>
-        <Tooltip.Content placement="right">
-          <div className="flex flex-col gap-1 py-1">
-            <p className="text-xs font-semibold text-foreground/60 mb-1">{item.title}</p>
-            {item.children?.map((child, idx) => {
-              const isChildActive = isNavItemActive(pathname, child);
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    router.push(child.href || "#");
-                    onNavigate?.();
-                  }}
-                  className={`rounded px-2 py-1 text-left text-xs transition-colors ${
-                    isChildActive
-                      ? "text-accent font-semibold"
-                      : "text-foreground/80 hover:text-accent"
-                  }`}
-                >
-                  {child.title}
-                </button>
-              );
-            })}
-          </div>
-        </Tooltip.Content>
-      </Tooltip>
-    );
-  }
-
   return (
-    <div>
-      {/* Parent toggle */}
-      <button
-        type="button"
-        onClick={handleToggle}
-        className={`group relative flex w-full items-center gap-s5 rounded-rsm px-s5 py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-          isParentActive
-            ? "bg-accent/10 text-accent"
-            : "text-foreground/70 hover:bg-default hover:text-foreground"
-        }`}
-        aria-label={item.title}
-        aria-expanded={isExpanded}
-      >
-        {isParentActive && (
-          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" />
-        )}
-        {Icon && (
-          <Icon
-            className={`size-5 transition-colors ${
-              isParentActive
-                ? "text-accent"
-                : "text-foreground/60 group-hover:text-foreground"
-            }`}
-          />
-        )}
-        <span className="flex-1 truncate text-left">{item.title}</span>
-        <ChevronDown
-          className={`size-3.5 shrink-0 text-foreground/40 transition-transform duration-200 ${
-            isExpanded ? "rotate-180" : ""
-          }`}
-        />
-      </button>
-
-      {/* Children */}
-      <div
-        className={`overflow-hidden transition-all duration-200 ease-in-out ${
-          isExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
-        }`}
-      >
-        <div className="ml-8 mt-0.5 flex flex-col gap-s1 border-l border-border/50 pl-s5">
-          {item.children?.map((child, idx) => {
-            const isChildActive = isNavItemActive(pathname, child);
-            return (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  router.push(child.href || "#");
-                  onNavigate?.();
-                }}
-                className={`rounded-rxs px-s5 py-s3 text-left text-[13px] font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                  isChildActive
-                    ? "bg-accent/10 text-accent"
-                    : "text-foreground/60 hover:bg-default hover:text-foreground"
+    <React.Fragment>
+      {/* Expanded: full disclosure menu */}
+      <li className={`w-full block lg:${isCollapsed ? "hidden" : "block"}`}>
+        <Disclosure
+          isExpanded={isExpanded}
+          onExpandedChange={setIsExpanded}
+        >
+          <Disclosure.Heading>
+            <Disclosure.Trigger
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer select-none text-left focus:outline-none ${
+                isParentActive
+                  ? "bg-default-100 text-foreground font-semibold"
+                  : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
+              }`}
+            >
+              {Icon && <Icon className="size-4 shrink-0" />}
+              <span className="flex-1">{item.title}</span>
+              <ChevronDown
+                className={`size-4 shrink-0 transition-transform duration-200 ${
+                  isExpanded ? "rotate-180" : ""
                 }`}
-                aria-current={isChildActive ? "page" : undefined}
+              />
+            </Disclosure.Trigger>
+          </Disclosure.Heading>
+          <Disclosure.Content>
+            <Disclosure.Body className="mt-0.5 flex flex-col gap-0.5 border-l border-divider ml-5 pl-2">
+              {item.children?.map((subItem) => {
+                const isSubActive = subItem.href ? isNavItemActive(pathname, subItem) : false;
+                return (
+                  <button
+                    key={subItem.title}
+                    type="button"
+                    onClick={() => {
+                      if (subItem.href) {
+                        router.push(subItem.href);
+                        onNavigate?.();
+                      }
+                    }}
+                    className={`block rounded-md px-2.5 py-1 text-xs text-left transition-colors ${
+                      isSubActive
+                        ? "text-foreground bg-default-100 font-semibold"
+                        : "text-default-500 hover:text-foreground hover:bg-default-50 font-normal"
+                    }`}
+                  >
+                    {subItem.title}
+                  </button>
+                );
+              })}
+            </Disclosure.Body>
+          </Disclosure.Content>
+        </Disclosure>
+      </li>
+
+      {/* Collapsed: icon-only with tooltip */}
+      <li className={isCollapsed ? "lg:block hidden" : "hidden"}>
+        <Tooltip delay={0}>
+          <Tooltip.Trigger>
+            <div className="flex w-full justify-center">
+              <button
+                type="button"
+                className={`flex items-center justify-center size-10 mx-auto rounded-lg transition-colors ${
+                  isParentActive
+                    ? "bg-default-100 text-foreground"
+                    : "text-default-500 hover:bg-default-50 hover:text-foreground"
+                }`}
+                aria-label={item.title}
               >
-                {child.title}
+                {Icon && <Icon className="size-4 shrink-0" />}
               </button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
+            </div>
+          </Tooltip.Trigger>
+          <Tooltip.Content placement="right">
+            <div className="flex flex-col gap-1 py-1">
+              <p className="text-xs font-semibold text-foreground/60 mb-1">{item.title}</p>
+              {item.children?.map((child) => {
+                const isChildActive = child.href ? isNavItemActive(pathname, child) : false;
+                return (
+                  <button
+                    key={child.title}
+                    type="button"
+                    onClick={() => {
+                      if (child.href) {
+                        router.push(child.href);
+                        onNavigate?.();
+                      }
+                    }}
+                    className={`rounded px-2 py-1 text-left text-xs transition-colors ${
+                      isChildActive
+                        ? "text-accent font-semibold"
+                        : "text-foreground/80 hover:text-accent"
+                    }`}
+                  >
+                    {child.title}
+                  </button>
+                );
+              })}
+            </div>
+          </Tooltip.Content>
+        </Tooltip>
+      </li>
+    </React.Fragment>
   );
 }
 
-function SidebarNavContent({
-  collapsed,
-  onNavigate,
-}: {
-  collapsed: boolean;
-  onNavigate?: () => void;
-}) {
+// ─── Main Sidebar ─────────────────────────────────────────────────────────────
+export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
   const { activeRole, user } = useAuthStore();
 
+  // Role-based nav filtering
   const isStudent = activeRole === "student";
   const isFaculty = activeRole === "faculty" || activeRole === "hod" || activeRole === "counselor";
   const hasRequests = isStudent || isFaculty;
@@ -211,8 +190,7 @@ function SidebarNavContent({
 
   const pendingRequestsCount = requestsData?.pagination?.total ?? 0;
 
-  // activeRole is guaranteed by AuthHydrator — never null here
-  const filteredNav = useMemo(
+  const filteredNav = React.useMemo(
     () =>
       navigationConfig
         .map((section) => ({
@@ -226,13 +204,7 @@ function SidebarNavContent({
               if (item.title === "Requests") {
                 badge = pendingRequestsCount;
               }
-
-              const mappedItem = {
-                ...item,
-                badge,
-              };
-
-              // Also filter children by role
+              const mappedItem = { ...item, badge };
               if (item.children) {
                 mappedItem.children = item.children.filter((child) =>
                   activeRole ? child.roles.includes(activeRole as Role) : false
@@ -240,245 +212,193 @@ function SidebarNavContent({
               }
               return mappedItem;
             })
-            // Remove parent items whose children all got filtered out
             .filter((item) => !item.children || item.children.length > 0),
         }))
         .filter((section) => section.items.length > 0),
     [activeRole, pendingRequestsCount]
   );
 
-  return (
-    <>
-      {/* ── Navigation ─────────────────────────────────────────── */}
-      <ScrollShadow className="flex-1 overflow-y-auto px-s5 py-s6">
-        <nav className="flex flex-col gap-s6">
-          {filteredNav.map((section, idx) => (
-            <div key={idx} className="flex flex-col gap-s1">
-              {/* Section label */}
-              <div
-                className={`overflow-hidden transition-all duration-200 ${
-                  collapsed ? "h-0 opacity-0" : "h-5 opacity-100"
-                }`}
-              >
-                <span className="px-s3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  {section.section}
-                </span>
-              </div>
+  // Close mobile drawer on route change
+  React.useEffect(() => {
+    closeMobile();
+  }, [pathname, closeMobile]);
 
-              {/* Items */}
-              <div className="flex flex-col gap-0.5">
-                {section.items.map((item, itemIdx) => {
-                  // Collapsible items with children
-                  if (item.children && item.children.length > 0) {
-                    return (
-                      <CollapsibleNavItem
-                        key={itemIdx}
-                        item={item}
-                        pathname={pathname}
-                        collapsed={collapsed}
-                        onNavigate={onNavigate}
-                      />
-                    );
-                  }
-
-                  // Regular nav items
-                  const isActive = isNavItemActive(pathname, item);
-                  const Icon = item.icon;
-
-                  const navButton = (
-                    <button
-                      key={itemIdx}
-                      type="button"
-                      onClick={() => {
-                        router.push(item.href || "#");
-                        onNavigate?.();
-                      }}
-                      className={`group relative flex w-full items-center gap-s5 rounded-rsm py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                        collapsed ? "justify-center px-s3" : "px-s5"
-                      } ${
-                        isActive
-                          ? "bg-accent/10 text-accent"
-                          : "text-foreground/70 hover:bg-default hover:text-foreground"
-                      }`}
-                      aria-label={item.title}
-                      aria-current={isActive ? "page" : undefined}
-                    >
-                      {/* Active indicator bar */}
-                      {isActive && (
-                        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-accent" />
-                      )}
-
-                      {/* Icon */}
-                      {Icon && (
-                        <div className="relative shrink-0">
-                          <Icon
-                            className={`size-5 transition-colors ${
-                              isActive
-                                ? "text-accent"
-                                : "text-foreground/60 group-hover:text-foreground"
-                            }`}
-                          />
-                          {/* Badge dot in collapsed mode */}
-                          {collapsed && item.badge && (
-                            <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-danger text-[9px] font-bold text-white">
-                              {item.badge > 9 ? "9+" : item.badge}
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Label + badge */}
-                      {!collapsed && (
-                        <>
-                          <span className="flex-1 truncate text-left">
-                            {item.title}
-                          </span>
-                          {item.badge && (
-                            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-bold text-white">
-                              {item.badge > 9 ? "9+" : item.badge}
-                            </span>
-                          )}
-                        </>
-                      )}
-                    </button>
-                  );
-
-                  return collapsed ? (
-                    <Tooltip key={itemIdx} delay={0}>
-                      <Tooltip.Trigger>
-                        <div className="flex w-full justify-center">{navButton}</div>
-                      </Tooltip.Trigger>
-                      <Tooltip.Content placement="right" className="capitalize">
-                        <p>{item.title}</p>
-                      </Tooltip.Content>
-                    </Tooltip>
-                  ) : (
-                    <div key={itemIdx}>{navButton}</div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-      </ScrollShadow>
-
-      {/* ── Bottom Settings ────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-border p-s5">
-        <button
-          onClick={() => {
-            router.push("/settings/customize");
-            onNavigate?.();
-          }}
-          className={`group flex w-full items-center gap-s5 rounded-rsm px-s5 py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-            collapsed ? "justify-center" : ""
-          } ${
-            pathname.startsWith("/app/settings")
-              ? "bg-accent/10 text-accent"
-              : "text-foreground/70 hover:bg-default hover:text-foreground"
-          }`}
-          aria-label="Settings"
-        >
-          <Gear
-            className={`size-5 transition-colors ${
-              pathname.startsWith("/app/settings")
-                ? "text-accent"
-                : "text-foreground/60 group-hover:text-foreground"
-            }`}
-          />
-          {!collapsed && <span className="truncate">Settings</span>}
-        </button>
-      </div>
-    </>
-  );
-}
-
-// ─── Desktop Sidebar ──────────────────────────────────────────────────────────
-export function Sidebar() {
-  const { isCollapsed, toggleCollapsed } = useLayoutStore();
-
-  return (
-    <aside
-      className={`relative flex h-full flex-col border-r border-border bg-background transition-all duration-300 ease-in-out ${
-        isCollapsed ? "w-[72px]" : "w-[260px]"
-      }`}
-    >
-      {/* Brand Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-s6">
-        <div className="flex min-w-0 items-center gap-s5 overflow-hidden">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-rxs text-accent-foreground shadow-s1">
-            <img src="/logo1.png" alt="" className="h-6 w-6 object-contain" />
-          </div>
-          <span
-            className={`truncate text-[15px] font-bold tracking-tight text-foreground transition-all duration-200 ${
-              isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
-            }`}
-          >
-            Vtcbcsr
-          </span>
-        </div>
-
-        {/* Collapse toggle — floats on the right edge */}
-        <Button
-          isIconOnly
-          variant="tertiary"
-          size="sm"
-          onPress={toggleCollapsed}
-          className="absolute -right-4 top-[18px] z-50 size-8 rounded-full border border-border bg-background shadow-s1 transition-transform hover:scale-110"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? (
-            <CaretRight className="size-3 text-muted-foreground" />
-          ) : (
-            <CaretLeft className="size-3 text-muted-foreground" />
-          )}
-        </Button>
-      </div>
-
-      <SidebarNavContent collapsed={isCollapsed} />
-    </aside>
-  );
-}
-
-// ─── Mobile Sidebar Overlay ───────────────────────────────────────────────────
-export function MobileSidebar() {
-  const { isMobileSidebarOpen, closeMobileSidebar } = useLayoutStore();
-
-  if (!isMobileSidebarOpen) return null;
+  const ROLE_LABEL: Record<string, string> = {
+    hod: "HOD",
+    faculty: "Faculty",
+    counselor: "Counselor",
+    student: "Student",
+    admin: "Admin",
+  };
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
-        onClick={closeMobileSidebar}
-        aria-hidden="true"
-      />
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden transition-opacity"
+          onClick={closeMobile}
+        />
+      )}
 
-      {/* Drawer panel */}
-      <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-[260px] flex-col border-r border-border bg-background shadow-s2">
-        {/* Brand Header with close button */}
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-s6">
-          <div className="flex items-center gap-s5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-rxs bg-accent text-accent-foreground shadow-s1">
-              <SquareChartBar className="size-4" />
+      <aside
+        className={`fixed left-0 top-0 h-screen border-r border-divider bg-background z-50 flex flex-col transition-transform lg:transition-all duration-300 
+          lg:translate-x-0 ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
+          ${isCollapsed ? "lg:w-16 w-[240px]" : "w-[240px] lg:w-(--sidebar-width)"}
+        `}
+      >
+        {/* Header: Company logo & name */}
+        <div className={`px-4 py-4 ${isCollapsed ? "lg:px-2 px-4" : "px-4"}`}>
+          <div className={`flex items-center px-1 py-1 ${isCollapsed ? "lg:justify-center justify-start gap-2.5" : "gap-2.5"}`}>
+            <div className="flex size-7 items-center justify-center rounded-lg shrink-0">
+              <img src="/logo1.png" alt="" className="h-5 w-5 object-contain" />
             </div>
-            <span className="text-[15px] font-bold tracking-tight text-foreground">
+            <span className={`text-sm font-semibold tracking-tight text-foreground ${isCollapsed ? "lg:hidden block" : "block"}`}>
               Vtcbcsr
             </span>
           </div>
-          <Button
-            isIconOnly
-            variant="tertiary"
-            size="sm"
-            onPress={closeMobileSidebar}
-            aria-label="Close sidebar"
-          >
-            <Xmark className="size-4" />
-          </Button>
         </div>
 
-        {/* Shared nav content — never collapsed in mobile drawer */}
-        <SidebarNavContent collapsed={false} onNavigate={closeMobileSidebar} />
+        {/* Navigation */}
+        <ScrollShadow className={`flex-1 ${isCollapsed ? "lg:px-2 lg:py-3 px-3 py-3" : "px-3 py-3"}`} hideScrollBar>
+          <nav>
+            <ul className="flex flex-col gap-0.5">
+              {filteredNav.map((section) => (
+                <React.Fragment key={section.section}>
+                  {/* Section label */}
+                  <li
+                    className={`overflow-hidden transition-all duration-200 ${
+                      isCollapsed ? "lg:h-0 lg:opacity-0 h-5 opacity-100" : "h-5 opacity-100"
+                    }`}
+                  >
+                    <span className="px-3 text-[10px] font-semibold uppercase tracking-widest text-default-400">
+                      {section.section}
+                    </span>
+                  </li>
+
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = isNavItemActive(pathname, item);
+
+                    // Collapsible items with children
+                    if (item.children && item.children.length > 0) {
+                      return (
+                        <CollapsibleNavItem
+                          key={item.title}
+                          item={item}
+                          pathname={pathname}
+                          isCollapsed={isCollapsed}
+                          onNavigate={closeMobile}
+                        />
+                      );
+                    }
+
+                    // Simple nav items
+                    const navLink = (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (item.href) {
+                            router.push(item.href);
+                            closeMobile();
+                          }
+                        }}
+                        className={`flex items-center w-full transition-colors ${
+                          isCollapsed
+                            ? "lg:justify-center lg:size-10 lg:mx-auto lg:p-0 gap-3 px-3 py-2 text-sm"
+                            : "gap-3 px-3 py-2 text-sm"
+                        } rounded-lg ${
+                          isActive
+                            ? "bg-default-100 text-foreground font-semibold"
+                            : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
+                        }`}
+                        aria-label={item.title}
+                        aria-current={isActive ? "page" : undefined}
+                      >
+                        {Icon && <Icon className="size-4 shrink-0" />}
+                        <span className={`flex-1 text-left ${isCollapsed ? "lg:hidden block" : "block"}`}>{item.title}</span>
+                        {item.badge != null && item.badge > 0 && (
+                          <Chip
+                            size="sm"
+                            color="danger"
+                            variant="soft"
+                            className={isCollapsed ? "lg:hidden" : ""}
+                          >
+                            {item.badge > 9 ? "9+" : item.badge}
+                          </Chip>
+                        )}
+                      </button>
+                    );
+
+                    return (
+                      <li key={item.title}>
+                        {isCollapsed ? (
+                          <Tooltip delay={0}>
+                            <Tooltip.Trigger>
+                              <div className="flex w-full justify-center">{navLink}</div>
+                            </Tooltip.Trigger>
+                            <Tooltip.Content placement="right" className="capitalize">
+                              <p>{item.title}</p>
+                            </Tooltip.Content>
+                          </Tooltip>
+                        ) : (
+                          navLink
+                        )}
+                      </li>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
+            </ul>
+          </nav>
+        </ScrollShadow>
+
+        {/* Settings button */}
+        <div className={`px-3 pb-1 ${isCollapsed ? "lg:px-2" : ""}`}>
+          <button
+            type="button"
+            onClick={() => {
+              router.push("/settings/customize");
+              closeMobile();
+            }}
+            className={`flex items-center w-full rounded-lg transition-colors ${
+              isCollapsed
+                ? "lg:justify-center lg:size-10 lg:mx-auto lg:p-0 gap-3 px-3 py-2 text-sm"
+                : "gap-3 px-3 py-2 text-sm"
+            } ${
+              pathname.startsWith("/settings")
+                ? "bg-default-100 text-foreground font-semibold"
+                : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
+            }`}
+            aria-label="Settings"
+          >
+            <Settings className="size-4 shrink-0" />
+            <span className={`${isCollapsed ? "lg:hidden block" : "block"}`}>Settings</span>
+          </button>
+        </div>
+
+        {/* Footer: User info */}
+        <div className="border-t border-divider px-4 py-4 bg-default-50/50">
+          <div className={`flex items-center ${isCollapsed ? "lg:justify-center lg:px-0 justify-start px-1 py-0.5 gap-3" : "gap-3 px-1 py-0.5"}`}>
+            <Avatar size="sm" className="shrink-0">
+              <Avatar.Image
+                src={resolveProfilePhotoSrc(user?.profilePhoto)}
+                alt={user?.name || "User"}
+              />
+              <Avatar.Fallback>
+                {user?.name?.[0]?.toUpperCase() || "U"}
+              </Avatar.Fallback>
+            </Avatar>
+            <div className={`flex min-w-0 flex-col ${isCollapsed ? "lg:hidden flex" : "flex"}`}>
+              <span className="text-sm font-semibold leading-tight text-foreground">
+                {user?.name || "Loading..."}
+              </span>
+              <span className="text-xs font-normal leading-tight text-default-500">
+                {ROLE_LABEL[activeRole ?? ""] ?? activeRole ?? "—"}
+              </span>
+            </div>
+          </div>
+        </div>
       </aside>
     </>
   );

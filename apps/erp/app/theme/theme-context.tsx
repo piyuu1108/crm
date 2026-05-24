@@ -161,7 +161,8 @@ function applyCSSVariables(config: ThemeConfig) {
     el.style.setProperty("--foreground", "oklch(0.18 0.01 286)");
     el.style.setProperty("--overlay", "oklch(1 0 0 / 0.65)");
     el.style.setProperty("--field-background", "oklch(1 0 0 / 0.45)");
-    el.style.setProperty("--muted", "oklch(0.45 0.015 286)");
+    el.style.setProperty("--muted-foreground", "oklch(0.45 0.015 286)");
+    el.style.setProperty("--muted", "oklch(1 0 0 / 0.4)");
     // Luminous accent-tinted borders (light refraction simulation)
     el.style.setProperty("--border", `oklch(0.85 0.03 ${h} / 0.5)`);
     el.style.setProperty("--separator", `oklch(0.88 0.02 ${h} / 0.35)`);
@@ -185,7 +186,8 @@ function applyCSSVariables(config: ThemeConfig) {
     el.style.setProperty("--foreground", "oklch(0.99 0 0)");
     el.style.setProperty("--overlay", `oklch(${Math.min(L + 0.1, 0.35)} 0.006 286)`);
     el.style.setProperty("--field-background", `oklch(${Math.min(L + 0.15, 0.4)} 0.006 286)`);
-    el.style.setProperty("--muted", "oklch(0.7 0.015 286)");
+    el.style.setProperty("--muted-foreground", "oklch(0.7 0.015 286)");
+    el.style.setProperty("--muted", `oklch(${Math.min(L + 0.15, 0.4)} 0.006 286)`);
     el.style.setProperty("--border", `oklch(${Math.min(L + 0.16, 0.38)} 0.006 286)`);
     el.style.setProperty("--separator", `oklch(${Math.min(L + 0.13, 0.35)} 0.006 286)`);
     el.style.setProperty("--accent-foreground", "oklch(0.99 0 0)");
@@ -202,7 +204,8 @@ function applyCSSVariables(config: ThemeConfig) {
     el.style.setProperty("--foreground", "oklch(0.21 0.006 286)");
     el.style.setProperty("--overlay", "oklch(1 0 0)");
     el.style.setProperty("--field-background", "oklch(1 0 0)");
-    el.style.setProperty("--muted", "oklch(0.55 0.014 286)");
+    el.style.setProperty("--muted-foreground", "oklch(0.55 0.014 286)");
+    el.style.setProperty("--muted", `oklch(${Math.max(L - 0.03, 0.9)} 0.001 286)`);
     el.style.setProperty("--border", `oklch(${Math.max(L - 0.05, 0.88)} 0.004 286)`);
     el.style.setProperty("--separator", `oklch(${Math.max(L - 0.05, 0.88)} 0.004 286)`);
     el.style.setProperty("--accent-foreground", "oklch(0.99 0 0)");
@@ -227,7 +230,7 @@ function removeCSSVariables() {
   const el = document.documentElement;
   const vars = [
     "--accent", "--focus", "--accent-hue", "--background", "--surface", "--default",
-    "--foreground", "--overlay", "--field-background", "--muted",
+    "--foreground", "--overlay", "--field-background", "--muted", "--muted-foreground",
     "--border", "--separator", "--accent-foreground",
     "--radius", "--field-radius",
     "--surface-shadow", "--overlay-shadow", "--field-shadow",

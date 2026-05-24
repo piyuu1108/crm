@@ -20,7 +20,7 @@ export function CounselorDashboard({ data }: CounselorDashboardProps) {
   } = data;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-s7">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Counselor Dashboard</h1>
@@ -30,7 +30,7 @@ export function CounselorDashboard({ data }: CounselorDashboardProps) {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-s6 sm:grid-cols-3">
         <KpiCard
           label="Assigned Divisions"
           value={assignedDivisions.length}
@@ -52,25 +52,25 @@ export function CounselorDashboard({ data }: CounselorDashboardProps) {
       </div>
 
       {/* Divisions + Requests */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-s7 lg:grid-cols-3">
         {/* Assigned Divisions list */}
         <div className="col-span-1 lg:col-span-2">
-          <Card className="border border-divider">
-            <Card.Header className="px-5 pt-5 pb-3">
-              <div className="flex items-center gap-2">
+          <Card className="border border-border bg-surface shadow-s1 rounded-rsm">
+            <Card.Header className="px-s6 pt-s6 pb-s3">
+              <div className="flex items-center gap-s3">
                 <SquareChartBar className="size-4 text-accent" />
                 <span className="text-sm font-semibold text-foreground">
                   Assigned Divisions
                 </span>
               </div>
             </Card.Header>
-            <Card.Content className="px-5 pb-5">
+            <Card.Content className="px-s6 pb-s6">
               {assignedDivisions.length === 0 ? (
                 <div className="flex h-16 items-center justify-center text-sm text-muted-foreground">
                   No divisions assigned for current semester
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-s2">
                   {assignedDivisions.map((div) => (
                     <Chip key={div.id} color="accent" variant="soft" size="md">
                       <Chip.Label>{div.displayName}</Chip.Label>
@@ -83,16 +83,16 @@ export function CounselorDashboard({ data }: CounselorDashboardProps) {
         </div>
 
         {/* Pending Requests */}
-        <Card className="col-span-1 border border-divider">
-          <Card.Header className="px-5 pt-5 pb-3">
-            <div className="flex items-center gap-2">
+        <Card className="col-span-1 border border-border bg-surface shadow-s1 rounded-rsm">
+          <Card.Header className="px-s6 pt-s6 pb-s3">
+            <div className="flex items-center gap-s3">
               <ListCheck className="size-4 text-warning" />
               <span className="text-sm font-semibold text-foreground">
                 Pending Requests
               </span>
             </div>
           </Card.Header>
-          <Card.Content className="px-5 pb-5">
+          <Card.Content className="px-s6 pb-s6">
             <RequestList
               requests={pendingRequests}
               emptyMessage="No pending requests"

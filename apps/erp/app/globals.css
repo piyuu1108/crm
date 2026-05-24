@@ -7,7 +7,10 @@
 
 /* Smooth transitions when theme changes */
 body {
-  font-family: var(--font-inter), Inter, Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
   transition:
     background-color 0.3s ease,
     color 0.2s ease;
@@ -287,6 +290,7 @@ html[style*="--glass-active"] * {
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
+  --color-divider: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
@@ -302,6 +306,10 @@ html[style*="--glass-active"] * {
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-default: var(--default);
+  --color-separator: var(--separator);
+  --color-content1: var(--surface);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -309,6 +317,23 @@ html[style*="--glass-active"] * {
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-rxs: 12px;
+  --radius-rsm: 16px;
+  --radius-rmd: 24px;
+  --spacing-s1: 4px;
+  --spacing-s2: 6px;
+  --spacing-s3: 8px;
+  --spacing-s4: 10px;
+  --spacing-s5: 12px;
+  --spacing-s6: 16px;
+  --spacing-s7: 24px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --shadow-s1: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0.04) 0px 2px 4px 0px, rgba(0, 0, 0, 0.06) 0px 1px 2px 0px, rgba(0, 0, 0, 0.06) 0px 0px 1px 0px;
+  --shadow-s2: rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px;
+  --shadow-s3: rgba(0, 0, 0, 0.08) -1px 0px 0px 0px inset;
 }
 
 @layer base {
@@ -321,4 +346,210 @@ html[style*="--glass-active"] * {
   html {
     @apply font-sans;
   }
+}
+
+/* ── Force clean consistent UI: #f5f5f5 background, white cards/tables ── */
+:root, .dark, html, body, [style] {
+  --background: #f5f5f5 !important;
+  --surface: #ffffff !important;
+  --card: #ffffff !important;
+  --default: #e5e5e5 !important;
+  --border: #f0f0f0 !important;
+  --separator: #f0f0f0 !important;
+  --muted: #f5f5f5 !important;
+  --muted-foreground: #737373 !important;
+  --foreground: #1c1c1c !important;
+  --accent-foreground: #ffffff !important;
+  --popover: #ffffff !important;
+  --sidebar: #f5f5f5 !important;
+  --sidebar-border: #f0f0f0 !important;
+  --sidebar-accent: #e5e5e5 !important;
+  --sidebar-foreground: #1c1c1c !important;
+  --sidebar-accent-foreground: #1c1c1c !important;
+  --primary: oklch(0.58 0.23 250) !important; /* Premium brand blue */
+  --accent: oklch(0.58 0.23 250) !important;
+}
+
+/* Ensure body always has #f5f5f5 background */
+body, 
+html:has([style*="--glass-active"]) body, 
+html[style*="--glass-active"] body {
+  background: #f5f5f5 !important;
+  background-color: #f5f5f5 !important;
+  min-height: 100vh;
+}
+
+/* Disable glass background gradient orbs */
+html:has([style*="--glass-active"]) body::after,
+html[style*="--glass-active"] body::after {
+  display: none !important;
+}
+
+/* Force solid white backgrounds for cards, tables, popovers, dropdowns */
+.card, 
+[class*="card"], 
+[data-slot="base"], 
+[data-slot="content"], 
+.surface, 
+[class*="surface"],
+[data-slot="dialog"],
+[data-slot="popover"],
+[role="dialog"],
+[role="menu"] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Card hover effect matching the clean modern UI */
+.card:hover, 
+[class*="card"]:hover, 
+[data-slot="base"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04) !important;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
+}
+
+/* Style for inputs and fields to look clean and premium */
+input, 
+textarea, 
+select, 
+[data-slot="input"], 
+[data-slot="textarea"], 
+[class*="input-group"] {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+input:focus, 
+textarea:focus, 
+[data-slot="input"]:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px oklch(from var(--accent) l c h / 0.15) !important;
+}
+
+/* Custom shadow sizes */
+@theme inline {
+  --shadow-s1: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03) !important;
+  --shadow-s2: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* ── Custom overrides to match HeroUI Pro Dashboard Template ── */
+
+/* Table styles matching HeroUI Pro */
+.table-root,
+.table__content,
+.data-grid,
+table[data-slot="table-content"] {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  border-spacing: 0 !important;
+}
+
+.table__column,
+th[data-slot="table-column"] {
+  background-color: #fafafa !important;
+  color: #737373 !important;
+  font-weight: 500 !important;
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid var(--border) !important;
+  text-align: left;
+}
+
+.table__row,
+tr[data-slot="table-row"] {
+  border-bottom: 1px solid var(--border) !important;
+  background-color: #ffffff !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.table__row:hover,
+tr[data-slot="table-row"]:hover {
+  background-color: #fafafa !important;
+}
+
+.table__cell,
+td[data-slot="table-cell"] {
+  padding: 14px 16px !important;
+  color: #1c1c1c !important;
+  font-size: 0.875rem !important;
+}
+
+/* Tab styles matching HeroUI Pro */
+.tabs__list,
+[data-slot="tabs-list"] {
+  border-bottom: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  background-color: #eaeaea !important;
+  border-radius: 9999px !important;
+  padding: 4px !important;
+  gap: 2px !important;
+}
+
+.tabs__tab,
+[data-slot="tabs-tab"] {
+  color: #737373 !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  position: relative !important;
+  cursor: pointer !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  padding: 6px 16px !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.tabs__tab[aria-selected="true"],
+.tabs__tab[data-selected="true"] {
+  color: #1c1c1c !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06) !important;
+}
+
+.tabs__indicator,
+[data-slot="tabs-indicator"] {
+  position: absolute !important;
+  top: 0px !important;
+  bottom: auto !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  width: 16px !important;
+  height: 2px !important;
+  background-color: #0072f5 !important;
+  border-radius: 9999px !important;
+}
+
+/* Badge and chip styles matching HeroUI Pro */
+.chip--success,
+[class*="chip--success"] {
+  background-color: oklch(0.92 0.12 140 / 0.4) !important;
+  color: oklch(0.55 0.15 140) !important;
+  font-weight: 500 !important;
+}
+
+.chip--danger,
+[class*="chip--danger"] {
+  background-color: oklch(0.92 0.12 25 / 0.4) !important;
+  color: oklch(0.55 0.15 25) !important;
+  font-weight: 500 !important;
+}
+
+.chip--soft,
+[class*="chip--soft"] {
+  border-radius: 9999px !important;
+  border: none !important;
+  padding: 2px 8px !important;
+  font-size: 0.75rem !important;
 }

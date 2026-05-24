@@ -23,7 +23,8 @@ const PUBLIC_PATHS = [
   "/api/set-password",
   "/auth/login",
   "/set-password",
-  "/api/integration/timetable/publish"
+  "/api/integration/timetable/publish",
+  "/dashboard"
 ];
 
 // Role priority for default selection (same as dashboard API)

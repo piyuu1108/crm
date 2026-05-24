@@ -64,10 +64,10 @@ function CollapsibleNavItem({
             <button
               type="button"
               onClick={handleToggle}
-              className={`group relative flex w-full items-center justify-center gap-3 rounded-xl px-2 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              className={`group relative flex w-full items-center justify-center gap-s5 rounded-rsm px-s3 py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                 isParentActive
                   ? "bg-accent/10 text-accent"
-                  : "text-foreground/70 hover:bg-default/60 hover:text-foreground"
+                  : "text-foreground/70 hover:bg-default hover:text-foreground"
               }`}
               aria-label={item.title}
             >
@@ -121,10 +121,10 @@ function CollapsibleNavItem({
       <button
         type="button"
         onClick={handleToggle}
-        className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+        className={`group relative flex w-full items-center gap-s5 rounded-rsm px-s5 py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
           isParentActive
             ? "bg-accent/10 text-accent"
-            : "text-foreground/70 hover:bg-default/60 hover:text-foreground"
+            : "text-foreground/70 hover:bg-default hover:text-foreground"
         }`}
         aria-label={item.title}
         aria-expanded={isExpanded}
@@ -155,7 +155,7 @@ function CollapsibleNavItem({
           isExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
         }`}
       >
-        <div className="ml-8 mt-0.5 flex flex-col gap-0.5 border-l border-divider/50 pl-3">
+        <div className="ml-8 mt-0.5 flex flex-col gap-s1 border-l border-border/50 pl-s5">
           {item.children?.map((child, idx) => {
             const isChildActive = isNavItemActive(pathname, child);
             return (
@@ -166,10 +166,10 @@ function CollapsibleNavItem({
                   router.push(child.href || "#");
                   onNavigate?.();
                 }}
-                className={`rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                className={`rounded-rxs px-s5 py-s3 text-left text-[13px] font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   isChildActive
-                    ? "bg-accent/8 text-accent"
-                    : "text-foreground/60 hover:bg-default/40 hover:text-foreground"
+                    ? "bg-accent/10 text-accent"
+                    : "text-foreground/60 hover:bg-default hover:text-foreground"
                 }`}
                 aria-current={isChildActive ? "page" : undefined}
               >
@@ -250,17 +250,17 @@ function SidebarNavContent({
   return (
     <>
       {/* ── Navigation ─────────────────────────────────────────── */}
-      <ScrollShadow className="flex-1 overflow-y-auto px-3 py-5">
-        <nav className="flex flex-col gap-5">
+      <ScrollShadow className="flex-1 overflow-y-auto px-s5 py-s6">
+        <nav className="flex flex-col gap-s6">
           {filteredNav.map((section, idx) => (
-            <div key={idx} className="flex flex-col gap-1">
+            <div key={idx} className="flex flex-col gap-s1">
               {/* Section label */}
               <div
                 className={`overflow-hidden transition-all duration-200 ${
                   collapsed ? "h-0 opacity-0" : "h-5 opacity-100"
                 }`}
               >
-                <span className="px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                <span className="px-s3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                   {section.section}
                 </span>
               </div>
@@ -293,12 +293,12 @@ function SidebarNavContent({
                         router.push(item.href || "#");
                         onNavigate?.();
                       }}
-                      className={`group relative flex w-full items-center gap-3 rounded-xl py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                        collapsed ? "justify-center px-2" : "px-3"
+                      className={`group relative flex w-full items-center gap-s5 rounded-rsm py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                        collapsed ? "justify-center px-s3" : "px-s5"
                       } ${
                         isActive
                           ? "bg-accent/10 text-accent"
-                          : "text-foreground/70 hover:bg-default/60 hover:text-foreground"
+                          : "text-foreground/70 hover:bg-default hover:text-foreground"
                       }`}
                       aria-label={item.title}
                       aria-current={isActive ? "page" : undefined}
@@ -363,18 +363,18 @@ function SidebarNavContent({
       </ScrollShadow>
 
       {/* ── Bottom Settings ────────────────────────────────────── */}
-      <div className="shrink-0 border-t border-divider p-3">
+      <div className="shrink-0 border-t border-border p-s5">
         <button
           onClick={() => {
             router.push("/settings/customize");
             onNavigate?.();
           }}
-          className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+          className={`group flex w-full items-center gap-s5 rounded-rsm px-s5 py-s4 text-sm font-medium transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
             collapsed ? "justify-center" : ""
           } ${
             pathname.startsWith("/app/settings")
               ? "bg-accent/10 text-accent"
-              : "text-foreground/70 hover:bg-default/60 hover:text-foreground"
+              : "text-foreground/70 hover:bg-default hover:text-foreground"
           }`}
           aria-label="Settings"
         >
@@ -398,14 +398,14 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`relative flex h-full flex-col border-r border-divider bg-content1 transition-all duration-300 ease-in-out ${
+      className={`relative flex h-full flex-col border-r border-border bg-background transition-all duration-300 ease-in-out ${
         isCollapsed ? "w-[72px]" : "w-[260px]"
       }`}
     >
       {/* Brand Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-divider px-4">
-        <div className="flex min-w-0 items-center gap-3 overflow-hidden">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg text-accent-foreground shadow-sm">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-s6">
+        <div className="flex min-w-0 items-center gap-s5 overflow-hidden">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-rxs text-accent-foreground shadow-s1">
             <img src="/logo1.png" alt="" className="h-6 w-6 object-contain" />
           </div>
           <span
@@ -413,7 +413,7 @@ export function Sidebar() {
               isCollapsed ? "w-0 opacity-0" : "w-auto opacity-100"
             }`}
           >
-            VTCBCSR
+            Vtcbcsr
           </span>
         </div>
 
@@ -423,7 +423,7 @@ export function Sidebar() {
           variant="tertiary"
           size="sm"
           onPress={toggleCollapsed}
-          className="absolute -right-4 top-[18px] z-50 size-8 rounded-full border border-divider bg-background shadow-md transition-transform hover:scale-110"
+          className="absolute -right-4 top-[18px] z-50 size-8 rounded-full border border-border bg-background shadow-s1 transition-transform hover:scale-110"
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {isCollapsed ? (
@@ -455,15 +455,15 @@ export function MobileSidebar() {
       />
 
       {/* Drawer panel */}
-      <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-[260px] flex-col border-r border-divider bg-content1 shadow-2xl">
+      <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-[260px] flex-col border-r border-border bg-background shadow-s2">
         {/* Brand Header with close button */}
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-divider px-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground shadow-sm">
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-border px-s6">
+          <div className="flex items-center gap-s5">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-rxs bg-accent text-accent-foreground shadow-s1">
               <SquareChartBar className="size-4" />
             </div>
             <span className="text-[15px] font-bold tracking-tight text-foreground">
-              College ERP
+              Vtcbcsr
             </span>
           </div>
           <Button

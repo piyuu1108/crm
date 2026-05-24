@@ -109,9 +109,9 @@ export function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 w-full shrink-0 items-center justify-between border-b border-divider bg-background/80 px-4 backdrop-blur-md md:px-6">
+    <header className="sticky top-0 z-40 flex h-16 w-full shrink-0 items-center justify-between border-b border-border bg-background/80 px-s6 backdrop-blur-md">
       {/* ── Left: mobile hamburger + page title + role switcher ── */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-s5">
         {/* Mobile hamburger — only visible on small screens */}
         <Button
           isIconOnly
@@ -133,7 +133,7 @@ export function Navbar() {
 
         {/* Divider between title and role switcher */}
         {pageTitle && user && user.roles.length > 1 && (
-          <div className="hidden h-4 w-px bg-divider sm:block" />
+          <div className="hidden h-4 w-px bg-border sm:block" />
         )}
 
         {/* Role switcher */}
@@ -174,7 +174,7 @@ export function Navbar() {
       </div>
 
       {/* ── Right: Notifications & Profile ─────────────────────── */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-s3">
         {/* Notifications Bell */}
         <Badge.Anchor>
           <Button
@@ -196,13 +196,13 @@ export function Navbar() {
         {/* Theme Switcher — same as login page */}
         <ThemeSwitcher />
 
-        <div className="h-6 w-px bg-divider" />
+        <div className="h-6 w-px bg-border" />
 
         {/* User Profile Dropdown */}
         <Dropdown>
           <button
             type="button"
-            className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-default/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="flex items-center gap-s4 rounded-rsm px-s3 py-s2 text-left transition-colors hover:bg-default focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label="User menu"
           >
             <div className="hidden flex-col items-end sm:flex">
@@ -230,7 +230,7 @@ export function Navbar() {
 
           <Dropdown.Popover className="min-w-[210px]">
             {/* User info header */}
-            <div className="border-b border-divider px-4 py-3">
+            <div className="border-b border-border px-s6 py-s5">
               <p className="text-sm font-semibold text-foreground">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>

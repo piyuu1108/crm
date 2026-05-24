@@ -29,14 +29,14 @@ export function KpiCard({
   color = "default",
 }: KpiCardProps) {
   return (
-    <Card className="p-5 flex flex-row items-center gap-4 border border-divider shadow-sm">
+    <Card className="p-s6 flex flex-row items-center gap-s5 border border-border bg-surface shadow-s1 rounded-rsm">
       <div
-        className={`flex size-12 shrink-0 items-center justify-center rounded-xl text-xl ${colorMap[color]}`}
+        className={`flex size-12 shrink-0 items-center justify-center rounded-rxs text-xl ${colorMap[color]}`}
       >
         {icon}
       </div>
       <div className="flex flex-col min-w-0">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
           {label}
         </span>
         <span className="text-2xl font-bold text-foreground leading-tight">

@@ -22,7 +22,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
   } = data;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-s7">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">HOD Dashboard</h1>
@@ -32,7 +32,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
       </div>
 
       {/* KPI Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-s6 sm:grid-cols-2 xl:grid-cols-3">
         <KpiCard
           label="Total Students"
           value={totalStudents}
@@ -55,21 +55,21 @@ export function HodDashboard({ data }: HodDashboardProps) {
       </div>
 
       {/* System Overview + Pending Requests */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-s7 lg:grid-cols-3">
         {/* System summary */}
-        <div className="col-span-1 lg:col-span-2 flex flex-col gap-4">
-          <Card className="border border-divider">
-            <Card.Header className="px-5 pt-5 pb-3">
-              <div className="flex items-center gap-2">
+        <div className="col-span-1 lg:col-span-2 flex flex-col gap-s6">
+          <Card className="border border-border bg-surface shadow-s1 rounded-rsm">
+            <Card.Header className="px-s6 pt-s6 pb-s3">
+              <div className="flex items-center gap-s3">
                 <SquareChartBar className="size-4 text-accent" />
                 <span className="text-sm font-semibold text-foreground">
                   System Overview
                 </span>
               </div>
             </Card.Header>
-            <Card.Content className="px-5 pb-5">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div className="rounded-xl border border-divider p-4 text-center">
+            <Card.Content className="px-s6 pb-s6">
+              <div className="grid grid-cols-2 gap-s5 sm:grid-cols-4">
+                <div className="rounded-rxs border border-border bg-default/20 p-s6 text-center">
                   <div className="text-3xl font-bold text-accent">
                     {totalStudents}
                   </div>
@@ -77,7 +77,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
                     Total Students
                   </div>
                 </div>
-                <div className="rounded-xl border border-divider p-4 text-center">
+                <div className="rounded-rxs border border-border bg-default/20 p-s6 text-center">
                   <div className="text-3xl font-bold text-success">
                     {approvedStudents}
                   </div>
@@ -85,7 +85,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
                     Approved Profiles
                   </div>
                 </div>
-                <div className="rounded-xl border border-divider p-4 text-center">
+                <div className="rounded-rxs border border-border bg-default/20 p-s6 text-center">
                   <div className="text-3xl font-bold text-warning">
                     {unapprovedStudents}
                   </div>
@@ -93,7 +93,7 @@ export function HodDashboard({ data }: HodDashboardProps) {
                     Unapproved Profiles
                   </div>
                 </div>
-                <div className="rounded-xl border border-divider p-4 text-center">
+                <div className="rounded-rxs border border-border bg-default/20 p-s6 text-center">
                   <div className="text-3xl font-bold text-foreground">
                     {totalFaculty}
                   </div>
@@ -107,16 +107,16 @@ export function HodDashboard({ data }: HodDashboardProps) {
         </div>
 
         {/* Pending Requests sidebar */}
-        <Card className="col-span-1 border border-divider">
-          <Card.Header className="px-5 pt-5 pb-3">
-            <div className="flex items-center gap-2">
+        <Card className="col-span-1 border border-border bg-surface shadow-s1 rounded-rsm">
+          <Card.Header className="px-s6 pt-s6 pb-s3">
+            <div className="flex items-center gap-s3">
               <ListCheck className="size-4 text-warning" />
               <span className="text-sm font-semibold text-foreground">
                 Pending Approvals
               </span>
             </div>
           </Card.Header>
-          <Card.Content className="px-5 pb-5">
+          <Card.Content className="px-s6 pb-s6">
             <RequestList
               requests={pendingRequests}
               emptyMessage="All caught up — no pending requests"

@@ -1,30 +1,31 @@
 import {
-  SquareChartBar,
-  Persons,
+  LayoutDashboard,
+  Users,
   GraduationCap,
-  Calendar,
-  ChartColumn,
-  ListCheck,
-  Person,
-  Tray,
-  LayoutCells,
+  CalendarDays,
+  BarChart3,
+  ListChecks,
+  User,
+  Inbox,
+  Grid3X3,
   BookOpen,
   FileText,
-  PencilToSquare,
+  PenSquare,
   Gift,
-  ArrowShapeTurnUpRight,
+  Share2,
   Bell,
-} from "@gravity-ui/icons";
-import type { SVGProps } from "react";
+  
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export type Role = "student" | "faculty" | "counselor" | "hod" | "admin";
 
 export interface NavItem {
   title: string;
   href?: string;
-  icon?: React.FC<SVGProps<SVGSVGElement>>;
+  icon?: LucideIcon;
   roles: Role[];
-  badge?: number; // E.g., for unread requests
+  badge?: number;
   children?: NavItem[];
 }
 
@@ -41,7 +42,7 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Dashboard",
         href: "/app/dashboard",
-        icon: SquareChartBar,
+        icon: LayoutDashboard,
         roles: ["student", "faculty", "counselor", "hod", "admin"],
       },
       {
@@ -72,37 +73,37 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Timetable",
         href: "/app/academics/timetable",
-        icon: Calendar,
+        icon: CalendarDays,
         roles: ["student", "faculty", "counselor", "hod", "admin"],
       },
       {
         title: "Attendance",
         href: "/app/academics/attendance",
-        icon: ListCheck,
+        icon: ListChecks,
         roles: ["student", "faculty", "counselor", "hod"],
       },
       {
         title: "Internal Exams",
         href: "/app/academics/internal-exams",
-        icon: PencilToSquare,
+        icon: PenSquare,
         roles: ["student", "faculty", "counselor", "hod"],
       },
       {
         title: "Exam Evaluation",
         href: "/app/academics/internal-exams/evaluation",
-        icon: ListCheck,
+        icon: ListChecks,
         roles: ["faculty", "counselor", "hod"],
       },
       {
         title: "Export Marks",
         href: "/app/academics/internal-exams/export",
-        icon: Tray,
+        icon: Inbox,
         roles: ["counselor", "hod"],
       },
       {
         title: "Reports",
         href: "/app/academics/reports",
-        icon: ChartColumn,
+        icon: BarChart3,
         roles: ["counselor", "hod", "admin"],
       },
     ],
@@ -115,7 +116,7 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Divisions",
         href: "/app/admin/divisions",
-        icon: LayoutCells,
+        icon: Grid3X3,
         roles: ["hod", "admin"],
       },
       {
@@ -132,7 +133,7 @@ export const navigationConfig: NavSection[] = [
       },
       {
         title: "Assignments",
-        icon: ListCheck,
+        icon: ListChecks,
         roles: ["hod", "admin"],
         children: [
           {
@@ -150,7 +151,7 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Timetable Management",
         href: "/app/admin/timetable",
-        icon: Calendar,
+        icon: CalendarDays,
         roles: ["hod", "admin"],
       },
     ],
@@ -163,7 +164,7 @@ export const navigationConfig: NavSection[] = [
       {
         title: "My Divisions",
         href: "/app/counselor/divisions",
-        icon: LayoutCells,
+        icon: Grid3X3,
         roles: ["counselor"],
       },
     ],
@@ -176,7 +177,7 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Requests",
         href: "/app/workflows/requests",
-        icon: Tray,
+        icon: Bell,
         roles: ["student", "faculty", "counselor", "hod", "admin"],
         badge: 3,
       },
@@ -190,7 +191,7 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Profile",
         href: "/app/profile",
-        icon: Person,
+        icon: User,
         roles: ["student", "faculty", "counselor", "hod", "admin"],
       },
     ],

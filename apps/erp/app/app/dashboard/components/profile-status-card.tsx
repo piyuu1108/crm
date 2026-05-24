@@ -3,7 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, ProgressBar, Chip } from "@heroui/react";
-import { Person, CircleCheck, CircleXmark } from "@gravity-ui/icons";
+import { User, CheckCircle, XCircle } from "lucide-react";
 
 interface ProfileStatusCardProps {
   profileStatus: string | null | undefined;
@@ -51,7 +51,7 @@ export function ProfileStatusCard({
       <Card.Header className="px-5 pt-5 pb-3">
         <div className="flex w-full items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Person className="size-4 text-accent" />
+            <User className="size-4 text-accent" />
             <span className="text-sm font-semibold text-foreground">Profile Status</span>
           </div>
           <Chip
@@ -61,9 +61,9 @@ export function ProfileStatusCard({
             className="capitalize"
           >
             {isCompleted ? (
-              <CircleCheck className="size-3.5" />
+              <CheckCircle className="size-3.5" />
             ) : (
-              <CircleXmark className="size-3.5" />
+              <XCircle className="size-3.5" />
             )}
             <Chip.Label>
               {isCompleted ? "Completed" : "Incomplete"}

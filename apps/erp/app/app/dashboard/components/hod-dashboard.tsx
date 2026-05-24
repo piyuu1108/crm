@@ -1,7 +1,7 @@
 "use client";
 
 import { Tabs, Button, toast } from "@heroui/react";
-import { Download } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import dynamic from "next/dynamic";
 import { StatCard } from "./stat-card";
 import type { HodDashboardData } from "@/app/lib/queries/dashboard";
@@ -34,6 +34,9 @@ export function HodDashboard({ data }: HodDashboardProps) {
         </Tabs>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button isIconOnly size="sm" variant="tertiary" aria-label="Refresh">
+            <RefreshCw className="size-4" />
+          </Button>
           <Button size="sm" onPress={() => toast.info("This feature will be added.")}>Download</Button>
         </div>
       </div>

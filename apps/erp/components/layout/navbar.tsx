@@ -121,7 +121,7 @@ export function Navbar() {
           ) : null}
 
           {/* Download button */}
-          <Button
+          {/* <Button
             size="sm"
             onPress={() => {
               toast.info("This feature will be added.");
@@ -129,7 +129,7 @@ export function Navbar() {
           >
             <Download className="size-4" />
             <span className="hidden sm:inline">Download</span>
-          </Button>
+          </Button> */}
         </div>
       </div>
     </header>

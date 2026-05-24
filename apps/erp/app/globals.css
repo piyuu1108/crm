@@ -1,6 +1,5 @@
 @import "tailwindcss";
 @import "@heroui/styles";
-@import "tw-animate-css";
 
 @theme inline {
   --sidebar-width: 240px;

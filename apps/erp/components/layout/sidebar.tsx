@@ -93,10 +93,10 @@ function CollapsibleNavItem({
                         onNavigate?.();
                       }
                     }}
-                    className={`block w-full truncate rounded-md px-2.5 py-1 text-[12px] text-left transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+                    className={`block w-full truncate rounded-md px-2.5 py-1 text-[12px] text-left transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                       isSubActive
-                        ? "text-foreground bg-default-100 font-medium"
-                        : "text-default-500 hover:text-foreground hover:bg-default-50 font-normal"
+                        ? "text-foreground bg-white dark:bg-default-100 shadow-sm  font-medium"
+                        : "text-default-500 hover:text-foreground hover:bg-default-50/50 font-normal"
                     }`}
                   >
                     {subItem.title}
@@ -128,7 +128,7 @@ function CollapsibleNavItem({
           </Tooltip.Trigger>
           <Tooltip.Content placement="right" className="ml-2">
             <div className="flex flex-col gap-1 py-1.5 px-1 min-w-[140px]">
-              <p className="text-[13px] font-medium text-foreground/70 mb-1 px-2 uppercase tracking-wider">
+              <p className="text-[13px] font-medium text-foreground/80 mb-1  px-2 uppercase tracking-wider">
                 {item.title}
               </p>
               {item.children?.map((child) => {
@@ -143,10 +143,10 @@ function CollapsibleNavItem({
                         onNavigate?.();
                       }
                     }}
-                    className={`rounded-md w-full px-2 py-1 text-left text-xs transition-colors focus-visible:outline-none ${
+                    className={`rounded-md w-full px-2 py-1 text-left text-xs transition-colors cursor-pointer focus-visible:outline-none ${
                       isChildActive
-                        ? "text-accent font-medium bg-default-50"
-                        : "text-foreground/80 hover:text-accent hover:bg-default-50"
+                        ? "text-foreground bg-white dark:bg-default-100 shadow-sm  font-medium"
+                        : "text-foreground/80 hover:text-foreground hover:bg-default-50"
                     }`}
                   >
                     {child.title}
@@ -305,14 +305,14 @@ export function Sidebar() {
                             closeMobile();
                           }
                         }}
-                        className={`flex items-center w-full transition-all duration-200 ease-in-out rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+                        className={`flex items-center w-full transition-all duration-200 ease-in-out rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                           isCollapsed
                             ? "lg:justify-center lg:size-8 lg:mx-auto lg:p-0 gap-2.5 px-2.5 py-1.5 text-[13px]"
                             : "gap-2.5 px-2.5 py-1.5 text-[13px]"
                         } ${
                           isActive
-                            ? "bg-default-100 text-foreground font-medium"
-                            : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
+                            ? "bg-white dark:bg-default-100 shadow-sm  text-foreground font-medium"
+                            : "text-default-500 hover:bg-default-50/50 hover:text-foreground font-normal"
                         }`}
                         aria-label={item.title}
                         aria-current={isActive ? "page" : undefined}
@@ -371,14 +371,14 @@ export function Sidebar() {
               router.push("/settings/customize");
               closeMobile();
             }}
-            className={`flex items-center w-full rounded-lg transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+            className={`flex items-center w-full rounded-lg transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
               isCollapsed
                 ? "lg:justify-center lg:size-8 lg:mx-auto lg:p-0 gap-2.5 px-2.5 py-1.5 text-[13px]"
                 : "gap-2.5 px-2.5 py-1.5 text-[13px]"
             } ${
               pathname.startsWith("/settings")
-                ? "bg-default-100 text-foreground font-medium"
-                : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
+                ? "bg-white dark:bg-default-100 shadow-sm  text-foreground font-medium"
+                : "text-default-500 hover:bg-default-50/50 hover:text-foreground font-normal"
             }`}
             aria-label="Settings"
           >

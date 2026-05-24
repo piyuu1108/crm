@@ -9,6 +9,7 @@ import { navigationConfig, Role, type NavItem } from "@/config/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { useQuery } from "@tanstack/react-query";
 
+// ─── Active-state helpers ─────────────────────────────────────────────────────
 function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (!item.href) {
     return item.children?.some((child) => isNavItemActive(pathname, child)) ?? false;
@@ -21,15 +22,13 @@ function isNavItemActive(pathname: string, item: NavItem): boolean {
 function resolveProfilePhotoSrc(profilePhoto?: string): string | undefined {
   if (!profilePhoto) return undefined;
   if (profilePhoto.startsWith("/api/")) return profilePhoto;
-  if (
-    profilePhoto.startsWith("students/") ||
-    profilePhoto.startsWith("faculty/")
-  ) {
+  if (profilePhoto.startsWith("students/") || profilePhoto.startsWith("faculty/")) {
     return `/api/student/profile-photo?key=${encodeURIComponent(profilePhoto)}`;
   }
   return profilePhoto;
 }
 
+// ─── Collapsible sub-menu ─────────────────────────────────────────────────────
 function CollapsibleNavItem({
   item,
   pathname,
@@ -47,8 +46,11 @@ function CollapsibleNavItem({
 
   React.useEffect(() => {
     const frameId = requestAnimationFrame(() => {
-      if (isParentActive) setIsExpanded(true);
-      else if (isCollapsed) setIsExpanded(false);
+      if (isParentActive) {
+        setIsExpanded(true);
+      } else if (isCollapsed) {
+        setIsExpanded(false);
+      }
     });
     return () => cancelAnimationFrame(frameId);
   }, [pathname, isParentActive, isCollapsed]);
@@ -57,32 +59,30 @@ function CollapsibleNavItem({
 
   return (
     <React.Fragment>
-      {/* Expanded */}
+      {/* Expanded: full disclosure menu */}
       <li className={`w-full block lg:${isCollapsed ? "hidden" : "block"}`}>
         <Disclosure isExpanded={isExpanded} onExpandedChange={setIsExpanded}>
           <Disclosure.Heading>
             <Disclosure.Trigger
-              className={`w-full flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors cursor-pointer select-none text-left focus:outline-none ${
+              className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200 ease-in-out cursor-pointer select-none text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                 isParentActive
                   ? "bg-default-100 text-foreground font-medium"
-                  : "text-default-400 hover:bg-default-50 hover:text-default-700 font-normal"
+                  : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
               }`}
             >
-              {Icon && <Icon className="size-[15px] shrink-0" />}
-              <span className="flex-1">{item.title}</span>
+              {Icon && <Icon className="size-4.5 shrink-0" />}
+              <span className="flex-1 truncate">{item.title}</span>
               <ChevronDown
-                className={`size-3.5 shrink-0 text-default-300 transition-transform duration-200 ${
+                className={`size-4 shrink-0 transition-transform duration-200 ease-in-out opacity-70 group-hover:opacity-100 ${
                   isExpanded ? "rotate-180" : ""
                 }`}
               />
             </Disclosure.Trigger>
           </Disclosure.Heading>
           <Disclosure.Content>
-            <Disclosure.Body className="mt-0.5 flex flex-col gap-px border-l border-divider ml-[18px] pl-2.5">
+            <Disclosure.Body className="mt-1 flex flex-col gap-1 border-l-2 border-divider ml-[22px] pl-3">
               {item.children?.map((subItem) => {
-                const isSubActive = subItem.href
-                  ? isNavItemActive(pathname, subItem)
-                  : false;
+                const isSubActive = subItem.href ? isNavItemActive(pathname, subItem) : false;
                 return (
                   <button
                     key={subItem.title}
@@ -93,10 +93,10 @@ function CollapsibleNavItem({
                         onNavigate?.();
                       }
                     }}
-                    className={`block rounded px-2 py-1 text-[12px] text-left transition-colors ${
+                    className={`block w-full truncate rounded-md px-3 py-1.5 text-sm text-left transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                       isSubActive
-                        ? "text-foreground font-medium"
-                        : "text-default-400 hover:text-default-700 font-normal"
+                        ? "text-foreground bg-default-100 font-medium"
+                        : "text-default-500 hover:text-foreground hover:bg-default-50 font-normal"
                     }`}
                   >
                     {subItem.title}
@@ -115,26 +115,24 @@ function CollapsibleNavItem({
             <div className="flex w-full justify-center">
               <button
                 type="button"
-                className={`flex items-center justify-center size-8 rounded-md transition-colors ${
+                className={`flex items-center justify-center size-10 mx-auto rounded-lg transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                   isParentActive
                     ? "bg-default-100 text-foreground"
-                    : "text-default-400 hover:bg-default-50 hover:text-default-700"
+                    : "text-default-500 hover:bg-default-50 hover:text-foreground"
                 }`}
                 aria-label={item.title}
               >
-                {Icon && <Icon className="size-[15px] shrink-0" />}
+                {Icon && <Icon className="size-4.5 shrink-0" />}
               </button>
             </div>
           </Tooltip.Trigger>
-          <Tooltip.Content placement="right">
-            <div className="flex flex-col gap-0.5 py-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-default-400 mb-1 px-1">
+          <Tooltip.Content placement="right" className="ml-2">
+            <div className="flex flex-col gap-1 py-1.5 px-1 min-w-[140px]">
+              <p className="text-[13px] font-medium text-foreground/70 mb-1 px-2 uppercase tracking-wider">
                 {item.title}
               </p>
               {item.children?.map((child) => {
-                const isChildActive = child.href
-                  ? isNavItemActive(pathname, child)
-                  : false;
+                const isChildActive = child.href ? isNavItemActive(pathname, child) : false;
                 return (
                   <button
                     key={child.title}
@@ -145,10 +143,10 @@ function CollapsibleNavItem({
                         onNavigate?.();
                       }
                     }}
-                    className={`rounded px-2 py-1 text-left text-xs transition-colors ${
+                    className={`rounded-md w-full px-3 py-1.5 text-left text-sm transition-colors focus-visible:outline-none ${
                       isChildActive
-                        ? "text-foreground font-medium"
-                        : "text-foreground/70 hover:text-foreground"
+                        ? "text-accent font-medium bg-default-50"
+                        : "text-foreground/80 hover:text-accent hover:bg-default-50"
                     }`}
                   >
                     {child.title}
@@ -163,17 +161,16 @@ function CollapsibleNavItem({
   );
 }
 
+// ─── Main Sidebar ─────────────────────────────────────────────────────────────
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { isCollapsed, isMobileOpen, closeMobile } = useSidebar();
   const { activeRole, user } = useAuthStore();
 
+  // Role-based nav filtering
   const isStudent = activeRole === "student";
-  const isFaculty =
-    activeRole === "faculty" ||
-    activeRole === "hod" ||
-    activeRole === "counselor";
+  const isFaculty = activeRole === "faculty" || activeRole === "hod" || activeRole === "counselor";
   const hasRequests = isStudent || isFaculty;
 
   const { data: requestsData } = useQuery({
@@ -200,13 +197,13 @@ export function Sidebar() {
             )
             .map((item) => {
               let badge = item.badge;
-              if (item.title === "Requests") badge = pendingRequestsCount;
+              if (item.title === "Requests") {
+                badge = pendingRequestsCount;
+              }
               const mappedItem = { ...item, badge };
               if (item.children) {
                 mappedItem.children = item.children.filter((child) =>
-                  activeRole
-                    ? child.roles.includes(activeRole as Role)
-                    : false
+                  activeRole ? child.roles.includes(activeRole as Role) : false
                 );
               }
               return mappedItem;
@@ -217,80 +214,42 @@ export function Sidebar() {
     [activeRole, pendingRequestsCount]
   );
 
+  // Close mobile drawer on route change
   React.useEffect(() => {
     closeMobile();
   }, [pathname, closeMobile]);
 
   const ROLE_LABEL: Record<string, string> = {
-    hod: "Head of Department",
+    hod: "HOD",
     faculty: "Faculty",
     counselor: "Counselor",
     student: "Student",
     admin: "Admin",
   };
 
-  const isSettingsActive = pathname.startsWith("/settings");
-
-  const settingsNavLink = (
-    <button
-      type="button"
-      onClick={() => {
-        router.push("/settings/customize");
-        closeMobile();
-      }}
-      className={`flex items-center w-full rounded-md transition-colors ${
-        isCollapsed
-          ? "lg:justify-center lg:size-8 lg:mx-auto lg:p-0 gap-2.5 px-2.5 py-1.5 text-[13px]"
-          : "gap-2.5 px-2.5 py-1.5 text-[13px]"
-      } ${
-        isSettingsActive
-          ? "bg-default-100 text-foreground font-medium"
-          : "text-default-400 hover:bg-default-50 hover:text-default-700 font-normal"
-      }`}
-      aria-label="Settings"
-    >
-      <Settings className="size-[15px] shrink-0" />
-      <span className={`${isCollapsed ? "lg:hidden block" : "block"}`}>
-        Settings
-      </span>
-    </button>
-  );
-
   return (
     <>
+      {/* Mobile Sidebar Backdrop Overlay */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden transition-opacity"
           onClick={closeMobile}
         />
       )}
 
       <aside
-        className={`fixed left-0 top-0 h-screen border-r border-divider bg-background z-50 flex flex-col transition-transform lg:transition-all duration-300
-          lg:translate-x-0 ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-          ${isCollapsed ? "lg:w-16 w-[240px]" : "w-[240px] lg:w-(--sidebar-width)"}
-        `}
+        className={`fixed left-0 top-0 h-screen border-r border-divider bg-background z-50 flex flex-col transition-all duration-300 ease-in-out lg:translate-x-0 ${
+          isMobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+        } ${isCollapsed ? "lg:w-20 w-[260px]" : "w-[260px] lg:w-(--sidebar-width)"}`}
       >
-        {/* Logo */}
-        <div
-          className={`flex items-center h-14 px-4 shrink-0 ${
-            isCollapsed ? "lg:justify-center lg:px-0" : ""
-          }`}
-        >
-          <div
-            className={`flex items-center gap-2.5 ${
-              isCollapsed ? "lg:justify-center" : ""
-            }`}
-          >
-            <div className="flex size-7 items-center justify-center rounded-lg shrink-0">
-              <img
-                src="/logo1.png"
-                alt=""
-                className="h-5 w-5 object-contain"
-              />
+        {/* Header: Company logo & name */}
+        <div className={`px-4 py-5 ${isCollapsed ? "lg:px-3 px-4" : "px-4"}`}>
+          <div className={`flex items-center ${isCollapsed ? "lg:justify-center justify-start gap-3" : "gap-3"}`}>
+            <div className="flex size-8 items-center justify-center rounded-xl shrink-0 bg-default-50 border border-default-100">
+              <img src="/logo1.png" alt="Vtcbcsr Logo" className="h-5 w-5 object-contain" />
             </div>
             <span
-              className={`text-[13px] font-semibold tracking-tight text-foreground ${
+              className={`text-[15px] font-bold tracking-tight text-foreground truncate ${
                 isCollapsed ? "lg:hidden block" : "block"
               }`}
             >
@@ -299,49 +258,31 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="h-px bg-divider shrink-0" />
-
         {/* Navigation */}
         <ScrollShadow
-          className={`flex-1 py-3 ${isCollapsed ? "lg:px-2 px-3" : "px-3"}`}
+          className={`flex-1 ${isCollapsed ? "lg:px-3 lg:py-4 px-4 py-4" : "px-4 py-4"}`}
           hideScrollBar
         >
           <nav>
-            <ul className="flex flex-col gap-px">
-              {filteredNav.map((section, sectionIdx) => (
+            <ul className="flex flex-col gap-1.5">
+              {filteredNav.map((section) => (
                 <React.Fragment key={section.section}>
                   {/* Section label */}
-                  {sectionIdx > 0 && (
-                    <li className="pt-3 pb-1">
-                      <span
-                        className={`block px-2.5 text-[10px] font-medium uppercase tracking-widest text-default-300 ${
-                          isCollapsed ? "lg:hidden block" : "block"
-                        }`}
-                      >
-                        {section.section}
-                      </span>
-                      {isCollapsed && (
-                        <div className="hidden lg:block h-px bg-divider my-1 mx-1" />
-                      )}
-                    </li>
-                  )}
-                  {/* First section gets no label, just a small top gap if not first */}
-                  {sectionIdx === 0 && (
-                    <li
-                      className={`pb-1 ${
-                        isCollapsed ? "lg:hidden block" : "block"
-                      }`}
-                    >
-                      <span className="block px-2.5 text-[10px] font-medium uppercase tracking-widest text-default-300">
-                        {section.section}
-                      </span>
-                    </li>
-                  )}
+                  <li
+                    className={`overflow-hidden transition-all duration-200 ease-in-out ${
+                      isCollapsed ? "lg:h-0 lg:opacity-0 h-7 opacity-100" : "h-7 opacity-100"
+                    }`}
+                  >
+                    <span className="px-3 flex items-center h-full text-[11px] font-bold uppercase tracking-wider text-default-400">
+                      {section.section}
+                    </span>
+                  </li>
 
                   {section.items.map((item) => {
                     const Icon = item.icon;
                     const isActive = isNavItemActive(pathname, item);
 
+                    // Collapsible items with children
                     if (item.children && item.children.length > 0) {
                       return (
                         <CollapsibleNavItem
@@ -354,6 +295,7 @@ export function Sidebar() {
                       );
                     }
 
+                    // Simple nav items
                     const navLink = (
                       <button
                         type="button"
@@ -363,21 +305,21 @@ export function Sidebar() {
                             closeMobile();
                           }
                         }}
-                        className={`flex items-center w-full rounded-md transition-colors ${
+                        className={`flex items-center w-full transition-all duration-200 ease-in-out rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
                           isCollapsed
-                            ? "lg:justify-center lg:size-8 lg:mx-auto lg:p-0 gap-2.5 px-2.5 py-1.5 text-[13px]"
-                            : "gap-2.5 px-2.5 py-1.5 text-[13px]"
+                            ? "lg:justify-center lg:size-10 lg:mx-auto lg:p-0 gap-3 px-3 py-2.5 text-sm"
+                            : "gap-3 px-3 py-2.5 text-sm"
                         } ${
                           isActive
                             ? "bg-default-100 text-foreground font-medium"
-                            : "text-default-400 hover:bg-default-50 hover:text-default-700 font-normal"
+                            : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
                         }`}
                         aria-label={item.title}
                         aria-current={isActive ? "page" : undefined}
                       >
-                        {Icon && <Icon className="size-[15px] shrink-0" />}
+                        {Icon && <Icon className="size-4.5 shrink-0" />}
                         <span
-                          className={`flex-1 text-left ${
+                          className={`flex-1 text-left truncate ${
                             isCollapsed ? "lg:hidden block" : "block"
                           }`}
                         >
@@ -387,8 +329,8 @@ export function Sidebar() {
                           <Chip
                             size="sm"
                             color="danger"
-                            variant="secondary"
-                            className={`text-[10px] h-4 min-w-4 px-1 ${
+                            variant="soft"
+                            className={`h-5 px-1 text-[11px] font-medium ${
                               isCollapsed ? "lg:hidden" : ""
                             }`}
                           >
@@ -403,14 +345,9 @@ export function Sidebar() {
                         {isCollapsed ? (
                           <Tooltip delay={0}>
                             <Tooltip.Trigger>
-                              <div className="flex w-full justify-center">
-                                {navLink}
-                              </div>
+                              <div className="flex w-full justify-center">{navLink}</div>
                             </Tooltip.Trigger>
-                            <Tooltip.Content
-                              placement="right"
-                              className="capitalize"
-                            >
+                            <Tooltip.Content placement="right" className="ml-2 capitalize px-3 py-1.5 text-sm font-medium">
                               <p>{item.title}</p>
                             </Tooltip.Content>
                           </Tooltip>
@@ -426,38 +363,43 @@ export function Sidebar() {
           </nav>
         </ScrollShadow>
 
-        <div className="h-px bg-divider shrink-0" />
-
-        {/* Settings */}
-        <div className={`px-3 py-2 shrink-0 ${isCollapsed ? "lg:px-2" : ""}`}>
-          {isCollapsed ? (
-            <Tooltip delay={0}>
-              <Tooltip.Trigger>
-                <div className="flex w-full justify-center">
-                  {settingsNavLink}
-                </div>
-              </Tooltip.Trigger>
-              <Tooltip.Content placement="right">
-                <p>Settings</p>
-              </Tooltip.Content>
-            </Tooltip>
-          ) : (
-            settingsNavLink
-          )}
+        {/* Settings button */}
+        <div className={`px-4 pb-3 pt-2 ${isCollapsed ? "lg:px-3" : ""}`}>
+          <button
+            type="button"
+            onClick={() => {
+              router.push("/settings/customize");
+              closeMobile();
+            }}
+            className={`flex items-center w-full rounded-lg transition-all duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-default-400 ${
+              isCollapsed
+                ? "lg:justify-center lg:size-10 lg:mx-auto lg:p-0 gap-3 px-3 py-2.5 text-sm"
+                : "gap-3 px-3 py-2.5 text-sm"
+            } ${
+              pathname.startsWith("/settings")
+                ? "bg-default-100 text-foreground font-medium"
+                : "text-default-500 hover:bg-default-50 hover:text-foreground font-normal"
+            }`}
+            aria-label="Settings"
+          >
+            <Settings className="size-4.5 shrink-0" />
+            <span className={`truncate text-left flex-1 ${isCollapsed ? "lg:hidden block" : "block"}`}>
+              Settings
+            </span>
+          </button>
         </div>
 
-        <div className="h-px bg-divider shrink-0" />
-
         {/* Footer: User info */}
-        <div
-          className={`px-3 py-3 shrink-0 ${isCollapsed ? "lg:px-2" : ""}`}
-        >
+        <div className="border-t border-divider px-4 py-4 bg-default-50/30">
           <div
-            className={`flex items-center gap-3 rounded-md px-2 py-2 ${
-              isCollapsed ? "lg:justify-center lg:px-0" : ""
+            className={`flex items-center ${
+              isCollapsed ? "lg:justify-center lg:px-0 justify-start px-1 gap-3" : "gap-3 px-1"
             }`}
           >
-            <Avatar size="sm" className="shrink-0 size-7">
+            <Avatar 
+              size="sm" 
+              className="shrink-0 border border-divider"
+            >
               <Avatar.Image
                 src={resolveProfilePhotoSrc(user?.profilePhoto)}
                 alt={user?.name || "User"}
@@ -466,15 +408,11 @@ export function Sidebar() {
                 {user?.name?.[0]?.toUpperCase() || "U"}
               </Avatar.Fallback>
             </Avatar>
-            <div
-              className={`flex min-w-0 flex-col ${
-                isCollapsed ? "lg:hidden flex" : "flex"
-              }`}
-            >
-              <span className="text-[13px] font-medium leading-tight text-foreground truncate">
+            <div className={`flex min-w-0 flex-1 flex-col ${isCollapsed ? "lg:hidden flex" : "flex"}`}>
+              <span className="truncate text-[13px] font-semibold leading-tight text-foreground">
                 {user?.name || "Loading..."}
               </span>
-              <span className="text-[11px] leading-tight text-default-400 truncate mt-0.5">
+              <span className="truncate text-[11px] font-medium leading-tight text-default-500 mt-0.5">
                 {ROLE_LABEL[activeRole ?? ""] ?? activeRole ?? "—"}
               </span>
             </div>

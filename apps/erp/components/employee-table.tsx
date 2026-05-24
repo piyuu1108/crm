@@ -63,7 +63,7 @@ export function EmployeeTable() {
   const [mounted, setMounted] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [page, setPage] = React.useState(1);
-  const itemsPerPage = 8;
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
 
   const [visibleColumns, setVisibleColumns] = React.useState<Set<string>>(
     new Set(INITIAL_VISIBLE_COLUMNS)
@@ -146,8 +146,26 @@ export function EmployeeTable() {
   }, [data?.faculty, searchQuery]);
 
   const sortedFaculty = React.useMemo(() => {
-    return filteredFaculty;
-  }, [filteredFaculty]);
+    const list = [...filteredFaculty];
+    if (sortDescriptor.column) {
+      list.sort((a, b) => {
+        let first = a[sortDescriptor.column as keyof typeof a];
+        let second = b[sortDescriptor.column as keyof typeof b];
+
+        if (first === undefined || first === null) first = "";
+        if (second === undefined || second === null) second = "";
+
+        let cmp = 0;
+        if (typeof first === "string" && typeof second === "string") {
+          cmp = first.localeCompare(second);
+        } else {
+          cmp = first < second ? -1 : first > second ? 1 : 0;
+        }
+        return sortDescriptor.direction === "descending" ? -cmp : cmp;
+      });
+    }
+    return list;
+  }, [filteredFaculty, sortDescriptor]);
 
   const totalPages = Math.max(1, Math.ceil(sortedFaculty.length / itemsPerPage));
   const paginatedFaculty = sortedFaculty.slice(
@@ -233,15 +251,43 @@ export function EmployeeTable() {
             </SearchField.Group>
           </SearchField>
           <div className="flex flex-wrap items-center gap-2">
+            <Dropdown>
+              <Button size="sm" variant="tertiary">
+                Rows: {itemsPerPage}
+              </Button>
+              <Dropdown.Popover>
+                <Dropdown.Menu
+                  aria-label="Rows per page"
+                  selectionMode="single"
+                  selectedKeys={new Set([String(itemsPerPage)])}
+                  onSelectionChange={(keys) => {
+                    const selected = Array.from(keys)[0] as string;
+                    if (selected) {
+                      setItemsPerPage(Number(selected));
+                      setPage(1);
+                    }
+                  }}
+                >
+                  <Dropdown.Item id="10" textValue="10 rows">
+                    <Dropdown.ItemIndicator />
+                    <Label>10</Label>
+                  </Dropdown.Item>
+                  <Dropdown.Item id="20" textValue="20 rows">
+                    <Dropdown.ItemIndicator />
+                    <Label>20</Label>
+                  </Dropdown.Item>
+                  <Dropdown.Item id="50" textValue="50 rows">
+                    <Dropdown.ItemIndicator />
+                    <Label>50</Label>
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
             <Button size="sm" variant="tertiary" onPress={() => {
-              const nextDirection = sortDescriptor.direction === "ascending" ? "descending" : "ascending";
-              handleSortChange({
-                column: sortDescriptor.column || "name",
-                direction: nextDirection,
-              });
+              toast.info("Click on table headers to sort.");
             }}>
               <ArrowDownUp className="size-4" />
-              Sort ({sortDescriptor.direction === "ascending" ? "Asc" : "Desc"})
+              Sort
             </Button>
             <Dropdown>
               <Button size="sm" variant="tertiary">

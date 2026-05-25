@@ -41,12 +41,20 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
     // Build conditions
-    const conditions = [eq(studentRequests.targetFacultyId, payload.userId)];
+    const conditions = [];
+    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    if (!isAdmin) {
+      conditions.push(eq(studentRequests.targetFacultyId, payload.userId));
+    }
     if (status && ["pending", "approved", "rejected"].includes(status)) {
       conditions.push(eq(studentRequests.status, status));
     }
 
-    const whereClause = conditions.length === 1 ? conditions[0] : and(...conditions);
+    const whereClause = conditions.length === 0
+      ? undefined
+      : conditions.length === 1
+        ? conditions[0]
+        : and(...conditions);
 
     const results = await db
       .select({

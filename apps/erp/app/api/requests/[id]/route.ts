@@ -65,18 +65,17 @@ export async function GET(
       );
     }
 
-    // Access control: student who created OR target faculty
+    // Access control: student who created OR target faculty OR admin
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
     const isOwnerStudent = roles.includes("student") && request.studentId === payload.userId;
     const isTargetFaculty =
       (roles.includes("faculty") ||
         roles.includes("hod") ||
-        roles.includes("counselor") ||
-        roles.includes("principal") ||
-        roles.includes("vice_principal")) &&
+        roles.includes("counselor")) &&
       request.targetFacultyId === payload.userId;
+    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
 
-    if (!isOwnerStudent && !isTargetFaculty) {
+    if (!isOwnerStudent && !isTargetFaculty && !isAdmin) {
       return NextResponse.json(
         { success: false, error: "Forbidden: you don't have access to this request" },
         { status: 403 }
@@ -153,7 +152,8 @@ export async function PATCH(
       );
     }
 
-    if (request.targetFacultyId !== payload.userId) {
+    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    if (!isAdmin && request.targetFacultyId !== payload.userId) {
       return NextResponse.json(
         { success: false, error: "Forbidden: this request is not assigned to you" },
         { status: 403 }

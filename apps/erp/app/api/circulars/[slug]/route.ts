@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
+import { isFacultyLikeRole } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import {
   circulars,
@@ -21,11 +22,12 @@ export async function GET(
   try {
     const { slug } = await context.params;
 
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "circulars.view");
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: jwtRoles } = payload;
-    const roles = Array.isArray(jwtRoles) ? jwtRoles : [];
+    const { userId, activeRole } = auth;
+    const isStudent = activeRole === "student";
+    const isFaculty = isFacultyLikeRole(activeRole);
 
     // Fetch the circular first
     const [circular] = await db
@@ -35,13 +37,6 @@ export async function GET(
       .limit(1);
 
     if (!circular) return err("Circular not found", 404);
-
-    // ── Access check ────────────────────────────────────────────────────────────
-    const isStudent = roles.includes("student");
-    const isFaculty =
-      roles.includes("faculty") ||
-      roles.includes("counselor") ||
-      roles.includes("hod");
 
     // ALL type — everyone can see
     if (circular.targetType === "ALL") {

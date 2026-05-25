@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FIXED_TIME_SLOTS = [
-  { start: "07:55", end: "08:50" },
+  { start: "07:50", end: "08:50" },
   { start: "08:50", end: "09:40" },
   { start: "09:50", end: "10:40" },
   { start: "10:40", end: "11:30" },

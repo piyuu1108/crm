@@ -39,7 +39,7 @@ async function main() {
   console.log("⏳ Populating timetable_slots with exact IMS slots...");
 
   const imsSlots = [
-    { slotNumber: 1, label: "Slot 1", startTime: "07:55:00", endTime: "08:50:00", isBreak: false },
+    { slotNumber: 1, label: "Slot 1", startTime: "07:50:00", endTime: "08:50:00", isBreak: false },
     { slotNumber: 2, label: "Slot 2", startTime: "08:50:00", endTime: "09:40:00", isBreak: false },
     { slotNumber: 3, label: "Break",  startTime: "09:40:00", endTime: "09:50:00", isBreak: true  },
     { slotNumber: 4, label: "Slot 3", startTime: "09:50:00", endTime: "10:40:00", isBreak: false },

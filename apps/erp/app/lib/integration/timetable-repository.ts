@@ -108,7 +108,7 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
   });
 
   const slotTimes: Record<number, { start: string; end: string }> = {
-    1: { start: "07:55:00", end: "08:50:00" },
+    1: { start: "07:50:00", end: "08:50:00" },
     2: { start: "08:50:00", end: "09:40:00" },
     3: { start: "09:50:00", end: "10:40:00" },
     4: { start: "10:40:00", end: "11:30:00" },

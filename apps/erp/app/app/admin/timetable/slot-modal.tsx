@@ -21,7 +21,7 @@ import type { ConflictResult, FacultyConflict } from "./use-conflict-map";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export const FIXED_TIME_SLOTS = [
-  { start: "07:55", end: "08:50", label: "07:55 – 08:50" },
+  { start: "07:50", end: "08:50", label: "07:50 – 08:50" },
   { start: "08:50", end: "09:40", label: "08:50 – 09:40" },
   { start: "09:50", end: "10:40", label: "09:50 – 10:40" },
   { start: "10:40", end: "11:30", label: "10:40 – 11:30" },

@@ -181,6 +181,12 @@ export const navigationConfig: NavSection[] = [
         roles: ["student", "faculty", "counselor", "hod", "principal", "vice_principal"],
         badge: 3,
       },
+      {
+        title: "Faculty Approvals",
+        href: "/app/academics/approvals",
+        icon: ListChecks,
+        roles: ["faculty", "counselor", "hod", "principal", "vice_principal"],
+      },
     ],
   },
 

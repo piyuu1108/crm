@@ -551,5 +551,74 @@ export const administrators = pgTable("administrators", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ─── FACULTY APPROVAL SYSTEM TABLES ───
+
+export const facultyRequestTypes = pgTable("faculty_request_types", {
+  id: serial("id").primaryKey(),
+  code: varchar("code", { length: 50 }).notNull().unique(), // "leave_approval", "work_from_home"
+  name: varchar("name", { length: 100 }).notNull(),        // "Leave Approval", "Work From Home"
+  description: text("description"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const facultyApprovalConfigs = pgTable("faculty_approval_configs", {
+  id: serial("id").primaryKey(),
+  requestTypeCode: varchar("request_type_code", { length: 50 }).notNull().unique().references(() => facultyRequestTypes.code),
+  approvalChain: jsonb("approval_chain").$type<string[]>().notNull(), // e.g. ["HOD", "PRINCIPAL"] stored as JSON
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const facultyRequests = pgTable("faculty_requests", {
+  id: serial("id").primaryKey(),
+  facultyId: integer("faculty_id").notNull().references(() => faculty.id),
+  requestTypeCode: varchar("request_type_code", { length: 50 }).notNull().references(() => facultyRequestTypes.code),
+  fromDate: date("from_date").notNull(),
+  toDate: date("to_date").notNull(),
+  description: text("description").notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // "pending" | "approved" | "rejected"
+  currentStepIndex: integer("current_step_index").notNull().default(0),    // index of active approval in chain
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const facultyRequestDocuments = pgTable("faculty_request_documents", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => facultyRequests.id, { onDelete: "cascade" }),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  fileSize: integer("file_size"), // in bytes
+  uploadedAt: timestamp("uploaded_at").notNull().defaultNow(),
+});
+
+export const facultyRequestApprovals = pgTable("faculty_request_approvals", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => facultyRequests.id, { onDelete: "cascade" }),
+  approverRole: varchar("approver_role", { length: 50 }).notNull(),       // "HOD", "PRINCIPAL", "VICE_PRINCIPAL"
+  approverUserId: integer("approver_user_id").references(() => faculty.id), // resolved when actual action is taken
+  status: varchar("status", { length: 20 }).notNull().default("pending"),  // "pending" | "approved" | "rejected"
+  remarks: text("remarks"),
+  sequenceOrder: integer("sequence_order").notNull(),                     // 0-indexed position in the chain
+  actionedAt: timestamp("actioned_at"),
+});
+
+export const facultyRequestProxies = pgTable("faculty_request_proxies", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").notNull().references(() => facultyRequests.id, { onDelete: "cascade" }),
+  date: date("date").notNull(),
+  slotId: integer("slot_id").notNull().references(() => timetableSlots.id),
+  originalFacultyId: integer("original_faculty_id").notNull().references(() => faculty.id),
+  proxyFacultyId: integer("proxy_faculty_id").notNull().references(() => faculty.id),
+  divisionId: integer("division_id").notNull().references(() => divisions.id),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  status: varchar("status", { length: 20 }).notNull().default("pending"), // "pending" | "approved" | "overridden"
+  overriddenBy: integer("overridden_by").references(() => faculty.id),    // HOD or Principal user ID
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 
 

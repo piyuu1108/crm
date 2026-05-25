@@ -100,6 +100,13 @@ export const PERMISSIONS = [
   "exams.evaluate",
   "exams.export",
   "exams.reports",
+
+  // Faculty Approvals
+  "approvals.view",
+  "approvals.create",
+  "approvals.approve",
+  "approvals.override_proxy",
+  "approvals.manage_types",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -133,6 +140,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "s3.upload_faculty",
     "exams.view",
     "exams.evaluate",
+    "approvals.view",
+    "approvals.create",
   ],
   counselor: [
     "dashboard.view",
@@ -155,6 +164,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "exams.evaluate",
     "exams.export",
     "exams.reports",
+    "approvals.view",
+    "approvals.create",
   ],
   hod: [
     "dashboard.view",
@@ -189,6 +200,10 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "exams.evaluate",
     "exams.export",
     "exams.reports",
+    "approvals.view",
+    "approvals.create",
+    "approvals.approve",
+    "approvals.override_proxy",
   ],
   principal: [
     "dashboard.view",
@@ -207,6 +222,10 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "s3.view_any_files",
     "s3.upload_faculty",
     "exams.reports",
+    "approvals.view",
+    "approvals.approve",
+    "approvals.override_proxy",
+    "approvals.manage_types",
   ],
   vice_principal: [
     "dashboard.view",
@@ -225,6 +244,10 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "s3.view_any_files",
     "s3.upload_faculty",
     "exams.reports",
+    "approvals.view",
+    "approvals.approve",
+    "approvals.override_proxy",
+    "approvals.manage_types",
   ],
 };
 

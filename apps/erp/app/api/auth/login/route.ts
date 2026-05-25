@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
-import { faculty, facultyRoles, roles, students } from "@/app/lib/schema";
+import { faculty, facultyRoles, roles, students, administrators } from "@/app/lib/schema";
 import { eq, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { logEvent } from "@/app/lib/logger";
@@ -21,6 +21,110 @@ export async function POST(request: Request) {
         { success: false, error: "Credential and password are required" },
         { status: 400 }
       );
+    }
+
+    // 0) Try administrator login (email or adminCode)
+    const adminUsers = await db
+      .select({
+        id: administrators.id,
+        name: administrators.name,
+        email: administrators.email,
+        passwordHash: administrators.passwordHash,
+        mustChangePwd: administrators.mustChangePwd,
+        isActive: administrators.isActive,
+        adminCode: administrators.adminCode,
+        designation: administrators.designation,
+      })
+      .from(administrators)
+      .where(or(eq(administrators.email, identifier), eq(administrators.adminCode, identifier)))
+      .limit(1);
+
+    if (adminUsers.length > 0) {
+      const user = adminUsers[0];
+
+      const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+      if (!isPasswordValid) {
+        logEvent({
+          type: "LOGIN_FAILED",
+          userId: String(user.id),
+          role: user.designation as "principal" | "vice_principal",
+          ip,
+          ua,
+        });
+        return NextResponse.json(
+          { success: false, error: "Invalid credentials" },
+          { status: 401 }
+        );
+      }
+
+      if (!user.isActive) {
+        return NextResponse.json(
+          { success: false, error: "Account is disabled" },
+          { status: 403 }
+        );
+      }
+
+      const { academicYears: academicYearsTable } = await import("@/app/lib/schema");
+      const activeYear = await db
+        .select({ id: academicYearsTable.id })
+        .from(academicYearsTable)
+        .where(eq(academicYearsTable.isCurrent, true))
+        .limit(1);
+      const academicYearId = activeYear[0]?.id;
+
+      const payload: JWTPayload = {
+        userId: user.id,
+        email: user.email,
+        roles: [user.designation],
+        adminCode: user.adminCode,
+        isGlobal: true,
+        activeCourseId: "all",
+        academicYearId,
+      };
+
+      const token = await signToken(payload);
+      logEvent({
+        type: "LOGIN_SUCCESS",
+        userId: String(user.id),
+        role: user.designation as "principal" | "vice_principal",
+        ip,
+        ua,
+        ts: Date.now(),
+      });
+
+      const response = NextResponse.json({
+        success: true,
+        data: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          roles: [user.designation],
+          mustChangePwd: user.mustChangePwd,
+        },
+      });
+
+      response.cookies.set({
+        name: "auth_token",
+        value: token,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60,
+        path: "/",
+      });
+
+      // Default active_role cookie
+      response.cookies.set({
+        name: "active_role",
+        value: user.designation,
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60,
+        path: "/",
+      });
+
+      return response;
     }
 
     // 1) Try faculty login (email)

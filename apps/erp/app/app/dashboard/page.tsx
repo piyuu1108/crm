@@ -111,6 +111,8 @@ function RoleDashboard({
     case "counselor":
       return <CounselorDashboard data={data as CounselorDashboardData} />;
     case "hod":
+    case "principal":
+    case "vice_principal":
       return <HodDashboard data={data as HodDashboardData} />;
     default:
       return (

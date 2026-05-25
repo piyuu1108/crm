@@ -24,8 +24,13 @@ async function authorize(req: NextRequest) {
   if (!payload) return { error: err("Unauthorized", 401) };
 
   const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
+  const isAuthorized =
+    rolesArray.includes("hod") ||
+    rolesArray.includes("principal") ||
+    rolesArray.includes("vice_principal");
+
+  if (!isAuthorized) {
+    return { error: err("Forbidden: Administrator access required", 403) };
   }
 
   return { payload };
@@ -54,10 +59,18 @@ export async function GET(req: NextRequest) {
       async () => {
         isDbFetch = true;
         const { payload: authPayload } = auth;
-        const courseId = requireCourseId(authPayload!);
+        let courseId: number | "all" | undefined;
+        if (authPayload?.isGlobal) {
+          courseId = authPayload.activeCourseId;
+        } else {
+          courseId = requireCourseId(authPayload!);
+        }
 
-        // Build WHERE conditions — always scope to HOD's course
-        const conditions = [eq(faculty.courseId, courseId)];
+        // Build WHERE conditions — filter by course if specified
+        const conditions = [];
+        if (courseId && courseId !== "all") {
+          conditions.push(eq(faculty.courseId, courseId));
+        }
 
         if (search) {
           conditions.push(
@@ -251,7 +264,24 @@ export async function POST(req: NextRequest) {
 
     const auth2 = await authorize(req);
     if ("error" in auth2 && auth2.error) return auth2.error;
-    const courseId = requireCourseId(auth2.payload!);
+    const authPayload = auth2.payload!;
+    let courseId: number | undefined;
+
+    if (authPayload.isGlobal) {
+      const bodyCourseId = body.courseId;
+      if (bodyCourseId) {
+        courseId = Number(bodyCourseId);
+      } else if (authPayload.activeCourseId && authPayload.activeCourseId !== "all") {
+        courseId = Number(authPayload.activeCourseId);
+      } else {
+        return NextResponse.json(
+          { success: false, error: "Validation failed", errors: { courseId: "Course is required for administrative faculty creation" } },
+          { status: 400 }
+        );
+      }
+    } else {
+      courseId = requireCourseId(authPayload);
+    }
 
     // ── Create faculty member ─────────────────────────────────────────
     // SRS §3.3: Temporary password = faculty code (mandatory change on first login)

@@ -16,6 +16,7 @@ import { useSidebar } from "@/components/layout/sidebar-context";
 import { useRouter } from "next/navigation";
 import { authMeQueryKey } from "@/app/lib/queries/auth";
 import { useNotificationsQuery } from "@/app/lib/queries/notifications";
+import { CourseSwitcher } from "./course-switcher";
 
 const ThemeSwitcher = dynamic(
   () => import("@/app/theme/theme-switcher"),
@@ -28,6 +29,8 @@ const ROLE_LABEL: Record<string, string> = {
   counselor: "Counselor",
   student: "Student",
   admin: "Admin",
+  principal: "Principal",
+  vice_principal: "Vice Principal",
 };
 
 function getGreeting(): string {
@@ -69,6 +72,9 @@ export function Navbar() {
         <div className="flex-1 min-w-0" />
 
         <div className="flex items-center gap-2 shrink-0">
+          {/* Course Switcher */}
+          <CourseSwitcher />
+
           {/* Theme Switcher */}
           <ThemeSwitcher />
 

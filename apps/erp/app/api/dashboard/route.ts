@@ -11,12 +11,13 @@ import {
   timetableEntries,
   attendanceAnalyticsSummary,
   subjects,
+  administrators,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
 import { remember, cacheTags, TTL } from "@/app/lib/cache";
 import { RequestProfiler } from "@/app/lib/profiler";
 
-const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
+const ROLE_PRIORITY = ["principal", "vice_principal", "hod", "counselor", "faculty", "student"] as const;
 type Role = (typeof ROLE_PRIORITY)[number];
 
 // ─── Response builder ─────────────────────────────────────────────────────────
@@ -119,6 +120,26 @@ async function resolveUserInfo(
   activeRole: string,
   roles: string[]
 ) {
+  if (activeRole === "principal" || activeRole === "vice_principal") {
+    const rows = await db
+      .select({
+        id: administrators.id,
+        name: administrators.name,
+        email: administrators.email,
+        adminCode: administrators.adminCode,
+      })
+      .from(administrators)
+      .where(eq(administrators.id, userId))
+      .limit(1);
+    if (!rows[0]) return null;
+    return {
+      id: rows[0].id,
+      name: rows[0].name,
+      email: rows[0].email,
+      facultyCode: rows[0].adminCode,
+    };
+  }
+
   if (activeRole === "student") {
     const rows = await db
       .select({
@@ -155,6 +176,9 @@ async function resolveUserInfo(
 // ─── Dashboard builders ───────────────────────────────────────────────────────
 async function buildDashboard(role: Role, userId: number, auth: AuthContext) {
   switch (role) {
+    case "principal":
+    case "vice_principal":
+      return buildHodDashboard(auth.activeCourseId ?? "all");
     case "student":
       return buildStudentDashboard(userId, auth);
     case "faculty":
@@ -387,30 +411,64 @@ async function buildCounselorDashboard(facultyId: number, auth: AuthContext) {
   };
 }
 
-async function buildHodDashboard(courseId: number) {
+async function buildHodDashboard(courseId: number | "all") {
+  const isGlobal = courseId === "all";
+
+  const studentConditions = [];
+  const approvedConditions = [eq(students.status, "approved")];
+  const facultyConditions = [eq(faculty.isActive, true)];
+
+  if (!isGlobal) {
+    studentConditions.push(eq(students.courseId, courseId));
+    approvedConditions.push(eq(students.courseId, courseId));
+    facultyConditions.push(eq(faculty.courseId, courseId));
+  }
+
   const [totalStudentsRow, approvedStudentsRow, totalFacultyRow, pendingRows] =
     await Promise.all([
-      db.select({ count: count() }).from(students).where(eq(students.courseId, courseId)),
       db
         .select({ count: count() })
         .from(students)
-        .where(and(eq(students.courseId, courseId), eq(students.status, "approved"))),
-      db.select({ count: count() }).from(faculty).where(and(eq(faculty.isActive, true), eq(faculty.courseId, courseId))),
+        .where(studentConditions.length > 0 ? and(...studentConditions) : undefined),
       db
-        .select({
-          id: studentRequests.id,
-          requestType: studentRequests.requestType,
-          subject: studentRequests.subject,
-          status: studentRequests.status,
-          studentName: students.fullName,
-          divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
-          createdAt: sql<string>`${studentRequests.createdAt}::text`,
-        })
-        .from(studentRequests)
-        .innerJoin(students, eq(studentRequests.studentId, students.id))
-        .where(and(eq(studentRequests.status, "pending"), eq(students.courseId, courseId)))
-        .orderBy(sql`${studentRequests.createdAt} DESC`)
-        .limit(10),
+        .select({ count: count() })
+        .from(students)
+        .where(and(...approvedConditions)),
+      db
+        .select({ count: count() })
+        .from(faculty)
+        .where(and(...facultyConditions)),
+      isGlobal
+        ? db
+            .select({
+              id: studentRequests.id,
+              requestType: studentRequests.requestType,
+              subject: studentRequests.subject,
+              status: studentRequests.status,
+              studentName: students.fullName,
+              divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
+              createdAt: sql<string>`${studentRequests.createdAt}::text`,
+            })
+            .from(studentRequests)
+            .innerJoin(students, eq(studentRequests.studentId, students.id))
+            .where(eq(studentRequests.status, "pending"))
+            .orderBy(sql`${studentRequests.createdAt} DESC`)
+            .limit(10)
+        : db
+            .select({
+              id: studentRequests.id,
+              requestType: studentRequests.requestType,
+              subject: studentRequests.subject,
+              status: studentRequests.status,
+              studentName: students.fullName,
+              divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
+              createdAt: sql<string>`${studentRequests.createdAt}::text`,
+            })
+            .from(studentRequests)
+            .innerJoin(students, eq(studentRequests.studentId, students.id))
+            .where(and(eq(studentRequests.status, "pending"), eq(students.courseId, courseId)))
+            .orderBy(sql`${studentRequests.createdAt} DESC`)
+            .limit(10),
     ]);
 
   const totalStudents = Number(totalStudentsRow[0]?.count ?? 0);

@@ -9,6 +9,8 @@ export interface AuthContext {
   isRoleForbidden: boolean;
   forbiddenRole?: string;
   facultyCode?: string;
+  isGlobal?: boolean;
+  activeCourseId?: number | "all";
 
   // Faculty / HOD — course they belong to (undefined for students)
   courseId?: number;
@@ -24,7 +26,7 @@ export interface AuthContext {
   academicYearId?: number;
 }
 
-const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"] as const;
+const ROLE_PRIORITY = ["principal", "vice_principal", "hod", "counselor", "faculty", "student"] as const;
 
 /**
  * Asserts that courseId is present in the auth context.
@@ -64,6 +66,7 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     semesterId,
     counselorDivisionIds,
     academicYearId,
+    isGlobal,
   } = payload;
 
   if (userId === undefined || !Array.isArray(roles) || roles.length === 0) {
@@ -118,6 +121,15 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     activeRole = ROLE_PRIORITY.find((r) => roles.includes(r)) ?? roles[0];
   }
 
+  // Retrieve requested active course context (Principal/Vice Principal only)
+  let activeCourseId: number | "all" | undefined;
+  if (isGlobal === true) {
+    const cookieActiveCourseId = cookieStore.get("active_course_id")?.value;
+    const headerActiveCourseId = req.headers.get("x-active-course-id") || req.headers.get("X-Active-Course-Id");
+    const rawCourseId = headerActiveCourseId || cookieActiveCourseId || payload.activeCourseId || "all";
+    activeCourseId = rawCourseId === "all" ? "all" : Number(rawCourseId);
+  }
+
   return {
     userId,
     roles,
@@ -130,5 +142,7 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     semesterId,
     counselorDivisionIds,
     academicYearId,
+    isGlobal: isGlobal === true,
+    activeCourseId,
   };
 }

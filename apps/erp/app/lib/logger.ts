@@ -11,7 +11,7 @@ const DATASET = process.env.AXIOM_DATASET!;
 export type LogEvent = {
   type: string;
   userId?: string;
-  role?: "student" | "faculty" | "counselor" | "hod" | "admin";
+  role?: "student" | "faculty" | "counselor" | "hod" | "admin" | "principal" | "vice_principal";
   action?: string;
   ts?: number;
   ip?: string | null;

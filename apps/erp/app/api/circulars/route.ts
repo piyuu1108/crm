@@ -107,7 +107,8 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
-    const isHod     = roles.includes("hod");
+    const isGlobalAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    const isHod     = roles.includes("hod") || isGlobalAdmin;
     const isFaculty = roles.includes("faculty") || roles.includes("counselor") || isHod;
     const isStudent = roles.includes("student") && !isFaculty;
 

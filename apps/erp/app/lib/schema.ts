@@ -526,4 +526,18 @@ export const notifications = pgTable("notifications", {
   index("notifications_created_at_idx").on(t.createdAt),
 ]);
 
+export const administrators = pgTable("administrators", {
+  id: serial("id").primaryKey(),
+  adminCode: varchar("admin_code", { length: 20 }).notNull().unique(),
+  name: varchar("name", { length: 100 }).notNull(),
+  email: varchar("email", { length: 150 }).notNull().unique(),
+  mobile: varchar("mobile", { length: 15 }).notNull(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  mustChangePwd: boolean("must_change_pwd").notNull().default(true),
+  designation: varchar("designation", { length: 100 }).notNull(), // "principal" | "vice_principal"
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+
 

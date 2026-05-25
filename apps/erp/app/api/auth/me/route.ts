@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
-import { faculty, students } from "@/app/lib/schema";
+import { faculty, students, administrators } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 
 function isSchemaMissingError(error: unknown): boolean {
@@ -49,7 +49,27 @@ export async function GET(req: NextRequest) {
 
     const targetRole = activeRole || (rolesArray.includes("student") ? "student" : "faculty");
 
-    if (targetRole === "student") {
+    if (targetRole === "principal" || targetRole === "vice_principal") {
+      const rows = await db
+        .select({
+          id: administrators.id,
+          name: administrators.name,
+          email: administrators.email,
+          adminCode: administrators.adminCode,
+        })
+        .from(administrators)
+        .where(eq(administrators.id, userId))
+        .limit(1);
+
+      if (rows[0]) {
+        userInfo = {
+          id: rows[0].id,
+          name: rows[0].name,
+          email: rows[0].email,
+          facultyCode: rows[0].adminCode,
+        };
+      }
+    } else if (targetRole === "student") {
       const rows = await db
         .select({
           id: students.id,

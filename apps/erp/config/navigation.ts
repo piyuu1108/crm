@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-export type Role = "student" | "faculty" | "counselor" | "hod" | "admin";
+export type Role = "student" | "faculty" | "counselor" | "hod" | "admin" | "principal" | "vice_principal";
 
 export interface NavItem {
   title: string;
@@ -43,19 +43,19 @@ export const navigationConfig: NavSection[] = [
         title: "Dashboard",
         href: "/app/dashboard",
         icon: LayoutDashboard,
-        roles: ["student", "faculty", "counselor", "hod", "admin"],
+        roles: ["student", "faculty", "counselor", "hod", "admin", "principal", "vice_principal"],
       },
       {
         title: "Circulars",
         href: "/app/circulars",
         icon: FileText,
-        roles: ["student", "faculty", "counselor", "hod", "admin"],
+        roles: ["student", "faculty", "counselor", "hod", "admin", "principal", "vice_principal"],
       },
       {
         title: "Notifications",
         href: "/app/notifications",
         icon: Bell,
-        roles: ["student", "faculty", "counselor", "hod", "admin"],
+        roles: ["student", "faculty", "counselor", "hod", "admin", "principal", "vice_principal"],
       },
     ],
   },
@@ -74,7 +74,7 @@ export const navigationConfig: NavSection[] = [
         title: "Timetable",
         href: "/app/academics/timetable",
         icon: CalendarDays,
-        roles: ["student", "faculty", "counselor", "hod", "admin"],
+        roles: ["student", "faculty", "counselor", "hod", "admin", "principal", "vice_principal"],
       },
       {
         title: "Attendance",
@@ -117,34 +117,34 @@ export const navigationConfig: NavSection[] = [
         title: "Divisions",
         href: "/app/admin/divisions",
         icon: Grid3X3,
-        roles: ["hod", "admin"],
+        roles: ["hod", "admin", "principal", "vice_principal"],
       },
       {
         title: "Faculty",
         href: "/app/admin/faculty",
         icon: GraduationCap,
-        roles: ["hod", "admin"],
+        roles: ["hod", "admin", "principal", "vice_principal"],
       },
       {
         title: "Manage Subjects",
         href: "/app/admin/subjects",
         icon: BookOpen,
-        roles: ["hod", "admin"],
+        roles: ["hod", "admin", "principal", "vice_principal"],
       },
       {
         title: "Assignments",
         icon: ListChecks,
-        roles: ["hod", "admin"],
+        roles: ["hod", "admin", "principal", "vice_principal"],
         children: [
           {
             title: "Counselor",
             href: "/app/admin/assignments",
-            roles: ["hod", "admin"],
+            roles: ["hod", "admin", "principal", "vice_principal"],
           },
           {
             title: "Subject",
             href: "/app/admin/subject-assignments",
-            roles: ["hod", "admin"],
+            roles: ["hod", "admin", "principal", "vice_principal"],
           },
         ],
       },
@@ -152,7 +152,7 @@ export const navigationConfig: NavSection[] = [
         title: "Timetable Management",
         href: "/app/admin/timetable",
         icon: CalendarDays,
-        roles: ["hod", "admin"],
+        roles: ["hod", "admin", "principal", "vice_principal"],
       },
     ],
   },
@@ -178,7 +178,7 @@ export const navigationConfig: NavSection[] = [
         title: "Requests",
         href: "/app/workflows/requests",
         icon: Bell,
-        roles: ["student", "faculty", "counselor", "hod", "admin"],
+        roles: ["student", "faculty", "counselor", "hod", "admin", "principal", "vice_principal"],
         badge: 3,
       },
     ],
@@ -192,7 +192,7 @@ export const navigationConfig: NavSection[] = [
         title: "Profile",
         href: "/app/profile",
         icon: User,
-        roles: ["student", "faculty", "counselor", "hod", "admin"],
+        roles: ["student", "faculty", "counselor", "hod", "admin", "principal", "vice_principal"],
       },
     ],
   },

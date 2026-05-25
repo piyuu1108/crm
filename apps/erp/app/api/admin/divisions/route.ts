@@ -23,8 +23,13 @@ async function authorize(req: NextRequest) {
   if (!payload) return { error: err("Unauthorized", 401) };
 
   const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
+  const isAuthorized =
+    rolesArray.includes("hod") ||
+    rolesArray.includes("principal") ||
+    rolesArray.includes("vice_principal");
+
+  if (!isAuthorized) {
+    return { error: err("Forbidden: Administrator access required", 403) };
   }
 
   return { payload };
@@ -56,13 +61,24 @@ export async function GET(req: NextRequest) {
       async () => {
         isDbFetch = true;
         const { payload: authPayload } = auth;
-        const courseId = requireCourseId(authPayload!);
+        let courseId: number | "all" | undefined;
+        if (authPayload?.isGlobal) {
+          courseId = authPayload.activeCourseId;
+        } else {
+          courseId = requireCourseId(authPayload!);
+        }
+
+        const conditions = [];
+        if (courseId && courseId !== "all") {
+          conditions.push(eq(divisions.courseId, courseId));
+        }
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
         // Count total divisions scoped to this HOD's course
         const [totalResult] = await db
           .select({ total: count() })
           .from(divisions)
-          .where(eq(divisions.courseId, courseId));
+          .where(whereClause);
 
         const total = totalResult?.total ?? 0;
         const totalPages = Math.ceil(total / limit);
@@ -84,7 +100,7 @@ export async function GET(req: NextRequest) {
             studentCount: sql<number>`(SELECT COUNT(*) FROM students WHERE students.current_division_id = ${divisions.id})`.as("student_count"),
           })
           .from(divisions)
-          .where(eq(divisions.courseId, courseId))
+          .where(whereClause)
           .orderBy(desc(divisions.createdAt))
           .limit(limit)
           .offset(offset);
@@ -198,7 +214,24 @@ export async function POST(req: NextRequest) {
     // ── Fetch course info from session courseId (never trust LIMIT 1) ─────
     const auth2 = await authorize(req);
     if ("error" in auth2 && auth2.error) return auth2.error;
-    const courseId = requireCourseId(auth2.payload!);
+    const authPayload = auth2.payload!;
+    let courseId: number | undefined;
+
+    if (authPayload.isGlobal) {
+      const bodyCourseId = body.courseId;
+      if (bodyCourseId) {
+        courseId = Number(bodyCourseId);
+      } else if (authPayload.activeCourseId && authPayload.activeCourseId !== "all") {
+        courseId = Number(authPayload.activeCourseId);
+      } else {
+        return NextResponse.json(
+          { success: false, error: "Validation failed", errors: { courseId: "Course is required for administrative division creation" } },
+          { status: 400 }
+        );
+      }
+    } else {
+      courseId = requireCourseId(authPayload);
+    }
 
     const [course] = await db
       .select({ id: courses.id, code: courses.code, name: courses.name })

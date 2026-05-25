@@ -8,6 +8,8 @@ export type AuthPayload = {
   userId: number;
   roles: string[];
   activeRole?: string;
+  isGlobal?: boolean;
+  activeCourseId?: number | "all";
 
   // All faculty/HOD — course they belong to
   courseId?: number;
@@ -27,6 +29,7 @@ export interface JWTPayload extends AuthPayload {
   email: string;
   facultyCode?: string;
   studentId?: string;
+  adminCode?: string;
   [key: string]: unknown;
 }
 

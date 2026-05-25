@@ -225,6 +225,8 @@ export function Sidebar() {
     counselor: "Counselor",
     student: "Student",
     admin: "Admin",
+    principal: "Principal",
+    vice_principal: "Vice Principal",
   };
 
   return (

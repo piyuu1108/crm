@@ -1,7 +1,7 @@
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
-import { unstable_cache, revalidateTag } from "next/cache";
+import { redis } from "@/app/lib/redis";
 
 // Centralized TTL management (values in hours per user spec)
 export const CACHE_CONFIG = {
@@ -61,8 +61,8 @@ export function semesterToAcademicYear(semesterId: number): number {
 }
 
 /**
- * High-reliability typed cache wrapper using Next.js unstable_cache.
- * Accepts an optional array of secondary tags for multi-tag grouping.
+ * High-reliability typed cache wrapper using Upstash Redis.
+ * Accepts an optional array of secondary tags for multi-tag grouping and auto-expires them.
  */
 export async function remember<T>(
   key: string,
@@ -71,23 +71,59 @@ export async function remember<T>(
   tags?: string[]
 ): Promise<T> {
   console.log(`[Cache REMEMBER] key=${key} tags=${tags ? tags.join(",") : "none"}`);
-  return unstable_cache(
-    async () => {
-      console.log(`[Cache MISS - Fetching Source] key=${key}`);
-      return fetchFn();
-    },
-    [key],
-    {
-      tags: tags ? [key, ...tags] : [key],
-      revalidate: ttlSeconds,
+
+  // 1. Try to read from Upstash Redis
+  try {
+    const cached = await redis.get<string>(key);
+    if (cached) {
+      console.log(`🟢 [Cache HIT] key=${key}`);
+      return (typeof cached === "string" ? JSON.parse(cached) : cached) as T;
     }
-  )();
+  } catch (err) {
+    console.error(`[Cache Error] Failed to read from Redis for key=${key}`, err);
+  }
+
+  // 2. Fetch from database on miss
+  console.log(`🔴 [Cache MISS] key=${key} → Fetching from Database`);
+  const data = await fetchFn();
+
+  // 3. Write back to Redis
+  try {
+    await redis.set(key, JSON.stringify(data), { ex: ttlSeconds });
+
+    // Track keys inside set tags for multi-tag invalidation
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        await redis.sadd(`tag:${tag}`, key);
+        await redis.expire(`tag:${tag}`, ttlSeconds); // Smart automatic garbage-collection of tag sets
+      }
+    }
+  } catch (err) {
+    console.error(`[Cache Error] Failed to write to Redis for key=${key}`, err);
+  }
+
+  return data;
 }
 
 /**
- * Delete/purge a tag from Next.js Data Cache.
+ * Delete/purge a tag or key from Upstash Redis Cache.
+ * Resolves all key associations and deletes them concurrently.
  */
 export async function clearCache(key: string): Promise<void> {
-  console.log(`[Cache INVALIDATE] tag/key=${key}`);
-  (revalidateTag as any)(key);
+  console.log(`🧹 [Cache INVALIDATE] tag/key=${key}`);
+  try {
+    // 1. Delete the primary key itself
+    await redis.del(key);
+
+    // 2. Lookup and delete all keys grouped under this tag
+    const taggedKeys = await redis.smembers(`tag:${key}`);
+    if (taggedKeys.length > 0) {
+      await redis.del(...taggedKeys);
+      await redis.del(`tag:${key}`);
+    }
+  } catch (err) {
+    console.error(`[Cache Error] Invalidation failed for tag/key=${key}`, err);
+  }
 }
+
+

@@ -19,6 +19,7 @@ import {
 import { AssignSubjectDrawer } from "./assign-subject-drawer";
 import { sortDivisions } from "@/app/lib/utils/sort-utils";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 // ─── Subject type badge colors ────────────────────────────────────────────────
 const TYPE_COLOR: Record<string, "accent" | "success" | "warning"> = {
@@ -36,6 +37,9 @@ const COLUMNS: TableColumnDef[] = [
 const INITIAL_VISIBLE_COLUMNS = ["divisionName", "subjectName", "facultyName"];
 
 export default function SubjectAssignmentsPage() {
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
   const [divisionFilter, setDivisionFilter] = useState("");
 
   const drawerState = useOverlayState();
@@ -124,10 +128,12 @@ export default function SubjectAssignmentsPage() {
             View and manage faculty–subject–division assignments
           </p>
         </div>
-        <Button onPress={drawerState.open}>
-          <Plus className="size-4" />
-          Assign Subject
-        </Button>
+        {!isAdmin && (
+          <Button onPress={drawerState.open}>
+            <Plus className="size-4" />
+            Assign Subject
+          </Button>
+        )}
       </div>
 
       <DataTable

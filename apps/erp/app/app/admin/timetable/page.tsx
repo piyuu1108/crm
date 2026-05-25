@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import {
   Button,
   Card,
@@ -72,6 +73,21 @@ export default function TimetableManagementPage() {
 
   const queryClient = useQueryClient();
   const router = useRouter();
+  const { activeRole } = useAuthStore();
+
+  useEffect(() => {
+    if (activeRole === "principal" || activeRole === "vice_principal") {
+      router.replace("/app/academics/timetable");
+    }
+  }, [activeRole, router]);
+
+  if (activeRole === "principal" || activeRole === "vice_principal") {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner size="lg" color="accent" />
+      </div>
+    );
+  }
 
   // ── Data fetching ──
   const { data: divisionsList, isLoading: isDivisionsLoading } = useTimetableDivisionsQuery();

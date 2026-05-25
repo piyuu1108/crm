@@ -152,7 +152,7 @@ export const navigationConfig: NavSection[] = [
         title: "Timetable Management",
         href: "/app/admin/timetable",
         icon: CalendarDays,
-        roles: ["hod", "admin", "principal", "vice_principal"],
+        roles: ["hod", "admin"],
       },
     ],
   },

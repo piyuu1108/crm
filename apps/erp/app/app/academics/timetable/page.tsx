@@ -176,6 +176,17 @@ export default function AcademicsTimetablePage() {
     return allSlots;
   }, [data, selectedDivision, isAdmin]);
 
+  const selectedTargetLabel = useMemo(() => {
+    if (!selectedTargetId) return "";
+    if (forWhom === "class") {
+      const found = divisions.find((d: any) => d.id === selectedTargetId);
+      return found ? found.displayName : "";
+    } else {
+      const found = facultyList.find((f: any) => f.id === selectedTargetId);
+      return found ? found.name : "";
+    }
+  }, [selectedTargetId, forWhom, divisions, facultyList]);
+
   const showDivision = isAdmin ? (forWhom === "faculty") : (data?.role === "faculty");
   const { getColorForSlot } = useTimetableColors(slots, showDivision ? "division" : "subject");
 
@@ -240,16 +251,7 @@ export default function AcademicsTimetablePage() {
     );
   }
 
-  const selectedTargetLabel = useMemo(() => {
-    if (!selectedTargetId) return "";
-    if (forWhom === "class") {
-      const found = divisions.find((d: any) => d.id === selectedTargetId);
-      return found ? found.displayName : "";
-    } else {
-      const found = facultyList.find((f: any) => f.id === selectedTargetId);
-      return found ? found.name : "";
-    }
-  }, [selectedTargetId, forWhom, divisions, facultyList]);
+
 
   const roleTitle =
     isAdmin ? (selectedTargetLabel ? `Timetable for ${forWhom === "class" ? "Class" : "Faculty"} ${selectedTargetLabel}` : "Select a target to view timetable") :

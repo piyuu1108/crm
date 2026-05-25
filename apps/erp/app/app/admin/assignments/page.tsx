@@ -14,6 +14,7 @@ import { Plus, TrashBin } from "@gravity-ui/icons";
 import { useAssignmentsQuery, useDeleteAssignmentMutation } from "@/app/lib/queries/assignments";
 import { AssignCounselorDrawer } from "./assign-counselor-drawer";
 import { sortDivisions } from "@/app/lib/utils/sort-utils";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 // ─── Specialization badge colors ──────────────────────────────────────────────
 const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
@@ -23,6 +24,9 @@ const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
 };
 
 export default function AssignmentsPage() {
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
   const { data, isLoading, isError, error, refetch } = useAssignmentsQuery();
   const deleteMutation = useDeleteAssignmentMutation();
 
@@ -69,10 +73,12 @@ export default function AssignmentsPage() {
             Assign and manage division counselors
           </p>
         </div>
-        <Button onPress={() => handleOpenDrawer()}>
-          <Plus className="size-4" />
-          Assign Counselor
-        </Button>
+        {!isAdmin && (
+          <Button onPress={() => handleOpenDrawer()}>
+            <Plus className="size-4" />
+            Assign Counselor
+          </Button>
+        )}
       </div>
 
       {/* ── Content ────────────────────────────────────────────── */}
@@ -135,27 +141,31 @@ export default function AssignmentsPage() {
                       div.counselors.map((c) => (
                         <div
                           key={c.facultyId}
-                          className="group relative inline-flex items-center gap-2 rounded-full border border-divider bg-default/5 px-3 py-1 text-sm transition-colors hover:border-danger/30 hover:bg-danger/5"
+                          className={`group relative inline-flex items-center gap-2 rounded-full border border-divider bg-default/5 px-3 py-1 text-sm transition-colors ${
+                            !isAdmin ? "hover:border-danger/30 hover:bg-danger/5" : ""
+                          }`}
                         >
-                          <span className="font-medium text-foreground group-hover:text-danger transition-colors">
+                          <span className={`font-medium text-foreground ${!isAdmin ? "group-hover:text-danger" : ""} transition-colors`}>
                             {c.facultyName}
                           </span>
-                          <button
-                            type="button"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-danger/70 hover:text-danger focus:opacity-100 outline-none"
-                            onClick={() => {
-                              setDeleteTarget({
-                                facultyId: c.facultyId,
-                                divisionId: div.id,
-                                facultyName: c.facultyName,
-                                divisionName: div.displayName,
-                              });
-                              alertState.open();
-                            }}
-                            title="Remove assignment"
-                          >
-                            <TrashBin className="size-3" />
-                          </button>
+                          {!isAdmin && (
+                            <button
+                              type="button"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-danger/70 hover:text-danger focus:opacity-100 outline-none"
+                              onClick={() => {
+                                setDeleteTarget({
+                                  facultyId: c.facultyId,
+                                  divisionId: div.id,
+                                  facultyName: c.facultyName,
+                                  divisionName: div.displayName,
+                                });
+                                alertState.open();
+                              }}
+                              title="Remove assignment"
+                            >
+                              <TrashBin className="size-3" />
+                            </button>
+                          )}
                         </div>
                       ))
                     )}
@@ -163,17 +173,19 @@ export default function AssignmentsPage() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="mt-6 pt-4 border-t border-divider flex justify-end">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onPress={() => handleOpenDrawer(div.id)}
-                    // isDisabled={!data.activeSemester}
-                  >
-                    <Plus className="size-3" />
-                    Assign
-                  </Button>
-                </div>
+                {!isAdmin && (
+                  <div className="mt-6 pt-4 border-t border-divider flex justify-end">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => handleOpenDrawer(div.id)}
+                      // isDisabled={!data.activeSemester}
+                    >
+                      <Plus className="size-3" />
+                      Assign
+                    </Button>
+                  </div>
+                )}
               </Card.Content>
             </Card>
           ))}

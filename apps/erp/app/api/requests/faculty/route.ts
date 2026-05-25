@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/app/lib/api-auth";
+import { requireAnyPermission } from "@/app/lib/api-auth";
 import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty } from "@/app/lib/schema";
@@ -13,7 +13,7 @@ import { eq, and, desc, count, sql } from "drizzle-orm";
  */
 export async function GET(req: NextRequest) {
   try {
-    const result = await requirePermission(req, "requests.view_assigned");
+    const result = await requireAnyPermission(req, ["requests.view_assigned", "requests.view_all"]);
     if (result instanceof NextResponse) return result;
     const auth = result;
 

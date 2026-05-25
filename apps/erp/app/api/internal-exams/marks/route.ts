@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
+import { requirePermission, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalExamMarks,
@@ -60,14 +60,8 @@ async function canAccessAssignment(
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-
-    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const auth = await requirePermission(req, "exams.view");
+    if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
     const examId = parseInt(searchParams.get("examId") || "0", 10);
@@ -168,14 +162,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "exams.evaluate");
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const { userId } = auth;
 
     const body = await req.json();
     const { examId, assignmentId, isDraft, records } = body;

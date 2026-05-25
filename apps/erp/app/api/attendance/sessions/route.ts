@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission, requireAnyPermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   attendanceSessionLedger,
@@ -69,20 +69,10 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await requireAnyPermission(req, ["attendance.mark", "attendance.view_division"]);
+    if (auth instanceof NextResponse) return auth;
 
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (rolesArray.length === 0) return err("Forbidden", 403);
-
-    const activeRole =
-      req.headers.get("X-Active-Role") ??
-      req.nextUrl.searchParams.get("role") ??
-      null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty", "student"];
-    const resolvedRole = activeRole && rolesArray.includes(activeRole)
-      ? activeRole
-      : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
+    const { userId, activeRole: resolvedRole } = auth;
 
     const dateParam = req.nextUrl.searchParams.get("date");
     const divisionIdParam = req.nextUrl.searchParams.get("divisionId");
@@ -113,7 +103,7 @@ export async function GET(req: NextRequest) {
         .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
         .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
         .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
-        .where(eq(facultySubjectAssignments.facultyId, payload.userId));
+        .where(eq(facultySubjectAssignments.facultyId, userId));
 
       const dayOfWeek = new Date(date + "T00:00:00")
         .toLocaleDateString("en-US", { weekday: "long" })
@@ -192,7 +182,7 @@ export async function GET(req: NextRequest) {
           })
           .from(counselorDivisionAssignments)
           .innerJoin(divisions, eq(counselorDivisionAssignments.divisionId, divisions.id))
-          .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+          .where(eq(counselorDivisionAssignments.facultyId, userId));
 
         if (assignments.length === 0) {
           return ok({ role: resolvedRole, divisions: [], sessions: [] });
@@ -276,19 +266,10 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "attendance.mark");
+    if (auth instanceof NextResponse) return auth;
 
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole = req.headers.get("X-Active-Role") ?? null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
-    const resolvedRole = activeRole && rolesArray.includes(activeRole)
-      ? activeRole
-      : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
     const { timetableEntryId, date } = body;
@@ -330,7 +311,7 @@ export async function POST(req: NextRequest) {
     if (!entryDetails) return err("Assignment details not found", 404);
 
     // RBAC: Faculty must own the assignment
-    if (resolvedRole === "faculty" && entryDetails.facultyId !== payload.userId) {
+    if (resolvedRole === "faculty" && entryDetails.facultyId !== userId) {
       return err("Forbidden: not assigned to this subject", 403);
     }
 
@@ -339,7 +320,7 @@ export async function POST(req: NextRequest) {
       const counselorAssignments = await db
         .select({ divisionId: counselorDivisionAssignments.divisionId })
         .from(counselorDivisionAssignments)
-        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+        .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       if (!counselorAssignments.some((a) => a.divisionId === entry.divisionId)) {
         return err("Forbidden: not assigned to this division", 403);

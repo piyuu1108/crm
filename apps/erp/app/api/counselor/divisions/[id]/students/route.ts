@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, divisions, counselorDivisionAssignments } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -12,23 +12,6 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorize(req: NextRequest, divisionId: number) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("counselor")) {
-    return { error: err("Forbidden", 403) };
-  }
-
-  const counselorDivisionIds = payload.counselorDivisionIds ?? [];
-  if (!counselorDivisionIds.includes(divisionId)) {
-    return { error: err("Forbidden: You are not the counselor for this division", 403) };
-  }
-
-  return { payload };
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -38,8 +21,13 @@ export async function POST(
     const divisionId = parseInt(idStr, 10);
     if (isNaN(divisionId)) return err("Invalid division ID", 400);
 
-    const auth = await authorize(req, divisionId);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "counselor.students");
+    if (auth instanceof NextResponse) return auth;
+
+    const counselorDivisionIds = auth.counselorDivisionIds ?? [];
+    if (!counselorDivisionIds.includes(divisionId)) {
+      return err("Forbidden: You are not the counselor for this division", 403);
+    }
 
     // Fetch division details
     const [division] = await db

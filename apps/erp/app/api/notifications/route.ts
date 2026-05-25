@@ -29,11 +29,13 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (auth.isRoleForbidden) {
+      return err(`Forbidden: role '${auth.forbiddenRole}' is not assigned to this user`, 403);
+    }
 
-    const activeRole = req.headers.get("X-Active-Role") ?? payload.roles[0];
-    const userId = payload.userId;
+    const { userId, activeRole } = auth;
 
     const { searchParams } = new URL(req.url);
     const isReadParam = searchParams.get("isRead");
@@ -157,11 +159,13 @@ export async function GET(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (auth.isRoleForbidden) {
+      return err(`Forbidden: role '${auth.forbiddenRole}' is not assigned to this user`, 403);
+    }
 
-    const activeRole = req.headers.get("X-Active-Role") ?? payload.roles[0];
-    const userId = payload.userId;
+    const { userId, activeRole } = auth;
 
     const body = await req.json().catch(() => ({}));
     const { ids, all } = body;
@@ -208,12 +212,14 @@ export async function PATCH(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
+    if (auth.isRoleForbidden) {
+      return err(`Forbidden: role '${auth.forbiddenRole}' is not assigned to this user`, 403);
+    }
 
-    // Limit creation to faculty/admin/counselor roles for security (simulation page or automated tasks)
-    const creatorRoles = payload.roles;
-    const isAuthorized = creatorRoles.some(r => ["faculty", "counselor", "hod", "admin"].includes(r));
+    const { userId, roles: creatorRoles } = auth;
+    const isAuthorized = creatorRoles.some(r => ["faculty", "counselor", "hod", "admin", "principal", "vice_principal"].includes(r));
     if (!isAuthorized) return err("Forbidden", 403);
 
     const body = await req.json().catch((e) => {
@@ -310,7 +316,7 @@ export async function POST(req: NextRequest) {
       receiverUserId: finalReceiverUserId,
       receiverRole: finalReceiverRole,
       priority,
-      createdBy: payload.userId,
+      createdBy: userId,
       relatedEntityType,
       relatedEntityId: relatedEntityId ? Number(relatedEntityId) : undefined,
       metadata,

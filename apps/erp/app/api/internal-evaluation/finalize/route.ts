@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalEvaluations,
@@ -27,14 +27,10 @@ function err(message: string, status: number) {
  */
 export async function PUT(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "exams.evaluate");
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
-
-    if (!["faculty", "hod"].includes(resolvedRole)) {
-      return err("Forbidden: only faculty and HOD can finalize", 403);
-    }
+    const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
     const { assignmentId, semesterId, finalize } = body;

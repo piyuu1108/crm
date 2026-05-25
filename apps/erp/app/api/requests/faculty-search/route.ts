@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requireAnyPermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty, students } from "@/app/lib/schema";
 import { eq, ilike, and } from "drizzle-orm";
@@ -13,13 +13,12 @@ import { eq, ilike, and } from "drizzle-orm";
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const auth = await requireAnyPermission(req, [
+      "requests.create",
+      "requests.review",
+      "requests.view_all",
+    ]);
+    if (auth instanceof NextResponse) return auth;
 
     // Any authenticated user can search faculty — scoped to their course
     const { searchParams } = new URL(req.url);
@@ -28,13 +27,13 @@ export async function GET(req: NextRequest) {
     // Resolve the caller's course:
     //  - Faculty/HOD: courseId is directly in the JWT
     //  - Students: look up their courseId via the students table
-    let courseId: number | undefined = payload.courseId;
+    let courseId: number | undefined = auth.courseId;
 
-    if (!courseId && payload.roles.includes("student")) {
+    if (!courseId && auth.roles.includes("student")) {
       const [studentRow] = await db
         .select({ courseId: students.courseId })
         .from(students)
-        .where(eq(students.id, payload.userId))
+        .where(eq(students.id, auth.userId))
         .limit(1);
       courseId = studentRow?.courseId ?? undefined;
     }

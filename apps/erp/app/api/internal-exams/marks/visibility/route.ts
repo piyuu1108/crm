@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalExamMarks,
@@ -25,14 +25,10 @@ function err(message: string, status: number) {
  */
 export async function PUT(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "exams.evaluate");
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
     const { examId, assignmentId, isVisible } = body;

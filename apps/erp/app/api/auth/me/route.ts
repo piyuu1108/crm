@@ -28,6 +28,12 @@ export async function GET(req: NextRequest) {
         { status: 401 }
       );
     }
+    if (auth.isRoleForbidden) {
+      return NextResponse.json(
+        { success: false, error: `Forbidden: role '${auth.forbiddenRole}' is not assigned to this user` },
+        { status: 403 }
+      );
+    }
 
     const { userId, roles: rolesArray, activeRole } = auth;
 

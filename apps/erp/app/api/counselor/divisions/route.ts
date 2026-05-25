@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions, counselorDivisionAssignments, students } from "@/app/lib/schema";
 import { eq, and, count } from "drizzle-orm";
@@ -12,23 +12,11 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("counselor")) {
-    return { error: err("Forbidden: Counselor access required", 403) };
-  }
-
-  return { payload };
-}
-
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
-    const { userId } = auth.payload;
+    const auth = await requirePermission(req, "counselor.divisions");
+    if (auth instanceof NextResponse) return auth;
+    const { userId } = auth;
 
     // Get divisions assigned to this counselor — scoped to each division's current semester
     const assigned = await db

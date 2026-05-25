@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requireAnyPermission } from "@/app/lib/api-auth";
+import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import {
   students,
@@ -25,14 +26,15 @@ function err(message: string, status: number) {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requireAnyPermission(req, ["timetable.view_any", "timetable.view_own"]);
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole } = auth;
+    const { userId, activeRole } = auth;
+    const resolvedRole = activeRole;
     const { searchParams } = new URL(req.url);
 
-    const isGlobalAdmin = rolesArray.includes("principal") || rolesArray.includes("vice_principal");
-    if (isGlobalAdmin || activeRole === "principal" || activeRole === "vice_principal") {
+    const isGlobalAdmin = hasPermission(resolvedRole, "timetable.view_any");
+    if (isGlobalAdmin) {
       const type = searchParams.get("type"); // "class" or "faculty"
       const idVal = searchParams.get("id");
       if (!type || !idVal) {

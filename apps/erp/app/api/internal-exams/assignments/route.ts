@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
+import { requirePermission, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   facultySubjectAssignments,
@@ -32,14 +32,10 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "exams.view");
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole: resolvedRole } = auth;
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const { userId, activeRole: resolvedRole } = auth;
 
     const { searchParams } = new URL(req.url);
     const divisionIdParam = searchParams.get("divisionId");

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requireAnyPermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   subjects,
@@ -27,10 +27,10 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> }
 ) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requireAnyPermission(req, ["subjects.view_course", "subjects.view_own"]);
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole } = auth;
+    const { userId, activeRole } = auth;
 
     const { code } = await params;
     const decodedCode = decodeURIComponent(code);

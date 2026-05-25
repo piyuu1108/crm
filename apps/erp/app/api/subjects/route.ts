@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
+import { requireAnyPermission, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   subjects,
@@ -110,10 +110,10 @@ async function getDivisionSubjects(divisionId: number, semesterId: number): Prom
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requireAnyPermission(req, ["subjects.view_course", "subjects.view_own"]);
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole } = auth;
+    const { userId, activeRole } = auth;
 
     // ── HOD: All subjects scoped to this course ───────────────────────
     if (activeRole === "hod") {

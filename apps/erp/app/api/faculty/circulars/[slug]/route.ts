@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requireAnyPermission } from "@/app/lib/api-auth";
 import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients } from "@/app/lib/schema";
@@ -12,24 +12,8 @@ export async function DELETE(
 ) {
   try {
     const { slug } = await params;
-    const auth = await getAuthContext(req);
-    if (!auth) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    // Must have at least the ability to delete own circulars
-    if (
-      !hasPermission(auth.activeRole, "circulars.delete_own") &&
-      !hasPermission(auth.activeRole, "circulars.delete_any")
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: faculty role required" },
-        { status: 403 }
-      );
-    }
+    const auth = await requireAnyPermission(req, ["circulars.delete_own", "circulars.delete_any"]);
+    if (auth instanceof NextResponse) return auth;
 
     // Retrieve circular to ensure it exists and we can delete it
     const [existing] = await db

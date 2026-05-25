@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   students,
@@ -20,19 +20,10 @@ function err(message: string, status: number) {
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "attendance.mark");
+    if (auth instanceof NextResponse) return auth;
 
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    const activeRole = req.headers.get("X-Active-Role") ?? null;
-    const ROLE_PRIORITY = ["hod", "counselor", "faculty"];
-    const resolvedRole = activeRole && rolesArray.includes(activeRole)
-      ? activeRole
-      : ROLE_PRIORITY.find((r) => rolesArray.includes(r)) ?? rolesArray[0];
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const { userId, activeRole: resolvedRole } = auth;
 
     const divisionIdParam = req.nextUrl.searchParams.get("divisionId");
     if (!divisionIdParam) return err("divisionId is required", 400);
@@ -44,7 +35,7 @@ export async function GET(req: NextRequest) {
         .select({ id: facultySubjectAssignments.id })
         .from(facultySubjectAssignments)
         .where(and(
-          eq(facultySubjectAssignments.facultyId, payload.userId),
+          eq(facultySubjectAssignments.facultyId, userId),
           eq(facultySubjectAssignments.divisionId, divisionId)
         ))
         .limit(1);
@@ -55,7 +46,7 @@ export async function GET(req: NextRequest) {
       const assignments = await db
         .select({ divisionId: counselorDivisionAssignments.divisionId })
         .from(counselorDivisionAssignments)
-        .where(eq(counselorDivisionAssignments.facultyId, payload.userId));
+        .where(eq(counselorDivisionAssignments.facultyId, userId));
       if (!assignments.some((a) => a.divisionId === divisionId)) {
         return err("Forbidden: not assigned to this division", 403);
       }

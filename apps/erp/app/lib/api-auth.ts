@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
-import { hasPermission, type Permission } from "@/app/lib/permissions";
+import { hasPermission, hasAnyPermission, type Permission } from "@/app/lib/permissions";
 
 export interface AuthContext {
   userId: number;
@@ -169,6 +169,30 @@ export async function requirePermission(
     );
   }
   if (!hasPermission(auth.activeRole, permission)) {
+    return NextResponse.json(
+      { success: false, error: "Forbidden" },
+      { status: 403 }
+    );
+  }
+  return auth;
+}
+
+/**
+ * Asserts that the authenticated user's activeRole has at least one of the given permissions.
+ * Returns the AuthContext if authorized, or a JSON error response if not.
+ */
+export async function requireAnyPermission(
+  req: NextRequest,
+  permissions: Permission[]
+): Promise<AuthContext | NextResponse> {
+  const auth = await getAuthContext(req);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+  if (!hasAnyPermission(auth.activeRole, permissions)) {
     return NextResponse.json(
       { success: false, error: "Forbidden" },
       { status: 403 }

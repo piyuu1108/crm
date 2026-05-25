@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import {
@@ -105,8 +105,8 @@ async function getStudentAcademicYear(divisionId: number): Promise<number | null
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "circulars.view");
+    if (auth instanceof NextResponse) return auth;
 
     const { userId, activeRole } = auth;
 

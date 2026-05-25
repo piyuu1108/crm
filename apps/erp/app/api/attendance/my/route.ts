@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   attendanceSessionLedger,
@@ -27,13 +27,10 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "attendance.view");
+    if (auth instanceof NextResponse) return auth;
 
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!rolesArray.includes("student")) {
-      return err("Forbidden: student role required", 403);
-    }
+    const { userId, divisionId } = auth;
 
     const dateFrom = req.nextUrl.searchParams.get("dateFrom");
     const dateTo = req.nextUrl.searchParams.get("dateTo");
@@ -54,7 +51,7 @@ export async function GET(req: NextRequest) {
     const records = await db
       .select({
         id: attendanceSessionLedger.id,
-        status: sql<string>`case when ${payload.userId} = any(${attendanceSessionLedger.absentStudentIds}) then 'absent' else 'present' end`,
+        status: sql<string>`case when ${userId} = any(${attendanceSessionLedger.absentStudentIds}) then 'absent' else 'present' end`,
         date: attendanceSessionLedger.date,
         subjectName: subjects.name,
         facultyName: faculty.name,
@@ -67,14 +64,14 @@ export async function GET(req: NextRequest) {
       .leftJoin(
         studentEnrollmentHistory,
         and(
-          eq(studentEnrollmentHistory.studentId, payload.userId),
+          eq(studentEnrollmentHistory.studentId, userId),
           eq(studentEnrollmentHistory.divisionId, attendanceSessionLedger.divisionId),
           eq(studentEnrollmentHistory.semesterId, attendanceSessionLedger.semesterId)
         )
       )
       .where(
         and(
-          sql`(${studentEnrollmentHistory.id} is not null or ${payload.divisionId} = ${attendanceSessionLedger.divisionId})`,
+          sql`(${studentEnrollmentHistory.id} is not null or ${divisionId} = ${attendanceSessionLedger.divisionId})`,
           ...conditions
         )
       )
@@ -88,14 +85,14 @@ export async function GET(req: NextRequest) {
       .leftJoin(
         studentEnrollmentHistory,
         and(
-          eq(studentEnrollmentHistory.studentId, payload.userId),
+          eq(studentEnrollmentHistory.studentId, userId),
           eq(studentEnrollmentHistory.divisionId, attendanceSessionLedger.divisionId),
           eq(studentEnrollmentHistory.semesterId, attendanceSessionLedger.semesterId)
         )
       )
       .where(
         and(
-          sql`(${studentEnrollmentHistory.id} is not null or ${payload.divisionId} = ${attendanceSessionLedger.divisionId})`
+          sql`(${studentEnrollmentHistory.id} is not null or ${divisionId} = ${attendanceSessionLedger.divisionId})`
         )
       )
       .groupBy(subjects.name);

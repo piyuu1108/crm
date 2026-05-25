@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { internalExams, internalExamMarks } from "@/app/lib/schema";
 import { eq, count } from "drizzle-orm";
@@ -23,13 +23,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!rolesArray.includes("hod")) {
-      return err("Forbidden: only HOD can update exams", 403);
-    }
+    const auth = await requirePermission(req, "exams.manage");
+    if (auth instanceof NextResponse) return auth;
 
     const { id } = await params;
     const examId = parseInt(id, 10);
@@ -75,13 +70,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!rolesArray.includes("hod")) {
-      return err("Forbidden: only HOD can delete exams", 403);
-    }
+    const auth = await requirePermission(req, "exams.manage");
+    if (auth instanceof NextResponse) return auth;
 
     const { id } = await params;
     const examId = parseInt(id, 10);

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
-import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, students } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
@@ -13,18 +13,6 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorize(req: NextRequest, divisionId: number) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("counselor")) return { error: err("Forbidden", 403) };
-
-  const counselorDivisionIds = payload.counselorDivisionIds ?? [];
-  if (!counselorDivisionIds.includes(divisionId)) return { error: err("Forbidden", 403) };
-  return { payload };
-}
-
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -34,8 +22,11 @@ export async function POST(
     const divisionId = Number.parseInt(idStr, 10);
     if (!Number.isFinite(divisionId)) return err("Invalid division ID", 400);
 
-    const auth = await authorize(req, divisionId);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "counselor.email");
+    if (auth instanceof NextResponse) return auth;
+
+    const counselorDivisionIds = auth.counselorDivisionIds ?? [];
+    if (!counselorDivisionIds.includes(divisionId)) return err("Forbidden", 403);
 
     const body = (await req.json().catch(() => ({}))) as { studentDbId?: number };
     const studentDbId = Number(body.studentDbId);

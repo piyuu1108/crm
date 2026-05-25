@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, ne } from "drizzle-orm";
-import { getAuthContext, AuthContext } from "@/app/lib/api-auth";
+import { requirePermission, AuthContext } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   students,
@@ -18,18 +18,6 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorizeCounselor(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("counselor")) {
-    return { error: err("Forbidden: Counselor access required", 403) };
-  }
-
-  return { payload: payload as AuthContext };
-}
-
 function ensureDivisionAccess(auth: AuthContext, divisionId: number) {
   const counselorDivisionIds = auth.counselorDivisionIds ?? [];
   return counselorDivisionIds.includes(divisionId);
@@ -40,8 +28,8 @@ export async function GET(
   { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
-    const auth = await authorizeCounselor(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "counselor.students");
+    if (auth instanceof NextResponse) return auth;
 
     const { studentId } = await params;
     const id = Number(studentId);
@@ -71,7 +59,7 @@ export async function GET(
     if (!student.currentDivisionId) return err("Student has no active division", 400);
 
     const allowed = ensureDivisionAccess(
-      auth.payload,
+      auth,
       student.currentDivisionId
     );
     if (!allowed) return err("Forbidden: student not in your assigned division", 403);
@@ -88,8 +76,8 @@ export async function PATCH(
   { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
-    const auth = await authorizeCounselor(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "counselor.students");
+    if (auth instanceof NextResponse) return auth;
 
     const { studentId } = await params;
     const id = Number(studentId);
@@ -112,7 +100,7 @@ export async function PATCH(
     if (!student.currentDivisionId) return err("Student has no active division", 400);
 
     const allowed = ensureDivisionAccess(
-      auth.payload,
+      auth,
       student.currentDivisionId
     );
     if (!allowed) return err("Forbidden: student not in your assigned division", 403);
@@ -134,7 +122,7 @@ export async function PATCH(
         receiverUserId: id,
         receiverRole: "student",
         priority: action === "approve" ? "medium" : "high",
-        createdBy: auth.payload.userId,
+        createdBy: auth.userId,
         relatedEntityType: "students",
         relatedEntityId: id,
       });

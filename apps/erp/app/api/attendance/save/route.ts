@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   attendanceSessionLedger,
@@ -28,18 +28,10 @@ function err(message: string, status: number) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "attendance.mark");
+    if (auth instanceof NextResponse) return auth;
 
-    const { userId, roles: rolesArray, activeRole: resolvedRole, isRoleForbidden, forbiddenRole } = auth;
-
-    if (isRoleForbidden) {
-      return err(`Forbidden: role '${forbiddenRole}' is not assigned to this user`, 403);
-    }
-
-    if (!["faculty", "counselor", "hod"].includes(resolvedRole)) {
-      return err("Forbidden", 403);
-    }
+    const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
     const { sessionId, records } = body;

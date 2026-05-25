@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { getEmailJobState } from "@/app/lib/email/job-tracker";
 
 function err(message: string, status: number) {
@@ -11,11 +11,8 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
-
-    const rolesArray = payload.roles;
-    if (!rolesArray.includes("counselor")) return err("Forbidden", 403);
+    const auth = await requirePermission(req, "counselor.email");
+    if (auth instanceof NextResponse) return auth;
 
     const { jobId } = await params;
     if (!jobId) return err("jobId is required", 400);

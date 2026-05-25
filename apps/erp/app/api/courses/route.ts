@@ -10,6 +10,9 @@ export async function GET(request: NextRequest) {
     if (!auth || !auth.isGlobal) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
+    if (auth.isRoleForbidden) {
+      return NextResponse.json({ success: false, error: `Forbidden: role '${auth.forbiddenRole}' is not assigned to this user` }, { status: 403 });
+    }
 
     const courseList = await db
       .select({

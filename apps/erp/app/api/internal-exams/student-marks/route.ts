@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   internalExamMarks,
@@ -28,13 +28,8 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!rolesArray.includes("student")) {
-      return err("Forbidden: students only", 403);
-    }
+    const auth = await requirePermission(req, "exams.view");
+    if (auth instanceof NextResponse) return auth;
 
 
 
@@ -54,7 +49,7 @@ export async function GET(req: NextRequest) {
       .innerJoin(divisions, eq(facultySubjectAssignments.divisionId, divisions.id))
       .where(
         and(
-          eq(internalExamMarks.studentId, payload.userId),
+          eq(internalExamMarks.studentId, auth.userId),
           eq(internalExamMarks.isVisible, true)
         )
       );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { internalExams, semesters } from "@/app/lib/schema";
 import { eq, and, desc, or } from "drizzle-orm";
@@ -22,8 +22,8 @@ function err(message: string, status: number) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await requirePermission(req, "exams.view");
+    if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
     const semesterIdParam = searchParams.get("semesterId");
@@ -62,13 +62,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
-
-    const rolesArray = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!rolesArray.includes("hod")) {
-      return err("Forbidden: only HOD can create exams", 403);
-    }
+    const auth = await requirePermission(req, "exams.manage");
+    if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
     const { examName, examNumber, targetType, targetYear, targetDivisionId, semesterId: reqSemId } = body;
@@ -108,7 +103,7 @@ export async function POST(req: NextRequest) {
         targetType: targetType || "ALL",
         targetYear: targetType === "YEAR" ? targetYear : null,
         targetDivisionId: targetType === "DIVISION" ? targetDivisionId : null,
-        createdByFacultyId: payload.userId,
+        createdByFacultyId: auth.userId,
       })
       .returning();
 

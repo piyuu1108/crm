@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, S3_BUCKET } from "@/app/lib/storage";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requireAnyPermission } from "@/app/lib/api-auth";
 import { hasPermission } from "@/app/lib/permissions";
 
 export async function GET(req: NextRequest) {
@@ -13,10 +13,14 @@ export async function GET(req: NextRequest) {
   }
 
   // 1. Authenticate user
-  const auth = await getAuthContext(req);
-  if (!auth) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
+  const auth = await requireAnyPermission(req, [
+    "s3.view_any_files",
+    "s3.view_student_files",
+    "s3.view_own_files",
+    "s3.view_faculty_files",
+    "circulars.view"
+  ]);
+  if (auth instanceof NextResponse) return auth;
 
   // 2. Authorize access to S3 key
   let isAuthorized = false;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requireAnyPermission, requirePermission } from "@/app/lib/api-auth";
 import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty } from "@/app/lib/schema";
@@ -26,13 +26,12 @@ export async function GET(
       );
     }
 
-    const payload = await getAuthContext(req);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const auth = await requireAnyPermission(req, [
+      "requests.view_own",
+      "requests.view_assigned",
+      "requests.view_all",
+    ]);
+    if (auth instanceof NextResponse) return auth;
 
     const [request] = await db
       .select({
@@ -67,11 +66,11 @@ export async function GET(
     }
 
     // Access control: student who created OR target faculty OR admin
-    const isOwnerStudent = payload.activeRole === "student" && request.studentId === payload.userId;
+    const isOwnerStudent = auth.activeRole === "student" && request.studentId === auth.userId;
     const isTargetFaculty =
-      hasPermission(payload.activeRole, "requests.review") &&
-      request.targetFacultyId === payload.userId;
-    const isAdmin = hasPermission(payload.activeRole, "requests.view_all");
+      hasPermission(auth.activeRole, "requests.review") &&
+      request.targetFacultyId === auth.userId;
+    const isAdmin = hasPermission(auth.activeRole, "requests.view_all");
 
     if (!isOwnerStudent && !isTargetFaculty && !isAdmin) {
       return NextResponse.json(
@@ -114,20 +113,10 @@ export async function PATCH(
       );
     }
 
-    const payload = await getAuthContext(req);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const auth = await requirePermission(req, "requests.review");
+    if (auth instanceof NextResponse) return auth;
 
-    if (!hasPermission(payload.activeRole, "requests.review")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: faculty or administrator role required" },
-        { status: 403 }
-      );
-    }
+    const { userId, activeRole } = auth;
 
     // Verify request exists and belongs to this faculty
     const [request] = await db
@@ -142,8 +131,8 @@ export async function PATCH(
       );
     }
 
-    const isAdmin = hasPermission(payload.activeRole, "requests.view_all");
-    if (!isAdmin && request.targetFacultyId !== payload.userId) {
+    const isAdmin = hasPermission(activeRole, "requests.view_all");
+    if (!isAdmin && request.targetFacultyId !== userId) {
       return NextResponse.json(
         { success: false, error: "Forbidden: this request is not assigned to you" },
         { status: 403 }
@@ -185,7 +174,7 @@ export async function PATCH(
         notificationType: "approval",
         receiverUserId: requestDetail.studentId,
         receiverRole: "student",
-        createdBy: payload.userId,
+        createdBy: userId,
         relatedEntityType: "student_requests",
         relatedEntityId: id,
       });

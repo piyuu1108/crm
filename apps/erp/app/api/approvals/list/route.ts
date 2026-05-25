@@ -13,6 +13,7 @@ import {
   subjects,
 } from "@/app/lib/schema";
 import { eq, and, or, desc, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export const dynamic = "force-dynamic";
 
@@ -108,6 +109,7 @@ export async function GET(req: NextRequest) {
         .orderBy(facultyRequestApprovals.sequenceOrder);
 
       // Fetch proxy assignments with slots details
+      const senderProxyFaculty = alias(faculty, "sender_proxy_faculty");
       const proxies = await db
         .select({
           id: facultyRequestProxies.id,
@@ -118,6 +120,10 @@ export async function GET(req: NextRequest) {
           endTime: timetableSlots.endTime,
           proxyFacultyId: facultyRequestProxies.proxyFacultyId,
           proxyFacultyName: faculty.name,
+          proxyFacultyCode: faculty.facultyCode,
+          senderProxyFacultyId: facultyRequestProxies.senderProxyFacultyId,
+          senderProxyFacultyName: senderProxyFaculty.name,
+          senderProxyFacultyCode: senderProxyFaculty.facultyCode,
           divisionId: facultyRequestProxies.divisionId,
           divisionName: divisions.displayName,
           subjectId: facultyRequestProxies.subjectId,
@@ -127,6 +133,7 @@ export async function GET(req: NextRequest) {
         .from(facultyRequestProxies)
         .innerJoin(timetableSlots, eq(facultyRequestProxies.slotId, timetableSlots.id))
         .innerJoin(faculty, eq(facultyRequestProxies.proxyFacultyId, faculty.id))
+        .leftJoin(senderProxyFaculty, eq(facultyRequestProxies.senderProxyFacultyId, senderProxyFaculty.id))
         .innerJoin(divisions, eq(facultyRequestProxies.divisionId, divisions.id))
         .innerJoin(subjects, eq(facultyRequestProxies.subjectId, subjects.id))
         .where(eq(facultyRequestProxies.requestId, requestId))

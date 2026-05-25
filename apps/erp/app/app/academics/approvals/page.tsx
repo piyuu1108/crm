@@ -42,57 +42,101 @@ function ProxySelector({
   date,
   slotId,
   currentProxyId,
+  senderProxyId,
+  senderProxyName,
+  senderProxyCode,
+  dbProxyId,
+  dbProxyName,
+  dbProxyCode,
   onSelect,
 }: {
   date: string;
   slotId: number;
   currentProxyId: number;
+  senderProxyId: number;
+  senderProxyName: string;
+  senderProxyCode: string;
+  dbProxyId: number;
+  dbProxyName: string;
+  dbProxyCode: string;
   onSelect: (newId: number) => void;
 }) {
-  const { data: response } = useQuery({
+  const { data: response, isLoading } = useQuery({
     queryKey: ["approvals", "proxies", "available", date, slotId],
     queryFn: async () => {
       const res = await fetch(`/api/approvals/proxies/available?date=${date}&slotId=${slotId}`);
       if (!res.ok) throw new Error("Failed to fetch available proxies");
       return res.json();
     },
+    enabled: !!date && !!slotId,
   });
 
-  const availableList = response?.data || [];
+  let availableList = response?.data || [];
+
+  // Ensure original sender-assigned proxy is present in the dropdown list
+  if (senderProxyId && !availableList.some((f: any) => f.id === senderProxyId)) {
+    availableList = [
+      { id: senderProxyId, name: senderProxyName, facultyCode: senderProxyCode || "" },
+      ...availableList,
+    ];
+  }
+
+  // Ensure database-saved proxy is present in the dropdown list
+  if (dbProxyId && !availableList.some((f: any) => f.id === dbProxyId)) {
+    availableList = [
+      { id: dbProxyId, name: dbProxyName, facultyCode: dbProxyCode || "" },
+      ...availableList,
+    ];
+  }
 
   return (
-    <div className="w-[180px]">
+    <div className="w-full sm:w-[240px]">
       <Select
-        aria-label="Select Proxy"
+        aria-label="Select Proxy Faculty"
+        placeholder={isLoading ? "Scanning available..." : "Assign Free Faculty"}
         selectedKey={String(currentProxyId)}
         onSelectionChange={(key) => {
           if (key) {
             onSelect(Number(key));
           }
         }}
+        className="w-full"
       >
-        <Select.Trigger>
+        <Select.Trigger className="w-full bg-content2/50 hover:bg-content2 border border-divider/60 rounded-xl transition-all h-9 px-3 flex items-center justify-between">
           <Select.Value>
             {({ isPlaceholder, state }) => {
               if (isPlaceholder || state.selectedItems.length === 0) {
-                return "Choose Proxy";
+                return <span className="text-xs text-default-400 font-medium">Select Proxy</span>;
               }
-              return <span>{state.selectedItems[0].textValue}</span>;
+              return <span className="text-xs font-semibold text-foreground">{state.selectedItems[0].textValue}</span>;
             }}
           </Select.Value>
-          <Select.Indicator />
+          <Select.Indicator className="text-default-400" />
         </Select.Trigger>
-        <Select.Popover>
-          <ListBox>
-            {availableList.map((f: any) => (
-              <ListBox.Item id={String(f.id)} key={f.id} textValue={f.name}>
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-medium">{f.name}</span>
-                  <span className="text-[10px] text-default-400">{f.facultyCode}</span>
+        <Select.Popover className="backdrop-blur-md bg-content1/95 border border-divider/80 shadow-2xl rounded-xl min-w-[240px]">
+          <ListBox className="p-1">
+            {availableList.length === 0 ? (
+              <ListBox.Item id="none" textValue="No free faculty found" isDisabled className="py-2">
+                <div className="flex items-center gap-2 px-2 text-rose-500 font-medium text-xs">
+                  <span>No free faculty for this slot</span>
                 </div>
-                <ListBox.ItemIndicator />
               </ListBox.Item>
-            ))}
+            ) : (
+              availableList.map((f: any) => (
+                <ListBox.Item id={String(f.id)} key={f.id} textValue={f.name} className="p-2 rounded-lg hover:bg-primary/10 transition-colors">
+                  <div className="flex items-center gap-3 text-left w-full">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-[10px]">
+                      {f.name.charAt(0)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-foreground">{f.name}</span>
+                      <span className="text-[9px] text-default-400">{f.facultyCode}</span>
+                    </div>
+                  </div>
+                  <ListBox.ItemIndicator />
+                </ListBox.Item>
+              ))
+            )}
           </ListBox>
         </Select.Popover>
       </Select>
@@ -446,21 +490,38 @@ export default function ApprovalsPage() {
                                     </span>
                                   </div>
 
-                                  <div className="flex items-center gap-3 bg-white dark:bg-default-100 p-2 rounded-lg border border-default-200">
-                                    <span className="text-[11px] font-semibold text-default-500 uppercase shrink-0">
-                                      Proxy:
-                                    </span>
-                                    {canOverride && detail.request.status === "pending" ? (
-                                      <ProxySelector
-                                        date={p.date}
-                                        slotId={p.slotId}
-                                        currentProxyId={currentProxyId}
-                                        onSelect={(newId) => handleProxyOverride(p.id, newId)}
-                                      />
-                                    ) : (
-                                      <span className="text-xs font-semibold text-default-800">
-                                        {p.proxyFacultyName}
+                                  <div className="flex flex-col gap-2 bg-white dark:bg-default-100 p-2.5 rounded-lg border border-default-200">
+                                    <div className="flex items-center gap-3">
+                                      <span className="text-[11px] font-semibold text-default-500 uppercase shrink-0">
+                                        Proxy:
                                       </span>
+                                      {(canOverride || canApprove) && detail.request.status === "pending" ? (
+                                        <ProxySelector
+                                          date={p.date}
+                                          slotId={p.slotId}
+                                          currentProxyId={currentProxyId}
+                                          senderProxyId={p.senderProxyFacultyId}
+                                          senderProxyName={p.senderProxyFacultyName}
+                                          senderProxyCode={p.senderProxyFacultyCode}
+                                          dbProxyId={p.proxyFacultyId}
+                                          dbProxyName={p.proxyFacultyName}
+                                          dbProxyCode={p.proxyFacultyCode}
+                                          onSelect={(newId) => handleProxyOverride(p.id, newId)}
+                                        />
+                                      ) : (
+                                        <span className="text-xs font-semibold text-default-800">
+                                          {p.proxyFacultyName}
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {p.senderProxyFacultyName && (p.senderProxyFacultyName !== p.proxyFacultyName || isProxyOverridden) && (
+                                      <div className="text-[11px] text-default-400 flex items-center gap-1.5 pl-2 border-l-2 border-amber-500 dark:border-amber-400 mt-1">
+                                        <span>Original selection by sender:</span>
+                                        <span className="font-semibold text-default-600 line-through decoration-default-400">
+                                          {p.senderProxyFacultyName}
+                                        </span>
+                                      </div>
                                     )}
                                   </div>
                                 </div>

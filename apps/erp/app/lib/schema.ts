@@ -611,6 +611,7 @@ export const facultyRequestProxies = pgTable("faculty_request_proxies", {
   date: date("date").notNull(),
   slotId: integer("slot_id").notNull().references(() => timetableSlots.id),
   originalFacultyId: integer("original_faculty_id").notNull().references(() => faculty.id),
+  senderProxyFacultyId: integer("sender_proxy_faculty_id").references(() => faculty.id), // Persist original proxy selection from sender
   proxyFacultyId: integer("proxy_faculty_id").notNull().references(() => faculty.id),
   divisionId: integer("division_id").notNull().references(() => divisions.id),
   subjectId: integer("subject_id").notNull().references(() => subjects.id),

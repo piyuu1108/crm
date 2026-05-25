@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
           date: p.date,
           slotId: p.slotId,
           originalFacultyId: userId,
+          senderProxyFacultyId: p.proxyFacultyId,
           proxyFacultyId: p.proxyFacultyId,
           divisionId: p.divisionId,
           subjectId: p.subjectId,

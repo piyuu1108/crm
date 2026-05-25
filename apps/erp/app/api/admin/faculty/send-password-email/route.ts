@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
@@ -13,20 +13,10 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorizeHod(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) return { error: err("Forbidden", 403) };
-
-  return { payload };
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorizeHod(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.email");
+    if (auth instanceof NextResponse) return auth;
 
     const body = (await req.json().catch(() => ({}))) as { facultyDbId?: number };
     const facultyDbId = Number(body.facultyDbId);

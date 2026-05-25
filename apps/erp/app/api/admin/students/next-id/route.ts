@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { sql, like } from "drizzle-orm";
 
-// ─── Auth guard ───────────────────────────────────────────────────────────────
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload)
-    return { error: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: NextResponse.json({ success: false, error: "Forbidden: HOD access required" }, { status: 403 }) };
-  }
-
-  return { payload };
-}
-
 // ─── GET /api/admin/students/next-id — Get next available student sequence number
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.students");
+    if (auth instanceof NextResponse) return auth;
 
     const year = req.nextUrl.searchParams.get("year");
     if (!year) {

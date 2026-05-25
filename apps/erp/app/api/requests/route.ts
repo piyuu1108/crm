@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty, semesters } from "@/app/lib/schema";
 import { eq, and, desc, count, sql } from "drizzle-orm";
@@ -13,21 +13,9 @@ import { publishNotification } from "@/app/lib/notifications";
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.includes("student")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: student role required" },
-        { status: 403 }
-      );
-    }
+    const result = await requirePermission(req, "requests.view_own");
+    if (result instanceof NextResponse) return result;
+    const payload = result;
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -101,21 +89,9 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.includes("student")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: student role required" },
-        { status: 403 }
-      );
-    }
+    const result = await requirePermission(req, "requests.create");
+    if (result instanceof NextResponse) return result;
+    const payload = result;
 
     const body = await req.json();
     const {

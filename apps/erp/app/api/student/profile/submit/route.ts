@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, studentDocuments } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -20,23 +20,9 @@ import {
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const roles = auth.roles;
-    if (!roles.includes("student")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: student role required" },
-        { status: 403 }
-      );
-    }
-
-    const studentDbId = auth.userId;
+    const result = await requirePermission(req, "profile.edit_student");
+    if (result instanceof NextResponse) return result;
+    const studentDbId = result.userId;
 
     // Fetch full student record
     const rows = await db

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { s3Client, S3_BUCKET } from "@/app/lib/storage";
@@ -44,21 +44,9 @@ const MAX_FILE_SIZE_REQUEST = 2 * 1024 * 1024; // 2MB for request attachments
  */
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const roles = auth.roles;
-    if (!roles.includes("student")) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: student role required" },
-        { status: 403 }
-      );
-    }
+    const result = await requirePermission(req, "profile.edit_student");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const body = await req.json();
     const { docType, contentType, fileSize } = body;

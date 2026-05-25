@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, eq, ne } from "drizzle-orm";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { cacheTags, clearCache } from "@/app/lib/cache";
@@ -14,25 +14,13 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorizeHod(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
-  }
-
-  return { payload };
-}
-
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
-    const auth = await authorizeHod(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.students");
+    if (auth instanceof NextResponse) return auth;
 
     const { studentId } = await params;
     const id = Number(studentId);
@@ -69,8 +57,8 @@ export async function PATCH(
   { params }: { params: Promise<{ studentId: string }> }
 ) {
   try {
-    const auth = await authorizeHod(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.students");
+    if (auth instanceof NextResponse) return auth;
 
     const { studentId } = await params;
     const id = Number(studentId);
@@ -107,7 +95,7 @@ export async function PATCH(
         receiverUserId: id,
         receiverRole: "student",
         priority: action === "approve" ? "medium" : "high",
-        createdBy: auth.payload.userId,
+        createdBy: auth.userId,
         relatedEntityType: "students",
         relatedEntityId: id,
       });

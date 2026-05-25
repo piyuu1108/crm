@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
+import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -66,14 +67,11 @@ export async function GET(
     }
 
     // Access control: student who created OR target faculty OR admin
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    const isOwnerStudent = roles.includes("student") && request.studentId === payload.userId;
+    const isOwnerStudent = payload.activeRole === "student" && request.studentId === payload.userId;
     const isTargetFaculty =
-      (roles.includes("faculty") ||
-        roles.includes("hod") ||
-        roles.includes("counselor")) &&
+      hasPermission(payload.activeRole, "requests.review") &&
       request.targetFacultyId === payload.userId;
-    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    const isAdmin = hasPermission(payload.activeRole, "requests.view_all");
 
     if (!isOwnerStudent && !isTargetFaculty && !isAdmin) {
       return NextResponse.json(
@@ -124,15 +122,7 @@ export async function PATCH(
       );
     }
 
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    const isAuthorized =
-      roles.includes("faculty") ||
-      roles.includes("hod") ||
-      roles.includes("counselor") ||
-      roles.includes("principal") ||
-      roles.includes("vice_principal");
-
-    if (!isAuthorized) {
+    if (!hasPermission(payload.activeRole, "requests.review")) {
       return NextResponse.json(
         { success: false, error: "Forbidden: faculty or administrator role required" },
         { status: 403 }
@@ -152,7 +142,7 @@ export async function PATCH(
       );
     }
 
-    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    const isAdmin = hasPermission(payload.activeRole, "requests.view_all");
     if (!isAdmin && request.targetFacultyId !== payload.userId) {
       return NextResponse.json(
         { success: false, error: "Forbidden: this request is not assigned to you" },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId, requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty, facultyRoles, roles, facultySubjectAssignments, divisions, subjects } from "@/app/lib/schema";
 import { eq, and, like, count, asc, desc, or, sql, inArray } from "drizzle-orm";
@@ -18,29 +18,12 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-// ─── Auth guard (JWT double-verification + HOD role check) ────────────────────
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  const isAuthorized =
-    rolesArray.includes("hod") ||
-    rolesArray.includes("principal") ||
-    rolesArray.includes("vice_principal");
-
-  if (!isAuthorized) {
-    return { error: err("Forbidden: Administrator access required", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── GET /api/admin/faculty — Paginated faculty list ──────────────────────────
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const authResult = await requirePermission(req, "admin.faculty");
+    if (authResult instanceof NextResponse) return authResult;
+    const auth = { payload: authResult };
 
     const url = req.nextUrl;
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
@@ -189,8 +172,9 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/admin/faculty — Create a new faculty member ────────────────────
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const authResult = await requirePermission(req, "admin.faculty");
+    if (authResult instanceof NextResponse) return authResult;
+    const auth = { payload: authResult };
 
     const body = await req.json();
     const { name, email, mobile, facultyCode, designation } = body;
@@ -262,9 +246,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const auth2 = await authorize(req);
-    if ("error" in auth2 && auth2.error) return auth2.error;
-    const authPayload = auth2.payload!;
+    const authPayload = auth.payload!;
     let courseId: number | undefined;
 
     if (authPayload.isGlobal) {

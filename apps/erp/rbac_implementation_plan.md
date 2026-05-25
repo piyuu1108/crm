@@ -583,3 +583,60 @@ These are the **inconsistencies** discovered during the audit that must be resol
 5. **Phase 1, Batch 1D-1E** — Admin + Dashboard. Highest complexity.
 6. **Phase 2** — Client-side. Can be done in parallel with Phase 1.
 7. **Phase 3** — Cleanup. Do last after everything is stable.
+
+
+also update:
+Good question — let me find every remaining manual check:
+
+Searched for "roles\.includes\("
+Searched for "roles\.some\("
+Searched for "activeRole === ""
+Searched for "rolesArray\.includes\("
+
+Here's the full picture. Excluding infrastructure files (api-auth.ts, use-auth-store.ts, permissions.ts) that **correctly** use `roles.includes` for role resolution (not authorization), here are the **remaining unmigrated files**:
+
+## Remaining Manual Checks — 28 Files
+
+### API Routes (Server-Side) — 22 files
+
+| # | File | Pattern | Should Use |
+|---|------|---------|------------|
+| 1 | `api/requests/[id]/route.ts` | `roles.includes("faculty")` × 8 checks | `hasPermission("requests.review")` |
+| 2 | `api/requests/route.ts` | `roles.includes("student")` × 2 | `requirePermission("requests.create")` |
+| 3 | `api/circulars/[slug]/route.ts` | `roles.includes("student"/"faculty"/"hod")` | `hasPermission("circulars.view")` |
+| 4 | `api/student/upload-url/route.ts` | `roles.includes("student")` | `requirePermission("profile.edit_student")` |
+| 5 | `api/student/profile/route.ts` | `roles.includes("student")` | `requirePermission("profile.edit_student")` |
+| 6 | `api/student/profile/submit/route.ts` | `roles.includes("student")` | `requirePermission("profile.edit_student")` |
+| 7 | `api/requests/faculty-search/route.ts` | `payload.roles.includes("student")` | `hasPermission` |
+| 8 | `api/subjects/route.ts` | `activeRole === "hod"/"counselor"/"faculty"/"student"` | `hasPermission("subjects.view_course")` etc. |
+| 9 | `api/subjects/[code]/route.ts` | `activeRole === "student"/"faculty"/"counselor"` | `hasPermission` |
+| 10 | `api/dashboard/route.ts` | `activeRole === "principal"/"student"` | `hasPermission("dashboard.view_admin")` |
+| 11 | `api/academics/timetable/route.ts` | `rolesArray.includes("principal")` + `activeRole ===` | `hasPermission("timetable.view_any")` |
+| 12 | `api/attendance/sessions/route.ts` | `rolesArray.includes` + local `ROLE_PRIORITY` | `hasPermission("attendance.mark")` |
+| 13 | `api/attendance/students/route.ts` | `rolesArray.includes` + local `ROLE_PRIORITY` | `hasPermission` |
+| 14 | `api/attendance/my/route.ts` | `rolesArray.includes("student")` | `requirePermission("attendance.view")` |
+| 15 | `api/admin/divisions/route.ts` | `rolesArray.includes("hod"/"principal"/"vice_principal")` | `requirePermission("admin.divisions")` |
+| 16 | `api/admin/divisions/[id]/route.ts` | same | same |
+| 17 | `api/admin/divisions/[id]/students/route.ts` | `auth.roles.includes("hod")` | `requirePermission` |
+| 18 | `api/admin/faculty/route.ts` | `rolesArray.includes("hod"/"principal"/"vice_principal")` | `requirePermission("admin.faculty")` |
+| 19 | `api/admin/faculty/[id]/route.ts` | `rolesArray.includes("hod")` | same |
+| 20 | `api/admin/subjects/route.ts` | `allowedRoles.some(r => rolesArray.includes(r))` | `requirePermission("admin.subjects")` |
+| 21 | `api/admin/subjects/[id]/route.ts` | `rolesArray.includes("hod")` | same |
+| 22 | `api/admin/subject-assignments/route.ts` | `rolesArray.includes("hod")` | `requirePermission("admin.assignments")` |
+| + | 8 more admin routes | `rolesArray.includes("hod")` or `"counselor"` | Various `requirePermission` |
+
+### Client Pages — 6 files
+
+| # | File | Pattern | Should Use |
+|---|------|---------|------------|
+| 1 | `admin/subjects/page.tsx` | `activeRole === "principal" \|\| "vice_principal"` | `useIsAdminTable()` |
+| 2 | `admin/faculty/page.tsx` | same | same |
+| 3 | `admin/divisions/page.tsx` | same | same |
+| 4 | `admin/divisions/[id]/page.tsx` | same | same |
+| 5 | `admin/assignments/page.tsx` | same | same |
+| 6 | `admin/subject-assignments/page.tsx` | same | same |
+| 7 | `academics/internal-exams/evaluation/page.tsx` | `activeRole === "hod"/"faculty"` | `usePermission("exams.evaluate")` |
+
+---
+
+**Summary:** Phase 1 migrated ~12 files. There are still **~28 files** with manual checks. Want me to migrate them all now?

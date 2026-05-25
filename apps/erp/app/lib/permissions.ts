@@ -78,6 +78,14 @@ export const PERMISSIONS = [
   "admin.faculty",
   "admin.subjects",
   "admin.assignments",
+  "admin.students",
+  "admin.email",
+  "admin.promotion",
+
+  // Counselor
+  "counselor.divisions",
+  "counselor.students",
+  "counselor.email",
 
   // S3 / Files
   "s3.view_own_files",
@@ -88,6 +96,7 @@ export const PERMISSIONS = [
 
   // Internal Exams
   "exams.view",
+  "exams.manage",
   "exams.evaluate",
   "exams.export",
   "exams.reports",
@@ -137,6 +146,9 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "attendance.view_division",
     "subjects.view_own",
     "profile.edit_faculty",
+    "counselor.divisions",
+    "counselor.students",
+    "counselor.email",
     "s3.view_student_files",
     "s3.upload_faculty",
     "exams.view",
@@ -163,10 +175,17 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "admin.faculty",
     "admin.subjects",
     "admin.assignments",
+    "admin.students",
+    "admin.email",
+    "admin.promotion",
+    "counselor.divisions",
+    "counselor.students",
+    "counselor.email",
     "s3.view_student_files",
     "s3.view_faculty_files",
     "s3.upload_faculty",
     "exams.view",
+    "exams.manage",
     "exams.evaluate",
     "exams.export",
     "exams.reports",

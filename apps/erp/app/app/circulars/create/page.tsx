@@ -70,9 +70,9 @@ export default function CreateCircularPage() {
     : AUDIENCE_OPTIONS;
 
   const { data: divisionsData, isLoading: isDivisionsLoading } = useQuery({
-    queryKey: ["divisions-all"],
+    queryKey: ["circular-divisions"],
     queryFn: async () => {
-      const res = await fetch("/api/admin/divisions?limit=1000", {
+      const res = await fetch("/api/circulars/divisions", {
         credentials: "include",
       });
       if (!res.ok) return { data: { divisions: [] } };

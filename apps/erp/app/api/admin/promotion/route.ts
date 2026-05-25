@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   students,
@@ -20,19 +20,6 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-// ─── Auth guard (HOD only) ────────────────────────────────────────────────────
-async function authorizeHod(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── POST /api/admin/promotion — Promote students between semesters ───────────
 //
 // Transaction flow:
@@ -49,8 +36,8 @@ async function authorizeHod(req: NextRequest) {
 //
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorizeHod(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.promotion");
+    if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
     const { sourceDivisionId, targetDivisionId, studentIds } = body;

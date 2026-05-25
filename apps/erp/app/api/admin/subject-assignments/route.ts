@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
+import { requireCourseId, requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   facultySubjectAssignments,
@@ -18,25 +18,13 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── GET: List all faculty–subject–division assignments ────────────────────────
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.assignments");
+    if (auth instanceof NextResponse) return auth;
 
-    const courseId = requireCourseId(auth.payload!);
+    const courseId = requireCourseId(auth);
 
     const url = new URL(req.url);
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
@@ -136,8 +124,8 @@ export async function GET(req: NextRequest) {
 // ─── POST: Create a new faculty–subject–division assignment ───────────────────
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.assignments");
+    if (auth instanceof NextResponse) return auth;
 
     const body = await req.json();
     const { divisionId, subjectId, facultyId } = body;

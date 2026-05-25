@@ -11,7 +11,6 @@ import {
 import { desc, eq, and, or, inArray, count } from "drizzle-orm";
 import { remember, cacheTags, TTL } from "@/app/lib/cache";
 
-// ─── Cache Helpers ────────────────────────────────────────────────────────────
 
 async function getGlobalCirculars() {
   return remember(

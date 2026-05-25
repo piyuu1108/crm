@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   subjects,
@@ -20,20 +20,6 @@ function err(error: string, status = 400, errors?: Record<string, string>) {
   return NextResponse.json({ success: false, error, errors }, { status });
 }
 
-// ─── Auth Helper ──────────────────────────────────────────────────────────────
-
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── PUT /api/admin/subjects/[id] — Update a subject ─────────────────────────
 
 export async function PUT(
@@ -41,8 +27,8 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.subjects");
+    if (auth instanceof NextResponse) return auth;
 
     const { id: idStr } = await context.params;
     const subjectId = parseInt(idStr, 10);
@@ -167,8 +153,8 @@ export async function DELETE(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const auth = await requirePermission(req, "admin.subjects");
+    if (auth instanceof NextResponse) return auth;
 
     const { id: idStr } = await context.params;
     const subjectId = parseInt(idStr, 10);

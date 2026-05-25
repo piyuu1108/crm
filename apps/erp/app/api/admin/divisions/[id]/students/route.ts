@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, divisions, studentEnrollmentHistory } from "@/app/lib/schema";
 import { eq, sql } from "drizzle-orm";
@@ -19,11 +19,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-    if (!auth.roles.includes("hod")) {
-      return err("Forbidden: HOD access required", 403);
-    }
+    const result = await requirePermission(req, "admin.students");
+    if (result instanceof NextResponse) return result;
 
     const { id: idStr } = await params;
     const divisionId = parseInt(idStr, 10);

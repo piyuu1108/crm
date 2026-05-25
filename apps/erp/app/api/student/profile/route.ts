@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, studentDocuments, courses } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -24,18 +24,6 @@ function getStatusAfterStudentEdit(currentStatus: string | null | undefined): Ve
   return "incomplete";
 }
 
-// ─── Helper: Verify student identity ────────────────────────────────────────
-
-async function getAuthenticatedStudentId(req: NextRequest): Promise<number | null> {
-  const auth = await getAuthContext(req);
-  if (!auth) return null;
-
-  const roles = auth.roles;
-  if (!roles.includes("student")) return null;
-
-  return auth.userId;
-}
-
 // ─── GET /api/student/profile ───────────────────────────────────────────────
 
 /**
@@ -44,13 +32,9 @@ async function getAuthenticatedStudentId(req: NextRequest): Promise<number | nul
  */
 export async function GET(req: NextRequest) {
   try {
-    const studentDbId = await getAuthenticatedStudentId(req);
-    if (!studentDbId) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: student role required" },
-        { status: 401 }
-      );
-    }
+    const result = await requirePermission(req, "profile.edit_student");
+    if (result instanceof NextResponse) return result;
+    const studentDbId = result.userId;
 
     // Fetch student + course info
     const rows = await db
@@ -148,13 +132,9 @@ export async function GET(req: NextRequest) {
  */
 export async function PUT(req: NextRequest) {
   try {
-    const studentDbId = await getAuthenticatedStudentId(req);
-    if (!studentDbId) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: student role required" },
-        { status: 401 }
-      );
-    }
+    const result = await requirePermission(req, "profile.edit_student");
+    if (result instanceof NextResponse) return result;
+    const studentDbId = result.userId;
 
     const body = await req.json();
     const { step, data } = body;

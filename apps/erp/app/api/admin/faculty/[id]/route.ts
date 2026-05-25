@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty } from "@/app/lib/schema";
 import { eq, and, ne } from "drizzle-orm";
@@ -15,28 +15,14 @@ function err(error: string, status = 400, errors?: Record<string, string>) {
   return NextResponse.json({ success: false, error, errors }, { status });
 }
 
-// ─── Auth Helper ──────────────────────────────────────────────────────────────
-
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── PUT /api/admin/faculty/[id] — Update a faculty member ────────────────────
 export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const result = await requirePermission(req, "admin.faculty");
+    if (result instanceof NextResponse) return result;
 
     const { id: idStr } = await context.params;
     const facultyId = parseInt(idStr, 10);

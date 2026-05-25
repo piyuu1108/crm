@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId, requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { subjects, facultySubjectAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, count, inArray, and } from "drizzle-orm";
@@ -17,30 +17,17 @@ function err(message: string, status: number, errors?: Record<string, string>) {
   );
 }
 
-async function authorize(req: NextRequest, allowedRoles: string[] = ["hod"]) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  const isAuthorized = allowedRoles.some((role) => rolesArray.includes(role));
-  if (!isAuthorized) {
-    return { error: err("Forbidden: Access denied", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── GET /api/admin/subjects — List subjects scoped to HOD's course ────────────
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize(req, ["hod", "principal", "vice_principal"]);
-    if ("error" in auth && auth.error) return auth.error;
+    const authResult = await requirePermission(req, "admin.subjects");
+    if (authResult instanceof NextResponse) return authResult;
 
     let courseId: number | "all" | undefined;
-    if (auth.payload?.isGlobal) {
-      courseId = auth.payload.activeCourseId;
+    if (authResult.isGlobal) {
+      courseId = authResult.activeCourseId;
     } else {
-      courseId = requireCourseId(auth.payload!);
+      courseId = requireCourseId(authResult);
     }
 
     const conditions = [];
@@ -112,10 +99,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const authResult = await requirePermission(req, "admin.subjects");
+    if (authResult instanceof NextResponse) return authResult;
 
-    const courseId = requireCourseId(auth.payload!);
+    const courseId = requireCourseId(authResult);
 
     const body = await req.json();
     const formData: SubjectFormData = {

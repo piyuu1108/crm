@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions, students, counselorDivisionAssignments, faculty } from "@/app/lib/schema";
 import { eq, count, sql } from "drizzle-orm";
@@ -13,32 +13,14 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-// ─── Auth guard ───────────────────────────────────────────────────────────────
-async function authorize(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return { error: err("Unauthorized", 401) };
-
-  const rolesArray = payload.roles;
-  const isAuthorized =
-    rolesArray.includes("hod") ||
-    rolesArray.includes("principal") ||
-    rolesArray.includes("vice_principal");
-
-  if (!isAuthorized) {
-    return { error: err("Forbidden: Administrator access required", 403) };
-  }
-
-  return { payload };
-}
-
 // ─── GET /api/admin/divisions/[id] — Division detail with students ────────────
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await authorize(req);
-    if ("error" in auth && auth.error) return auth.error;
+    const result = await requirePermission(req, "admin.divisions");
+    if (result instanceof NextResponse) return result;
 
     const { id: idStr } = await params;
     const id = parseInt(idStr, 10);

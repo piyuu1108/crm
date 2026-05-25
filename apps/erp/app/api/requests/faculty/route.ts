@@ -21,9 +21,16 @@ export async function GET(req: NextRequest) {
     }
 
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.includes("faculty") && !roles.includes("hod") && !roles.includes("counselor")) {
+    const isAuthorized =
+      roles.includes("faculty") ||
+      roles.includes("hod") ||
+      roles.includes("counselor") ||
+      roles.includes("principal") ||
+      roles.includes("vice_principal");
+
+    if (!isAuthorized) {
       return NextResponse.json(
-        { success: false, error: "Forbidden: faculty role required" },
+        { success: false, error: "Forbidden: faculty or administrator role required" },
         { status: 403 }
       );
     }

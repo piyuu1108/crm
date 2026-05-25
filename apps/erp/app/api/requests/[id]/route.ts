@@ -69,7 +69,11 @@ export async function GET(
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
     const isOwnerStudent = roles.includes("student") && request.studentId === payload.userId;
     const isTargetFaculty =
-      (roles.includes("faculty") || roles.includes("hod") || roles.includes("counselor")) &&
+      (roles.includes("faculty") ||
+        roles.includes("hod") ||
+        roles.includes("counselor") ||
+        roles.includes("principal") ||
+        roles.includes("vice_principal")) &&
       request.targetFacultyId === payload.userId;
 
     if (!isOwnerStudent && !isTargetFaculty) {
@@ -122,9 +126,16 @@ export async function PATCH(
     }
 
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.includes("faculty") && !roles.includes("hod") && !roles.includes("counselor")) {
+    const isAuthorized =
+      roles.includes("faculty") ||
+      roles.includes("hod") ||
+      roles.includes("counselor") ||
+      roles.includes("principal") ||
+      roles.includes("vice_principal");
+
+    if (!isAuthorized) {
       return NextResponse.json(
-        { success: false, error: "Forbidden: faculty role required" },
+        { success: false, error: "Forbidden: faculty or administrator role required" },
         { status: 403 }
       );
     }

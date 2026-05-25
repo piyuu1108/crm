@@ -100,7 +100,12 @@ export default function RequestsPage() {
   const limit = 15;
 
   const isStudent = activeRole === "student";
-  const isFaculty = activeRole === "faculty" || activeRole === "hod" || activeRole === "counselor";
+  const isFaculty =
+    activeRole === "faculty" ||
+    activeRole === "hod" ||
+    activeRole === "counselor" ||
+    activeRole === "principal" ||
+    activeRole === "vice_principal";
 
   const apiUrl = isStudent ? "/api/requests" : "/api/requests/faculty";
 

@@ -66,7 +66,9 @@ export default function RequestDetailPage({
   const isFaculty =
     activeRole === "faculty" ||
     activeRole === "hod" ||
-    activeRole === "counselor";
+    activeRole === "counselor" ||
+    activeRole === "principal" ||
+    activeRole === "vice_principal";
 
   // ── Fetch request detail ──────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({

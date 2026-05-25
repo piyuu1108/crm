@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
+import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import {
   circulars,
   circularRecipients,
-  students,
-  faculty,
+  divisions,
   facultySubjectAssignments,
 } from "@/app/lib/schema";
 import { desc, eq, and, or, inArray, count } from "drizzle-orm";
-import { remember, cacheTags, TTL, semesterToAcademicYear } from "@/app/lib/cache";
+import { remember, cacheTags, TTL } from "@/app/lib/cache";
 
 // ─── Cache Helpers ────────────────────────────────────────────────────────────
 
@@ -89,36 +89,47 @@ function err(message: string, status = 400) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function getCallerPayload(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return null;
-  return payload;
+/**
+ * Resolves the student's academic year (1, 2, 3) from their division's semesterNo.
+ * semesterNo is the actual semester number (1-6), NOT the database ID.
+ * Year = Math.ceil(semesterNo / 2)  →  Sem 1-2 = Year 1, Sem 3-4 = Year 2, Sem 5-6 = Year 3
+ */
+async function getStudentAcademicYear(divisionId: number): Promise<number | null> {
+  const [div] = await db
+    .select({ semesterNo: divisions.semesterNo })
+    .from(divisions)
+    .where(eq(divisions.id, divisionId))
+    .limit(1);
+  if (!div) return null;
+  return Math.ceil(div.semesterNo / 2);
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getCallerPayload(req);
-    if (!payload) return err("Unauthorized", 401);
+    const auth = await getAuthContext(req);
+    if (!auth) return err("Unauthorized", 401);
 
-    const { userId, roles: jwtRoles } = payload;
-    const roles = Array.isArray(jwtRoles) ? jwtRoles : [];
+    const { userId, activeRole } = auth;
 
     const { searchParams } = new URL(req.url);
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
-    const isGlobalAdmin = roles.includes("principal") || roles.includes("vice_principal");
-    const isHod     = roles.includes("hod");
-    const isFaculty = roles.includes("faculty") || roles.includes("counselor") || isHod || isGlobalAdmin;
-    const isStudent = roles.includes("student") && !isFaculty;
+    // Use activeRole (not roles array) for routing — respects the user's current role switch
+    const isStudent = activeRole === "student";
+    const isGlobalAdmin = hasPermission(activeRole, "dashboard.view_admin");
+    const isHod = activeRole === "hod";
+    const isFacultyLike = hasPermission(activeRole, "circulars.create");
 
-    console.log(`[GET /api/circulars] userId=${userId} roles=${JSON.stringify(roles)} isGlobalAdmin=${isGlobalAdmin} isHod=${isHod} isFaculty=${isFaculty} isStudent=${isStudent}`);
+    console.log(`[GET /api/circulars] userId=${userId} activeRole=${activeRole} isStudent=${isStudent} isGlobalAdmin=${isGlobalAdmin} isHod=${isHod} isFaculty=${isFacultyLike}`);
 
     // ── STUDENT ────────────────────────────────────────────────────────────────
     if (isStudent) {
-      const studentDivId  = payload.divisionId ?? null;
-      const studentYear   = payload.semesterId
-        ? semesterToAcademicYear(payload.semesterId)
+      const studentDivId = auth.divisionId ?? null;
+
+      // Resolve academic year from division's semesterNo (not the semester DB ID)
+      const studentYear = studentDivId
+        ? await getStudentAcademicYear(studentDivId)
         : null;
 
       // Parallel fetch cached segments
@@ -183,14 +194,14 @@ export async function GET(req: NextRequest) {
     }
 
     // ── FACULTY / COUNSELOR ────────────────────────────────────────────────────
-    if (isFaculty) {
+    if (isFacultyLike) {
       // Divisions this faculty teaches in
       const assignmentRows = await db
         .select({ divisionId: facultySubjectAssignments.divisionId })
         .from(facultySubjectAssignments)
         .where(eq(facultySubjectAssignments.facultyId, userId));
 
-      const counselorDivIds = payload.counselorDivisionIds ?? [];
+      const counselorDivIds = auth.counselorDivisionIds ?? [];
       const facultyDivisionIds = [...new Set([...assignmentRows.map((r) => r.divisionId), ...counselorDivIds])];
 
       // Parallel fetch cached segments

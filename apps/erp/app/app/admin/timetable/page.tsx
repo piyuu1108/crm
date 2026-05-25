@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 import {
   Button,
   Card,
@@ -73,15 +74,15 @@ export default function TimetableManagementPage() {
 
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { activeRole } = useAuthStore();
+  const canManage = usePermission("timetable.manage");
 
   useEffect(() => {
-    if (activeRole === "principal" || activeRole === "vice_principal") {
+    if (!canManage) {
       router.replace("/app/academics/timetable");
     }
-  }, [activeRole, router]);
+  }, [canManage, router]);
 
-  if (activeRole === "principal" || activeRole === "vice_principal") {
+  if (!canManage) {
     return (
       <div className="flex items-center justify-center h-64">
         <Spinner size="lg" color="accent" />

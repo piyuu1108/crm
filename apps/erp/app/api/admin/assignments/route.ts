@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
+import { requirePermission, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
@@ -14,11 +14,9 @@ function err(message: string, status: number) {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-    if (!auth.roles.includes("hod")) {
-      return err("Forbidden: HOD access required", 403);
-    }
+    const result = await requirePermission(req, "admin.assignments");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const courseId = requireCourseId(auth);
 
@@ -98,11 +96,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-    if (!auth.roles.includes("hod")) {
-      return err("Forbidden: HOD access required", 403);
-    }
+    const result = await requirePermission(req, "admin.assignments");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const body = await req.json();
     const { facultyId, divisionId } = body;
@@ -163,11 +159,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-    if (!auth.roles.includes("hod")) {
-      return err("Forbidden: HOD access required", 403);
-    }
+    const result = await requirePermission(req, "admin.assignments");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const body = await req.json();
     const { facultyId, divisionId } = body;

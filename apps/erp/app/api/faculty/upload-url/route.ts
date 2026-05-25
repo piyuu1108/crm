@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { s3Client, S3_BUCKET } from "@/app/lib/storage";
 
 const VALID_DOC_TYPES = ["profile_photo", "circular_attachment"] as const;
@@ -21,30 +21,9 @@ const MAX_FILE_SIZES: Record<DocType, number> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const roles = auth.roles;
-    if (
-      !roles.some(
-        (role) =>
-          role === "faculty" ||
-          role === "counselor" ||
-          role === "hod" ||
-          role === "principal" ||
-          role === "vice_principal"
-      )
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: faculty or administrator role required" },
-        { status: 403 }
-      );
-    }
+    const result = await requirePermission(req, "s3.upload_faculty");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const body = await req.json();
     const { docType, contentType, fileSize } = body;

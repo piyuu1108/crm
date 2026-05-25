@@ -6,6 +6,7 @@ import { BookOpen } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 
 interface Course {
   id: number;
@@ -21,7 +22,7 @@ export function CourseSwitcher() {
   const [courses, setCourses] = React.useState<Course[]>([]);
   const [activeCourseId, setActiveCourseId] = React.useState<string>("all");
 
-  const isGlobalAdmin = activeRole === "principal" || activeRole === "vice_principal";
+  const isGlobalAdmin = usePermission("dashboard.view_admin");
 
   React.useEffect(() => {
     if (!isGlobalAdmin) return;

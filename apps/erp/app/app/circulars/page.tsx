@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, Chip, Pagination, Skeleton } from "@heroui/react";
@@ -97,12 +98,7 @@ export default function CircularsPage() {
   const [page, setPage] = useState(1);
   const limit = 10;
 
-  const canCreate =
-    activeRole === "faculty" ||
-    activeRole === "hod" ||
-    activeRole === "counselor" ||
-    activeRole === "principal" ||
-    activeRole === "vice_principal";
+  const canCreate = usePermission("circulars.create");
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["circulars", page, limit],

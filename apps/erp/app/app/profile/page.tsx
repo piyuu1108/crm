@@ -3,11 +3,13 @@
 import React from "react";
 import { Spinner } from "@heroui/react";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { useIsFacultyLike } from "@/app/lib/hooks/use-permission";
 import { ProfileStepper as StudentProfileStepper } from "./_components/profile-stepper";
 import { FacultyProfileStepper } from "./_components/faculty-profile-stepper";
 
 export default function ProfilePage() {
-  const { user, activeRole, isHydrated } = useAuthStore();
+  const { user, isHydrated } = useAuthStore();
+  const isFacultyRole = useIsFacultyLike();
 
   if (!isHydrated || !user) {
     return (
@@ -16,22 +18,6 @@ export default function ProfilePage() {
       </div>
     );
   }
-
-  const isFacultyRole =
-    activeRole === "faculty" ||
-    activeRole === "counselor" ||
-    activeRole === "hod" ||
-    activeRole === "principal" ||
-    activeRole === "vice_principal" ||
-    (!activeRole &&
-      user.roles.some(
-        (role) =>
-          role === "faculty" ||
-          role === "counselor" ||
-          role === "hod" ||
-          role === "principal" ||
-          role === "vice_principal"
-      ));
 
   if (isFacultyRole) {
     return <FacultyProfileStepper />;

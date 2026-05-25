@@ -5,6 +5,7 @@ import { Card, Button, Spinner, Dropdown, ComboBox, Input, Label, ListBox } from
 import { Funnel, Flask } from "@gravity-ui/icons";
 import { useReadonlyTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useQuery } from "@tanstack/react-query";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -86,7 +87,7 @@ function ReadonlySlotCard({
 
 export default function AcademicsTimetablePage() {
   const { activeRole } = useAuthStore();
-  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+  const isAdmin = usePermission("timetable.view_any");
 
   const [forWhom, setForWhom] = useState<"class" | "faculty">("class");
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);

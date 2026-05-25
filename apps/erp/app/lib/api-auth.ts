@@ -1,6 +1,7 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/app/lib/auth";
+import { hasPermission, type Permission } from "@/app/lib/permissions";
 
 export interface AuthContext {
   userId: number;
@@ -145,4 +146,33 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext | nu
     isGlobal: isGlobal === true,
     activeCourseId,
   };
+}
+
+/**
+ * Asserts that the authenticated user's activeRole has the given permission.
+ * Returns the AuthContext if authorized, or a JSON error response if not.
+ *
+ * Usage in API routes:
+ *   const result = await requirePermission(req, "circulars.create");
+ *   if (result instanceof NextResponse) return result; // 401 or 403
+ *   const auth = result; // AuthContext
+ */
+export async function requirePermission(
+  req: NextRequest,
+  permission: Permission
+): Promise<AuthContext | NextResponse> {
+  const auth = await getAuthContext(req);
+  if (!auth) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized" },
+      { status: 401 }
+    );
+  }
+  if (!hasPermission(auth.activeRole, permission)) {
+    return NextResponse.json(
+      { success: false, error: "Forbidden" },
+      { status: 403 }
+    );
+  }
+  return auth;
 }

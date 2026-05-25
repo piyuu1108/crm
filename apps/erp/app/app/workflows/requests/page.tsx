@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -100,12 +101,7 @@ export default function RequestsPage() {
   const limit = 15;
 
   const isStudent = activeRole === "student";
-  const isFaculty =
-    activeRole === "faculty" ||
-    activeRole === "hod" ||
-    activeRole === "counselor" ||
-    activeRole === "principal" ||
-    activeRole === "vice_principal";
+  const isFaculty = usePermission("requests.view_assigned");
 
   const apiUrl = isStudent ? "/api/requests" : "/api/requests/faculty";
 

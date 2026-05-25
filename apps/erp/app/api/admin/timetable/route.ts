@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
+import { getAuthContext, requireCourseId, requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import {
   timetableEntries,
@@ -25,9 +25,7 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-function requireHod(roles: string[]) {
-  return roles.includes("hod") || roles.includes("admin");
-}
+
 
 // ─── GET /api/admin/timetable ─────────────────────────────────────────────────
 // Fetch all timetable entries + conflict data for a given division
@@ -35,9 +33,9 @@ function requireHod(roles: string[]) {
 
 export async function GET(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-    if (!requireHod(auth.roles)) return err("Forbidden", 403);
+    const result = await requirePermission(req, "timetable.manage");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const divisionId = req.nextUrl.searchParams.get("divisionId");
     if (!divisionId) return err("divisionId is required", 400);
@@ -214,9 +212,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await getAuthContext(req);
-    if (!auth) return err("Unauthorized", 401);
-    if (!requireHod(auth.roles)) return err("Forbidden", 403);
+    const result = await requirePermission(req, "timetable.manage");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const body = await req.json();
     const { divisionId, entries: newEntries } = body;

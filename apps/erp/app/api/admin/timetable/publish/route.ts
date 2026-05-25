@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -14,24 +14,15 @@ function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
 }
 
-async function authenticate(req: NextRequest) {
-  const payload = await getAuthContext(req);
-  if (!payload) return null;
-  return payload;
-}
+
 
 // ─── PATCH /api/admin/timetable/publish ───────────────────────────────────────
 // Toggle publish status for a division's timetable
 
 export async function PATCH(req: NextRequest) {
   try {
-    const payload = await authenticate(req);
-    if (!payload) return err("Unauthorized", 401);
-
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.includes("hod") && !roles.includes("admin")) {
-      return err("Forbidden", 403);
-    }
+    const result = await requirePermission(req, "timetable.publish");
+    if (result instanceof NextResponse) return result;
 
     const body = await req.json();
     const { divisionId, status } = body;

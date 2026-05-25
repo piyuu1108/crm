@@ -4,6 +4,7 @@ import React, { use } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 import {
   Spinner,
   Card,
@@ -63,12 +64,7 @@ export default function RequestDetailPage({
   const { activeRole, user } = useAuthStore();
 
   const isStudent = activeRole === "student";
-  const isFaculty =
-    activeRole === "faculty" ||
-    activeRole === "hod" ||
-    activeRole === "counselor" ||
-    activeRole === "principal" ||
-    activeRole === "vice_principal";
+  const isFaculty = usePermission("requests.review");
 
   // ── Fetch request detail ──────────────────────────────────────────────
   const { data, isLoading, error } = useQuery({

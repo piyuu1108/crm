@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/app/lib/db";
 import { faculty, administrators } from "@/app/lib/schema";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
+import { isAdminTableRole } from "@/app/lib/permissions";
 import {
   validateFacultyStep1,
   validateFacultyStep2,
@@ -14,38 +15,13 @@ import {
   type FacultyDocumentsData,
 } from "@/app/lib/validations/faculty-profile";
 
-async function getAuthenticatedFacultyId(req: NextRequest): Promise<number | null> {
-  const auth = await getAuthContext(req);
-  if (!auth) return null;
-  const roles = auth.roles;
-  if (
-    !roles.some(
-      (role) =>
-        role === "faculty" ||
-        role === "counselor" ||
-        role === "hod" ||
-        role === "principal" ||
-        role === "vice_principal"
-    )
-  ) {
-    return null;
-  }
-  return auth.userId;
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const facultyId = await getAuthenticatedFacultyId(req);
-    if (!facultyId) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized: faculty role required" },
-        { status: 401 }
-      );
-    }
+    const result = await requirePermission(req, "profile.edit_faculty");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
-    const auth = await getAuthContext(req);
-    const roles = auth?.roles || [];
-    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    const isAdmin = isAdminTableRole(auth.activeRole);
 
     let row;
     if (isAdmin) {
@@ -65,7 +41,7 @@ export async function POST(req: NextRequest) {
           profilePhotoUrl: administrators.profilePhotoUrl,
         })
         .from(administrators)
-        .where(eq(administrators.id, facultyId))
+        .where(eq(administrators.id, auth.userId))
         .limit(1);
       row = adminRow;
     } else {
@@ -85,7 +61,7 @@ export async function POST(req: NextRequest) {
           profilePhotoUrl: faculty.profilePhotoUrl,
         })
         .from(faculty)
-        .where(eq(faculty.id, facultyId))
+        .where(eq(faculty.id, auth.userId))
         .limit(1);
       row = facRow;
     }
@@ -155,7 +131,7 @@ export async function POST(req: NextRequest) {
           profileCompletion: "complete",
           profileStep: 5,
         })
-        .where(eq(administrators.id, facultyId));
+        .where(eq(administrators.id, auth.userId));
     } else {
       await db
         .update(faculty)
@@ -163,7 +139,7 @@ export async function POST(req: NextRequest) {
           profileCompletion: "complete",
           profileStep: 5,
         })
-        .where(eq(faculty.id, facultyId));
+        .where(eq(faculty.id, auth.userId));
     }
 
     return NextResponse.json({

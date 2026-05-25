@@ -12,6 +12,7 @@ import {
   Skeleton,
 } from "@heroui/react";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission } from "@/app/lib/hooks/use-permission";
 import {
   ArrowLeft,
   ArrowDownToLine,
@@ -90,9 +91,9 @@ export default function CircularDetailPage({
     retry: false, // Don't retry 403s
   });
 
-  const isHod = activeRole === "hod";
+  const canDeleteAny = usePermission("circulars.delete_any");
   const canDelete =
-    isHod || (data?.facultyId && data.facultyId === user?.id);
+    canDeleteAny || (data?.facultyId && data.facultyId === user?.id);
 
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this circular?")) return;

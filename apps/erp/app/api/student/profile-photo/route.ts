@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, S3_BUCKET } from "@/app/lib/storage";
 import { getAuthContext } from "@/app/lib/api-auth";
+import { hasPermission } from "@/app/lib/permissions";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -25,14 +26,13 @@ export async function GET(req: NextRequest) {
 
   if (studentMatch) {
     const studentId = Number(studentMatch[1]);
-    if (
-      auth.roles.some((role) =>
-        ["faculty", "counselor", "hod", "principal", "vice_principal"].includes(role)
-      )
-    ) {
-      // Faculty, Counselor, HOD, and Admins can view any student files
+    if (hasPermission(auth.activeRole, "s3.view_any_files")) {
+      // Global admins can view any files
       isAuthorized = true;
-    } else if (auth.roles.includes("student")) {
+    } else if (hasPermission(auth.activeRole, "s3.view_student_files")) {
+      // Faculty, Counselor, HOD can view any student files
+      isAuthorized = true;
+    } else if (hasPermission(auth.activeRole, "s3.view_own_files")) {
       // Students can only access their own files
       isAuthorized = auth.userId === studentId;
     }
@@ -40,23 +40,16 @@ export async function GET(req: NextRequest) {
     const facultyId = Number(facultyMatch[1]);
     const isCircular = key.includes("/circular_attachment_");
 
-    if (
-      auth.roles.some((role) =>
-        ["faculty", "counselor", "hod", "principal", "vice_principal"].includes(role)
-      )
-    ) {
-      if (
-        auth.roles.includes("hod") ||
-        auth.roles.includes("principal") ||
-        auth.roles.includes("vice_principal")
-      ) {
-        // HOD and Admins can view any faculty files
-        isAuthorized = true;
-      } else {
-        // Other faculty can view circulars or their own files
-        isAuthorized = isCircular || auth.userId === facultyId;
-      }
-    } else if (auth.roles.includes("student")) {
+    if (hasPermission(auth.activeRole, "s3.view_any_files")) {
+      // Global admins can view any files
+      isAuthorized = true;
+    } else if (hasPermission(auth.activeRole, "s3.view_faculty_files")) {
+      // HOD can view any faculty files
+      isAuthorized = true;
+    } else if (hasPermission(auth.activeRole, "s3.view_student_files")) {
+      // Other faculty can view circulars or their own files
+      isAuthorized = isCircular || auth.userId === facultyId;
+    } else if (auth.activeRole === "student") {
       // Students can view circulars
       isAuthorized = isCircular;
     }

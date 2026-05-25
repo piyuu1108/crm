@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
+import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty } from "@/app/lib/schema";
 import { eq, and, desc, count, sql } from "drizzle-orm";
@@ -12,28 +13,9 @@ import { eq, and, desc, count, sql } from "drizzle-orm";
  */
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
-
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    const isAuthorized =
-      roles.includes("faculty") ||
-      roles.includes("hod") ||
-      roles.includes("counselor") ||
-      roles.includes("principal") ||
-      roles.includes("vice_principal");
-
-    if (!isAuthorized) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: faculty or administrator role required" },
-        { status: 403 }
-      );
-    }
+    const result = await requirePermission(req, "requests.view_assigned");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
@@ -42,9 +24,9 @@ export async function GET(req: NextRequest) {
 
     // Build conditions
     const conditions = [];
-    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
-    if (!isAdmin) {
-      conditions.push(eq(studentRequests.targetFacultyId, payload.userId));
+    const canViewAll = hasPermission(auth.activeRole, "requests.view_all");
+    if (!canViewAll) {
+      conditions.push(eq(studentRequests.targetFacultyId, auth.userId));
     }
     if (status && ["pending", "approved", "rejected"].includes(status)) {
       conditions.push(eq(studentRequests.status, status));

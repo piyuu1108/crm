@@ -15,6 +15,7 @@ import {
   Spinner,
 } from "@heroui/react";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { usePermission, useIsAdminTable } from "@/app/lib/hooks/use-permission";
 import { RichTextEditor } from "../components/rich-text-editor";
 import { ArrowLeft, ArrowUpToLine, File } from "@gravity-ui/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -61,14 +62,9 @@ export default function CreateCircularPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const canCreate =
-    activeRole === "faculty" ||
-    activeRole === "hod" ||
-    activeRole === "counselor" ||
-    activeRole === "principal" ||
-    activeRole === "vice_principal";
+  const canCreate = usePermission("circulars.create");
 
-  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+  const isAdmin = useIsAdminTable();
   const audienceOptions = isAdmin
     ? AUDIENCE_OPTIONS.filter((o) => o.id === "ALL" || o.id === "FACULTY")
     : AUDIENCE_OPTIONS;

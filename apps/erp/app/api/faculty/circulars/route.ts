@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthContext } from "@/app/lib/api-auth";
+import { requirePermission } from "@/app/lib/api-auth";
+import { isAdminTableRole } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
@@ -14,14 +15,11 @@ function err(message: string, status = 400) {
 
 export async function POST(req: NextRequest) {
   try {
-    const payload = await getAuthContext(req);
-    if (!payload) return err("Unauthorized", 401);
+    const result = await requirePermission(req, "circulars.create");
+    if (result instanceof NextResponse) return result;
+    const auth = result;
 
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    const isGlobalAdmin = roles.includes("principal") || roles.includes("vice_principal");
-    if (!isGlobalAdmin && !roles.some((r) => r === "faculty" || r === "counselor" || r === "hod")) {
-      return err("Forbidden: faculty or administrator role required", 403);
-    }
+    const isGlobalAdmin = isAdminTableRole(auth.activeRole);
 
     const body = await req.json();
     const {
@@ -68,7 +66,7 @@ export async function POST(req: NextRequest) {
       const [adminData] = await db
         .select({ name: administrators.name })
         .from(administrators)
-        .where(eq(administrators.id, payload.userId))
+        .where(eq(administrators.id, auth.userId))
         .limit(1);
       if (!adminData) return err("Administrator not found", 404);
       creatorName = adminData.name;
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
       const [facultyData] = await db
         .select({ name: faculty.name })
         .from(faculty)
-        .where(eq(faculty.id, payload.userId))
+        .where(eq(faculty.id, auth.userId))
         .limit(1);
       if (!facultyData) return err("Faculty not found", 404);
       creatorName = facultyData.name;
@@ -104,8 +102,8 @@ export async function POST(req: NextRequest) {
         attachmentSize: attachmentSize ?? null,
         targetType,
         targetYear: targetType === "YEAR" ? Number(targetYear) : null,
-        facultyId: isGlobalAdmin ? null : payload.userId,
-        adminId: isGlobalAdmin ? payload.userId : null,
+        facultyId: isGlobalAdmin ? null : auth.userId,
+        adminId: isGlobalAdmin ? auth.userId : null,
         facultyName: creatorName,
       })
       .returning();

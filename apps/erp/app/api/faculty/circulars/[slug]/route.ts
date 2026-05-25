@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
+import { hasPermission } from "@/app/lib/permissions";
 import { db } from "@/app/lib/db";
 import { circulars, circularRecipients } from "@/app/lib/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 
 export async function DELETE(
@@ -11,23 +12,24 @@ export async function DELETE(
 ) {
   try {
     const { slug } = await params;
-    const payload = await getAuthContext(req);
-    if (!payload) {
+    const auth = await getAuthContext(req);
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
         { status: 401 }
       );
     }
 
-    const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.some((role) => role === "faculty" || role === "counselor" || role === "hod")) {
+    // Must have at least the ability to delete own circulars
+    if (
+      !hasPermission(auth.activeRole, "circulars.delete_own") &&
+      !hasPermission(auth.activeRole, "circulars.delete_any")
+    ) {
       return NextResponse.json(
         { success: false, error: "Forbidden: faculty role required" },
         { status: 403 }
       );
     }
-
-    const isHod = roles.includes("hod");
 
     // Retrieve circular to ensure it exists and we can delete it
     const [existing] = await db
@@ -39,8 +41,9 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "Circular not found" }, { status: 404 });
     }
 
-    // Only allow HOD to delete ANY circular, faculty can only delete their own
-    if (!isHod && existing.facultyId !== payload.userId) {
+    // Only allow delete_any (HOD+) to delete ANY circular; others can only delete their own
+    const canDeleteAny = hasPermission(auth.activeRole, "circulars.delete_any");
+    if (!canDeleteAny && existing.facultyId !== auth.userId) {
       return NextResponse.json(
         { success: false, error: "Forbidden: You can only delete your own circulars" },
         { status: 403 }

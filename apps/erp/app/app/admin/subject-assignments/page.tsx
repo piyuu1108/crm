@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,6 +9,7 @@ import {
   Dropdown,
   Label,
   useOverlayState,
+  Spinner,
 } from "@heroui/react";
 import { Plus, Funnel } from "@gravity-ui/icons";
 import {
@@ -41,10 +42,24 @@ export default function SubjectAssignmentsPage() {
   const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
 
   const [divisionFilter, setDivisionFilter] = useState("");
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAdmin) {
+      router.replace("/app/dashboard");
+    }
+  }, [isAdmin, router]);
+
+  if (isAdmin) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner size="lg" color="accent" />
+      </div>
+    );
+  }
 
   const drawerState = useOverlayState();
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   const params: SubjectAssignmentsParams = useMemo(
     () => ({

@@ -19,8 +19,13 @@ async function authorize(req: NextRequest) {
   if (!payload) return { error: err("Unauthorized", 401) };
 
   const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
+  const isAuthorized =
+    rolesArray.includes("hod") ||
+    rolesArray.includes("principal") ||
+    rolesArray.includes("vice_principal");
+
+  if (!isAuthorized) {
+    return { error: err("Forbidden: Administrator access required", 403) };
   }
 
   return { payload };

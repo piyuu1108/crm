@@ -134,17 +134,17 @@ export const navigationConfig: NavSection[] = [
       {
         title: "Assignments",
         icon: ListChecks,
-        roles: ["hod", "admin", "principal", "vice_principal"],
+        roles: ["hod", "admin"],
         children: [
           {
             title: "Counselor",
             href: "/app/admin/assignments",
-            roles: ["hod", "admin", "principal", "vice_principal"],
+            roles: ["hod", "admin"],
           },
           {
             title: "Subject",
             href: "/app/admin/subject-assignments",
-            roles: ["hod", "admin", "principal", "vice_principal"],
+            roles: ["hod", "admin"],
           },
         ],
       },

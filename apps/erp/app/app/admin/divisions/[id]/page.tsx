@@ -522,106 +522,121 @@ export default function DivisionDetailPage() {
       </Card>
 
       {/* ── Tabs ───────────────────────────────────────────────── */}
-      <Tabs>
-        <Tabs.List>
-          <Tabs.Tab id="students">Students ({division.students.length})</Tabs.Tab>
-          {!isAdmin && <Tabs.Tab id="upload">CSV Upload</Tabs.Tab>}
-        </Tabs.List>
+      {isAdmin ? (
+        <div className="mt-4">
+          <DataTable
+            data={division.students}
+            columns={columns}
+            initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => c !== "actions")}
+            searchKeys={["studentId", "fullName", "email"]}
+            searchPlaceholder="Search students..."
+            renderCell={renderCell}
+            localStorageKey={`division_${divisionId}_students_table`}
+            selectionMode="none"
+            selectedKeys={selectedStudentIds}
+            onSelectionChange={setSelectedStudentIds}
+          />
+        </div>
+      ) : (
+        <Tabs>
+          <Tabs.List>
+            <Tabs.Tab id="students">Students ({division.students.length})</Tabs.Tab>
+            <Tabs.Tab id="upload">CSV Upload</Tabs.Tab>
+          </Tabs.List>
 
-        {/* ── Students Tab ──────────────────────────────────────── */}
-        <Tabs.Panel id="students">
-          {division.students.length === 0 ? (
-            <Card className="border border-divider p-8 text-center mt-4">
-              <Card.Content className="flex flex-col items-center gap-3">
-                <div className="text-4xl">👨‍🎓</div>
-                <p className="text-sm text-muted-foreground">
-                  No students in this division yet — use the CSV Upload tab to add students
-                </p>
-              </Card.Content>
-            </Card>
-          ) : (
-            <div className="mt-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {selectedCount > 0
-                    ? `${selectedCount} selected`
-                    : "Select students to run bulk actions"}
-                </p>
-                {!isAdmin && selectedCount > 0 && (
-                  <StudentActionsMenu
-                    variant="secondary"
-                    ariaLabel="Bulk student actions"
-                    actions={bulkActions.map((action) => ({
-                      id: action.id,
-                      label: action.label,
-                      isDisabled: action.isDisabled || bulkEmailMutation.isPending,
-                      onAction: action.onPress,
-                    }))}
-                  />
-                )}
-              </div>
+          {/* ── Students Tab ──────────────────────────────────────── */}
+          <Tabs.Panel id="students">
+            {division.students.length === 0 ? (
+              <Card className="border border-divider p-8 text-center mt-4">
+                <Card.Content className="flex flex-col items-center gap-3">
+                  <div className="text-4xl">👨‍🎓</div>
+                  <p className="text-sm text-muted-foreground">
+                    No students in this division yet — use the CSV Upload tab to add students
+                  </p>
+                </Card.Content>
+              </Card>
+            ) : (
+              <div className="mt-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {selectedCount > 0
+                      ? `${selectedCount} selected`
+                      : "Select students to run bulk actions"}
+                  </p>
+                  {selectedCount > 0 && (
+                    <StudentActionsMenu
+                      variant="secondary"
+                      ariaLabel="Bulk student actions"
+                      actions={bulkActions.map((action) => ({
+                        id: action.id,
+                        label: action.label,
+                        isDisabled: action.isDisabled || bulkEmailMutation.isPending,
+                        onAction: action.onPress,
+                      }))}
+                    />
+                  )}
+                </div>
 
-              {emailJobProgress && (
-                <Card className="mb-4 border border-accent/20 bg-accent/5">
-                  <Card.Content className="p-4 text-sm flex flex-col gap-2 relative">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          Bulk Password Emails Progress
-                        </p>
-                        <p className="text-muted-foreground mt-0.5">
-                          Sent: <span className="font-medium text-foreground">{emailJobProgress.sent}</span> / {emailJobProgress.total}
-                        </p>
-                        <p className="text-muted-foreground">
-                          Failed: <span className="font-medium text-danger">{emailJobProgress.failed}</span>
-                        </p>
+                {emailJobProgress && (
+                  <Card className="mb-4 border border-accent/20 bg-accent/5">
+                    <Card.Content className="p-4 text-sm flex flex-col gap-2 relative">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            Bulk Password Emails Progress
+                          </p>
+                          <p className="text-muted-foreground mt-0.5">
+                            Sent: <span className="font-medium text-foreground">{emailJobProgress.sent}</span> / {emailJobProgress.total}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Failed: <span className="font-medium text-danger">{emailJobProgress.failed}</span>
+                          </p>
+                        </div>
+                        {emailJobProgress.status === "completed" && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="shrink-0"
+                            onPress={handleClearEmailJob}
+                          >
+                            Remove Progress
+                          </Button>
+                        )}
                       </div>
-                      {emailJobProgress.status === "completed" && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="shrink-0"
-                          onPress={handleClearEmailJob}
-                        >
-                          Remove Progress
-                        </Button>
+                      {emailJobProgress.failedEmails && emailJobProgress.failedEmails.length > 0 && (
+                        <div className="mt-2 border-t border-divider pt-2">
+                          <p className="font-medium text-danger text-xs mb-1">Failed Recipients:</p>
+                          <ul className="list-disc pl-4 text-xs text-muted-foreground flex flex-col gap-0.5">
+                            {emailJobProgress.failedEmails.map((email) => (
+                              <li key={email}>{email}</li>
+                            ))}
+                          </ul>
+                        </div>
                       )}
-                    </div>
-                    {emailJobProgress.failedEmails && emailJobProgress.failedEmails.length > 0 && (
-                      <div className="mt-2 border-t border-divider pt-2">
-                        <p className="font-medium text-danger text-xs mb-1">Failed Recipients:</p>
-                        <ul className="list-disc pl-4 text-xs text-muted-foreground flex flex-col gap-0.5">
-                          {emailJobProgress.failedEmails.map((email) => (
-                            <li key={email}>{email}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </Card.Content>
-                </Card>
-              )}
+                    </Card.Content>
+                  </Card>
+                )}
 
-              <DataTable
-                data={division.students}
-                columns={columns}
-                initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => !isAdmin || c !== "actions")}
-                searchKeys={["studentId", "fullName", "email"]}
-                searchPlaceholder="Search students..."
-                renderCell={renderCell}
-                localStorageKey={`division_${divisionId}_students_table`}
-                selectionMode={isAdmin ? "none" : "multiple"}
-                selectedKeys={selectedStudentIds}
-                onSelectionChange={setSelectedStudentIds}
-                onRowAction={(key) =>
-                  router.push(`/app/admin/divisions/${divisionId}/students/${Number(key)}`)
-                }
-              />
-            </div>
-          )}
-        </Tabs.Panel>
+                <DataTable
+                  data={division.students}
+                  columns={columns}
+                  initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => c !== "actions")}
+                  searchKeys={["studentId", "fullName", "email"]}
+                  searchPlaceholder="Search students..."
+                  renderCell={renderCell}
+                  localStorageKey={`division_${divisionId}_students_table`}
+                  selectionMode="multiple"
+                  selectedKeys={selectedStudentIds}
+                  onSelectionChange={setSelectedStudentIds}
+                  onRowAction={(key) =>
+                    router.push(`/app/admin/divisions/${divisionId}/students/${Number(key)}`)
+                  }
+                />
+              </div>
+            )}
+          </Tabs.Panel>
 
-        {/* ── CSV Upload Tab ────────────────────────────────────── */}
-        {!isAdmin && (
+          {/* ── CSV Upload Tab ────────────────────────────────────── */}
           <Tabs.Panel id="upload">
             <div className="flex flex-col gap-5 mt-4">
               {/* Next available ID info */}
@@ -807,8 +822,8 @@ export default function DivisionDetailPage() {
               )}
             </div>
           </Tabs.Panel>
-        )}
-      </Tabs>
+        </Tabs>
+      )}
 
       {!isAdmin && (
         <EditStudentModal

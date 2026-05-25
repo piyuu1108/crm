@@ -209,7 +209,7 @@ export default function SubjectsPage() {
 
   const columns = useMemo(() => {
     if (isAdmin) {
-      return COLUMNS.filter((col) => col.uid !== "actions");
+      return COLUMNS.filter((col) => col.uid !== "actions" && col.uid !== "assignments");
     }
     return COLUMNS;
   }, [isAdmin]);
@@ -356,7 +356,7 @@ export default function SubjectsPage() {
       <DataTable
         data={data || []}
         columns={columns}
-        initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => !isAdmin || c !== "actions")}
+        initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => !isAdmin || (c !== "actions" && c !== "assignments"))}
         searchKeys={["code", "name", "shortCode"]}
         searchPlaceholder="Search by code or name..."
         renderCell={renderCell}

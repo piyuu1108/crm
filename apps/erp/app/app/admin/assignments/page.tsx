@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Button,
   Card,
@@ -26,8 +27,23 @@ const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
 export default function AssignmentsPage() {
   const { activeRole } = useAuthStore();
   const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isAdmin) {
+      router.replace("/app/dashboard");
+    }
+  }, [isAdmin, router]);
 
   const { data, isLoading, isError, error, refetch } = useAssignmentsQuery();
+
+  if (isAdmin) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner size="lg" color="accent" />
+      </div>
+    );
+  }
   const deleteMutation = useDeleteAssignmentMutation();
 
   const drawerState = useOverlayState();

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthContext, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { subjects, facultySubjectAssignments, divisions, faculty } from "@/app/lib/schema";
-import { eq, count, inArray } from "drizzle-orm";
+import { eq, count, inArray, and } from "drizzle-orm";
 import { validateSubjectForm, type SubjectFormData } from "@/app/lib/validations/subject";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -17,13 +17,14 @@ function err(message: string, status: number, errors?: Record<string, string>) {
   );
 }
 
-async function authorize(req: NextRequest) {
+async function authorize(req: NextRequest, allowedRoles: string[] = ["hod"]) {
   const payload = await getAuthContext(req);
   if (!payload) return { error: err("Unauthorized", 401) };
 
   const rolesArray = payload.roles;
-  if (!rolesArray.includes("hod")) {
-    return { error: err("Forbidden: HOD access required", 403) };
+  const isAuthorized = allowedRoles.some((role) => rolesArray.includes(role));
+  if (!isAuthorized) {
+    return { error: err("Forbidden: Access denied", 403) };
   }
 
   return { payload };
@@ -32,12 +33,23 @@ async function authorize(req: NextRequest) {
 // ─── GET /api/admin/subjects — List subjects scoped to HOD's course ────────────
 export async function GET(req: NextRequest) {
   try {
-    const auth = await authorize(req);
+    const auth = await authorize(req, ["hod", "principal", "vice_principal"]);
     if ("error" in auth && auth.error) return auth.error;
 
-    const courseId = requireCourseId(auth.payload!);
+    let courseId: number | "all" | undefined;
+    if (auth.payload?.isGlobal) {
+      courseId = auth.payload.activeCourseId;
+    } else {
+      courseId = requireCourseId(auth.payload!);
+    }
 
-    // Fetch subjects scoped to this HOD's course
+    const conditions = [];
+    if (courseId && courseId !== "all") {
+      conditions.push(eq(subjects.courseId, courseId));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    // Fetch subjects scoped to this HOD's or Admin's course
     const rows = await db
       .select({
         id: subjects.id,
@@ -56,7 +68,7 @@ export async function GET(req: NextRequest) {
         createdAt: subjects.createdAt,
       })
       .from(subjects)
-      .where(eq(subjects.courseId, courseId))
+      .where(whereClause)
       .orderBy(subjects.code);
 
     const subjectIds = rows.map((r) => r.id);

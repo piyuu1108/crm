@@ -116,7 +116,7 @@ export async function GET(req: NextRequest) {
 
     // Group matching entries day by day
     const result = dates.map((d) => {
-      const dayName = DAYS_OF_WEEK[d.getDay()];
+      const dayName = DAYS_OF_WEEK[d.getUTCDay()];
       const dateStr = d.toISOString().split("T")[0];
 
       const matchingEntries = entries

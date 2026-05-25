@@ -9,6 +9,7 @@ import {
   timetableEntries,
   rooms,
   students,
+  timetableSlots,
 } from "@/app/lib/schema";
 import { publishNotification } from "@/app/lib/notifications";
 import { SimplifiedPayload, ValidationError } from "./timetable-validator";
@@ -107,11 +108,11 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
   });
 
   const slotTimes: Record<number, { start: string; end: string }> = {
-    1: { start: "07:50:00", end: "08:40:00" },
-    2: { start: "08:40:00", end: "09:30:00" },
-    3: { start: "09:40:00", end: "10:30:00" },
-    4: { start: "10:30:00", end: "11:20:00" },
-    5: { start: "11:20:00", end: "12:30:00" },
+    1: { start: "07:55:00", end: "08:50:00" },
+    2: { start: "08:50:00", end: "09:40:00" },
+    3: { start: "09:50:00", end: "10:40:00" },
+    4: { start: "10:40:00", end: "11:30:00" },
+    5: { start: "11:30:00", end: "12:20:00" },
   };
 
   try {
@@ -220,6 +221,13 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
       const resolvedEntries: (typeof timetableEntries.$inferInsert)[] = [];
       const publishId = `pub_${Date.now()}`;
 
+      // Fetch all slots from DB to map times to slotId
+      const slots = await tx.select().from(timetableSlots);
+      const slotMap = new Map<string, number>();
+      slots.forEach((s) => {
+        slotMap.set(s.startTime, s.id);
+      });
+
       for (const p of payloads) {
         const f = facultyMap.get(p.facultyCode)!;
         const s = subjectMap.get(p.subjectCode)!;
@@ -234,6 +242,7 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
 
         for (const l of p.lectures) {
           const times = slotTimes[l.slot] || { start: "00:00:00", end: "00:00:00" };
+          const resolvedSlotId = slotMap.get(times.start) || null;
           
           resolvedEntries.push({
             semesterId: c.semesterId,
@@ -242,6 +251,7 @@ export async function processTimetablePublish(payloads: SimplifiedPayload[]) {
             dayOfWeek: l.day.charAt(0) + l.day.slice(1).toLowerCase(), // e.g. "Monday"
             startTime: times.start,
             endTime: times.end,
+            slotId: resolvedSlotId,
             isLab: !!l.lab,
             labId: l.lab || null,
             isActive: true,

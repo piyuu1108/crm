@@ -21,11 +21,11 @@ import type { ConflictResult, FacultyConflict } from "./use-conflict-map";
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export const FIXED_TIME_SLOTS = [
-  { start: "07:50", end: "08:40", label: "07:50 – 08:40" },
-  { start: "08:40", end: "09:30", label: "08:40 – 09:30" },
-  { start: "09:40", end: "10:30", label: "09:40 – 10:30" },
-  { start: "10:30", end: "11:20", label: "10:30 – 11:20" },
-  { start: "11:20", end: "12:30", label: "11:20 – 12:30" },
+  { start: "07:55", end: "08:50", label: "07:55 – 08:50" },
+  { start: "08:50", end: "09:40", label: "08:50 – 09:40" },
+  { start: "09:50", end: "10:40", label: "09:50 – 10:40" },
+  { start: "10:40", end: "11:30", label: "10:40 – 11:30" },
+  { start: "11:30", end: "12:20", label: "11:30 – 12:20" },
 ];
 
 const COLOR_OPTIONS = [

@@ -54,7 +54,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const dayName = DAYS_OF_WEEK[dateVal.getDay()];
+    // Safely get the day name in UTC to avoid local timezone shifts
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const utcDate = new Date(Date.UTC(year, month - 1, day));
+    const dayName = DAYS_OF_WEEK[utcDate.getUTCDay()];
 
     // 1. Fetch all active faculties
     const allFaculties = await db

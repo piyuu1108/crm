@@ -10,11 +10,11 @@ import { useQuery } from "@tanstack/react-query";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FIXED_TIME_SLOTS = [
-  { start: "07:50", end: "08:40" },
-  { start: "08:40", end: "09:30" },
-  { start: "09:40", end: "10:30" },
-  { start: "10:30", end: "11:20" },
-  { start: "11:20", end: "12:30" },
+  { start: "07:55", end: "08:50" },
+  { start: "08:50", end: "09:40" },
+  { start: "09:50", end: "10:40" },
+  { start: "10:40", end: "11:30" },
+  { start: "11:30", end: "12:20" },
 ];
 
 import { useTimetableColors, type Palette } from "@/app/lib/hooks/use-timetable-colors";

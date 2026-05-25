@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { Card, Button, Spinner, Dropdown } from "@heroui/react";
+import { Card, Button, Spinner, Dropdown, ComboBox, Input, Label, ListBox } from "@heroui/react";
 import { Funnel, Flask } from "@gravity-ui/icons";
 import { useReadonlyTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
@@ -183,7 +183,7 @@ export default function AcademicsTimetablePage() {
       return found ? found.displayName : "";
     } else {
       const found = facultyList.find((f: any) => f.id === selectedTargetId);
-      return found ? found.name : "";
+      return found ? (found.facultyCode ? `${found.facultyCode} - ${found.name}` : found.name) : "";
     }
   }, [selectedTargetId, forWhom, divisions, facultyList]);
 
@@ -309,42 +309,43 @@ export default function AcademicsTimetablePage() {
               <span className="text-xs text-muted-foreground font-medium">
                 Select {forWhom === "class" ? "Class" : "Faculty"}
               </span>
-              <Dropdown>
-                <Button
-                  variant="secondary"
-                  className="min-w-[200px] justify-between"
-                  isDisabled={forWhom === "class" ? divisions.length === 0 : facultyList.length === 0}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Funnel className="size-4" />
-                    {selectedTargetLabel || `Select ${forWhom === "class" ? "Class" : "Faculty"}`}
-                  </div>
-                </Button>
-                <Dropdown.Popover className="min-w-[200px] max-h-[300px] overflow-auto">
-                  <Dropdown.Menu
-                    selectionMode="single"
-                    selectedKeys={selectedTargetId ? new Set([selectedTargetId.toString()]) : new Set()}
-                    onSelectionChange={(keys) => {
-                      const keyStr = Array.from(keys)[0] as string;
-                      if (keyStr) {
-                        setSelectedTargetId(parseInt(keyStr, 10));
-                      }
-                    }}
-                  >
+              <ComboBox
+                className="min-w-[220px]"
+                isDisabled={forWhom === "class" ? divisions.length === 0 : facultyList.length === 0}
+                selectedKey={selectedTargetId ? selectedTargetId.toString() : null}
+                onSelectionChange={(key) => {
+                  if (key) {
+                    setSelectedTargetId(parseInt(String(key), 10));
+                  } else {
+                    setSelectedTargetId(null);
+                  }
+                }}
+              >
+                <ComboBox.InputGroup>
+                  <Input placeholder={`Search ${forWhom === "class" ? "class" : "faculty"}...`} />
+                  <ComboBox.Trigger />
+                </ComboBox.InputGroup>
+                <ComboBox.Popover className="min-w-[220px] max-h-[300px] overflow-auto">
+                  <ListBox>
                     {forWhom === "class"
                       ? divisions.map((div: any) => (
-                          <Dropdown.Item key={div.id.toString()} id={div.id.toString()} textValue={div.displayName}>
+                          <ListBox.Item key={div.id.toString()} id={div.id.toString()} textValue={div.displayName}>
                             {div.displayName}
-                          </Dropdown.Item>
+                            <ListBox.ItemIndicator />
+                          </ListBox.Item>
                         ))
-                      : facultyList.map((fac: any) => (
-                          <Dropdown.Item key={fac.id.toString()} id={fac.id.toString()} textValue={fac.name}>
-                            {fac.name} ({fac.designation || "Faculty"})
-                          </Dropdown.Item>
-                        ))}
-                  </Dropdown.Menu>
-                </Dropdown.Popover>
-              </Dropdown>
+                      : facultyList.map((fac: any) => {
+                          const displayLabel = fac.facultyCode ? `${fac.facultyCode} - ${fac.name}` : fac.name;
+                          return (
+                            <ListBox.Item key={fac.id.toString()} id={fac.id.toString()} textValue={displayLabel}>
+                              {displayLabel}
+                              <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                          );
+                        })}
+                  </ListBox>
+                </ComboBox.Popover>
+              </ComboBox>
             </div>
           </div>
         )}

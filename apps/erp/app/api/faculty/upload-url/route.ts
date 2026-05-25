@@ -30,9 +30,18 @@ export async function POST(req: NextRequest) {
     }
 
     const roles = auth.roles;
-    if (!roles.some((role) => role === "faculty" || role === "counselor" || role === "hod")) {
+    if (
+      !roles.some(
+        (role) =>
+          role === "faculty" ||
+          role === "counselor" ||
+          role === "hod" ||
+          role === "principal" ||
+          role === "vice_principal"
+      )
+    ) {
       return NextResponse.json(
-        { success: false, error: "Forbidden: faculty role required" },
+        { success: false, error: "Forbidden: faculty or administrator role required" },
         { status: 403 }
       );
     }

@@ -537,6 +537,16 @@ export const administrators = pgTable("administrators", {
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
   mustChangePwd: boolean("must_change_pwd").notNull().default(true),
   designation: varchar("designation", { length: 100 }).notNull(), // "principal" | "vice_principal"
+  gender: varchar("gender", { length: 10 }),
+  dob: date("dob"),
+  address: jsonb("address").$type<FacultyAddress>(),
+  alternateMobile: varchar("alternate_mobile", { length: 15 }),
+  profilePhotoUrl: varchar("profile_photo_url", { length: 255 }),
+  qualification: varchar("qualification", { length: 100 }),
+  experienceYears: integer("experience_years"),
+  specialization: varchar("specialization", { length: 150 }),
+  profileCompletion: varchar("profile_completion", { length: 20 }).notNull().default("incomplete"), // "incomplete" | "complete"
+  profileStep: integer("profile_step").notNull().default(1),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

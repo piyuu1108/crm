@@ -21,8 +21,17 @@ export default function ProfilePage() {
     activeRole === "faculty" ||
     activeRole === "counselor" ||
     activeRole === "hod" ||
+    activeRole === "principal" ||
+    activeRole === "vice_principal" ||
     (!activeRole &&
-      user.roles.some((role) => role === "faculty" || role === "counselor" || role === "hod"));
+      user.roles.some(
+        (role) =>
+          role === "faculty" ||
+          role === "counselor" ||
+          role === "hod" ||
+          role === "principal" ||
+          role === "vice_principal"
+      ));
 
   if (isFacultyRole) {
     return <FacultyProfileStepper />;

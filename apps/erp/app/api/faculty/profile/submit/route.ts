@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/app/lib/db";
-import { faculty } from "@/app/lib/schema";
+import { faculty, administrators } from "@/app/lib/schema";
 import { getAuthContext } from "@/app/lib/api-auth";
 import {
   validateFacultyStep1,
@@ -18,7 +18,16 @@ async function getAuthenticatedFacultyId(req: NextRequest): Promise<number | nul
   const auth = await getAuthContext(req);
   if (!auth) return null;
   const roles = auth.roles;
-  if (!roles.some((role) => role === "faculty" || role === "counselor" || role === "hod")) {
+  if (
+    !roles.some(
+      (role) =>
+        role === "faculty" ||
+        role === "counselor" ||
+        role === "hod" ||
+        role === "principal" ||
+        role === "vice_principal"
+    )
+  ) {
     return null;
   }
   return auth.userId;
@@ -34,29 +43,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch full faculty record in a single query
-    const [row] = await db
-      .select({
-        id: faculty.id,
-        name: faculty.name,
-        dob: faculty.dob,
-        gender: faculty.gender,
-        mobile: faculty.mobile,
-        alternateMobile: faculty.alternateMobile,
-        address: faculty.address,
-        qualification: faculty.qualification,
-        experienceYears: faculty.experienceYears,
-        specialization: faculty.specialization,
-        designation: faculty.designation,
-        profilePhotoUrl: faculty.profilePhotoUrl,
-      })
-      .from(faculty)
-      .where(eq(faculty.id, facultyId))
-      .limit(1);
+    const auth = await getAuthContext(req);
+    const roles = auth?.roles || [];
+    const isAdmin = roles.includes("principal") || roles.includes("vice_principal");
+
+    let row;
+    if (isAdmin) {
+      const [adminRow] = await db
+        .select({
+          id: administrators.id,
+          name: administrators.name,
+          dob: administrators.dob,
+          gender: administrators.gender,
+          mobile: administrators.mobile,
+          alternateMobile: administrators.alternateMobile,
+          address: administrators.address,
+          qualification: administrators.qualification,
+          experienceYears: administrators.experienceYears,
+          specialization: administrators.specialization,
+          designation: administrators.designation,
+          profilePhotoUrl: administrators.profilePhotoUrl,
+        })
+        .from(administrators)
+        .where(eq(administrators.id, facultyId))
+        .limit(1);
+      row = adminRow;
+    } else {
+      const [facRow] = await db
+        .select({
+          id: faculty.id,
+          name: faculty.name,
+          dob: faculty.dob,
+          gender: faculty.gender,
+          mobile: faculty.mobile,
+          alternateMobile: faculty.alternateMobile,
+          address: faculty.address,
+          qualification: faculty.qualification,
+          experienceYears: faculty.experienceYears,
+          specialization: faculty.specialization,
+          designation: faculty.designation,
+          profilePhotoUrl: faculty.profilePhotoUrl,
+        })
+        .from(faculty)
+        .where(eq(faculty.id, facultyId))
+        .limit(1);
+      row = facRow;
+    }
 
     if (!row) {
       return NextResponse.json(
-        { success: false, error: "Faculty not found" },
+        { success: false, error: "Profile not found" },
         { status: 404 }
       );
     }
@@ -112,13 +148,23 @@ export async function POST(req: NextRequest) {
     }
 
     // Persist completion state
-    await db
-      .update(faculty)
-      .set({
-        profileCompletion: "complete",
-        profileStep: 5,
-      })
-      .where(eq(faculty.id, facultyId));
+    if (isAdmin) {
+      await db
+        .update(administrators)
+        .set({
+          profileCompletion: "complete",
+          profileStep: 5,
+        })
+        .where(eq(administrators.id, facultyId));
+    } else {
+      await db
+        .update(faculty)
+        .set({
+          profileCompletion: "complete",
+          profileStep: 5,
+        })
+        .where(eq(faculty.id, facultyId));
+    }
 
     return NextResponse.json({
       success: true,

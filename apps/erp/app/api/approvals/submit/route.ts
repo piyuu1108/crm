@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Notify proxy faculties about their assignments
+    // Notify proxy faculties about their assignments (Pre-mature selection notification)
     if (requestTypeCode === "leave_approval" && proxies.length > 0) {
       proxies.forEach((p: any) => {
         publishNotification({

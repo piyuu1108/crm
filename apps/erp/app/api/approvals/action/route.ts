@@ -8,6 +8,8 @@ import {
   faculty,
   timetableSlots,
   administrators,
+  divisions,
+  subjects,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
@@ -220,8 +222,8 @@ export async function POST(req: NextRequest) {
 
           // Notification 1: Requesting Faculty
           publishNotification({
-            title: "Proxy Assignment Updated by Approver",
-            message: `Your lecture on ${originalProxy.date} for ${slotLabel} has been reassigned to ${newFaculty?.name || "new faculty"} (overridden from ${oldFaculty?.name || "previous"}).`,
+            title: "Proxy Override by Approver",
+            message: `${activeRole.toUpperCase()} ${approverName} changed proxy from ${oldFaculty?.name || "previous"} to ${newFaculty?.name || "new faculty"} for your ${slotLabel} lecture on ${originalProxy.date}.`,
             notificationType: "approval",
             receiverUserId: request.facultyId,
             receiverRole: "faculty",
@@ -270,8 +272,8 @@ export async function POST(req: NextRequest) {
       if (updatedRequest.isFinalized) {
         // Request fully approved
         publishNotification({
-          title: "Leave/WFH Request Approved",
-          message: `Your request for ${request.fromDate} to ${request.toDate} has been fully approved by HOD & Principal.`,
+          title: "Leave/WFH Request Fully Approved",
+          message: `Principal ${approverName} has approved your leave/WFH request for ${request.fromDate} to ${request.toDate} (fully approved).`,
           notificationType: "approval",
           receiverUserId: request.facultyId,
           receiverRole: "faculty",
@@ -280,6 +282,18 @@ export async function POST(req: NextRequest) {
           priority: "high",
         });
       } else if (updatedRequest.nextStep) {
+        // Notify the requesting faculty about HOD approval
+        publishNotification({
+          title: "Leave/WFH Request Approved by HOD",
+          message: `HOD ${approverName} has approved your leave/WFH request for ${request.fromDate} to ${request.toDate} (now pending Principal's approval).`,
+          notificationType: "approval",
+          receiverUserId: request.facultyId,
+          receiverRole: "faculty",
+          relatedEntityType: "faculty_requests",
+          relatedEntityId: requestId,
+          priority: "high",
+        });
+
         // Notify the next stage approver
         const nextRole = updatedRequest.nextStep.approverRole.toUpperCase();
         if (nextRole === "PRINCIPAL") {
@@ -304,6 +318,42 @@ export async function POST(req: NextRequest) {
               relatedEntityId: requestId,
             });
           });
+        }
+      }
+
+      // Notify all proxy faculties about their approved proxy assignments ONLY when HOD approves
+      if (activeRole.toLowerCase() === "hod") {
+        try {
+          const proxiesToNotify = await db
+            .select({
+              proxyFacultyId: facultyRequestProxies.proxyFacultyId,
+              date: facultyRequestProxies.date,
+              slotLabel: timetableSlots.label,
+              startTime: timetableSlots.startTime,
+              endTime: timetableSlots.endTime,
+              divisionName: divisions.displayName,
+              subjectName: subjects.name,
+            })
+            .from(facultyRequestProxies)
+            .innerJoin(timetableSlots, eq(facultyRequestProxies.slotId, timetableSlots.id))
+            .innerJoin(divisions, eq(facultyRequestProxies.divisionId, divisions.id))
+            .innerJoin(subjects, eq(facultyRequestProxies.subjectId, subjects.id))
+            .where(eq(facultyRequestProxies.requestId, requestId));
+
+          for (const proxy of proxiesToNotify) {
+            publishNotification({
+              title: "Confirmed Proxy Lecture Assignment",
+              message: `You have a confirmed proxy lecture assignment to cover for ${request.facultyName} on ${proxy.date} during ${proxy.slotLabel} (${proxy.startTime.slice(0, 5)} - ${proxy.endTime.slice(0, 5)}) for class ${proxy.divisionName} (${proxy.subjectName}).`,
+              notificationType: "approval",
+              receiverUserId: proxy.proxyFacultyId,
+              receiverRole: "faculty",
+              relatedEntityType: "faculty_requests",
+              relatedEntityId: requestId,
+              priority: "high",
+            });
+          }
+        } catch (notifyErr) {
+          console.error("Failed to notify proxy faculties:", notifyErr);
         }
       }
     }

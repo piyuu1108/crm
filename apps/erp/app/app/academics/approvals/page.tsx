@@ -18,6 +18,7 @@ import {
   TextField,
   Label,
   useOverlayState,
+  toast,
 } from "@heroui/react";
 import { Plus, Clock, Check, Xmark, FileText } from "@gravity-ui/icons";
 
@@ -211,10 +212,10 @@ export default function ApprovalsPage() {
       setSelectedRequestId(null);
       setProxyOverrides({});
       setRemarks("");
-      alert("Action processed successfully!");
+      toast.success("Action processed successfully!");
     },
     onError: (err: any) => {
-      alert(err.message || "An error occurred");
+      toast.danger(err.message || "An error occurred");
     },
   });
 

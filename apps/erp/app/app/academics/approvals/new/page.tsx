@@ -14,6 +14,7 @@ import {
   TextField,
   TextArea,
   Alert,
+  toast,
 } from "@heroui/react";
 import { 
   ChevronLeft, 
@@ -194,10 +195,11 @@ export default function NewRequestPage() {
       return res.json();
     },
     onSuccess: () => {
+      toast.success("Leave request submitted successfully!");
       router.push("/app/academics/approvals");
     },
     onError: (err: any) => {
-      alert(err.message || "An error occurred");
+      toast.danger(err.message || "An error occurred");
     },
   });
 
@@ -250,7 +252,7 @@ export default function NewRequestPage() {
     e.preventDefault();
 
     if (!requestTypeCode || !fromDate || !toDate || !description) {
-      alert("Please fill in all mandatory fields");
+      toast.danger("Please fill in all mandatory fields");
       return;
     }
 
@@ -279,7 +281,7 @@ export default function NewRequestPage() {
       }
 
       if (missingProxy) {
-        alert("Please select a proxy faculty for all lecture slots before submitting.");
+        toast.danger("Please select a proxy faculty for all lecture slots before submitting.");
         return;
       }
     }

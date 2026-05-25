@@ -15,6 +15,7 @@ import {
 } from "@/app/lib/queries/divisions";
 import { CreateDivisionDrawer } from "./create-division-drawer";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 // ─── Specialization badge colors ──────────────────────────────────────────────
 const SPEC_COLOR: Record<string, "accent" | "success" | "warning"> = {
@@ -39,6 +40,8 @@ const COLUMNS: TableColumnDef[] = [
 export default function DivisionsPage() {
   const drawerState = useOverlayState();
   const router = useRouter();
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
 
   const params: DivisionListParams = { page: 1, limit: 1000 };
   const { data, isLoading, isError, error, refetch } =
@@ -127,10 +130,12 @@ export default function DivisionsPage() {
             Divisions
           </h1>
         </div>
-        <Button onPress={drawerState.open}>
-          <Plus className="size-4" />
-          Create Division
-        </Button>
+        {!isAdmin && (
+          <Button onPress={drawerState.open}>
+            <Plus className="size-4" />
+            Create Division
+          </Button>
+        )}
       </div>
 
       <DataTable
@@ -155,7 +160,7 @@ export default function DivisionsPage() {
       />
 
       {/* ── Create Division Drawer ─────────────────────────────── */}
-      <CreateDivisionDrawer state={drawerState} />
+      {!isAdmin && <CreateDivisionDrawer state={drawerState} />}
     </div>
   );
 }

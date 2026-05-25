@@ -100,7 +100,9 @@ export default function CircularsPage() {
   const canCreate =
     activeRole === "faculty" ||
     activeRole === "hod" ||
-    activeRole === "counselor";
+    activeRole === "counselor" ||
+    activeRole === "principal" ||
+    activeRole === "vice_principal";
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["circulars", page, limit],

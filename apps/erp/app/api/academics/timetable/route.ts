@@ -29,6 +29,83 @@ export async function GET(req: NextRequest) {
     if (!auth) return err("Unauthorized", 401);
 
     const { userId, roles: rolesArray, activeRole } = auth;
+    const { searchParams } = new URL(req.url);
+
+    const isGlobalAdmin = rolesArray.includes("principal") || rolesArray.includes("vice_principal");
+    if (isGlobalAdmin || activeRole === "principal" || activeRole === "vice_principal") {
+      const type = searchParams.get("type"); // "class" or "faculty"
+      const idVal = searchParams.get("id");
+      if (!type || !idVal) {
+        return ok({ role: "admin", entries: [] });
+      }
+
+      const id = parseInt(idVal, 10);
+      if (isNaN(id)) {
+        return err("Invalid ID", 400);
+      }
+
+      if (type === "class") {
+        const entries = await db
+          .select({
+            id: timetableEntries.id,
+            dayOfWeek: timetableEntries.dayOfWeek,
+            startTime: timetableEntries.startTime,
+            endTime: timetableEntries.endTime,
+            subjectName: subjects.name,
+            facultyName: faculty.name,
+            divisionName: divisions.displayName,
+            color: timetableEntries.color,
+            isLab: timetableEntries.isLab,
+            labId: timetableEntries.labId,
+          })
+          .from(timetableEntries)
+          .innerJoin(
+            facultySubjectAssignments,
+            eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+          )
+          .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+          .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+          .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
+          .where(
+            and(
+              eq(timetableEntries.divisionId, id),
+              eq(timetableEntries.isActive, true)
+            )
+          );
+        return ok({ role: "admin", type: "class", targetId: id, entries });
+      } else if (type === "faculty") {
+        const entries = await db
+          .select({
+            id: timetableEntries.id,
+            dayOfWeek: timetableEntries.dayOfWeek,
+            startTime: timetableEntries.startTime,
+            endTime: timetableEntries.endTime,
+            subjectName: subjects.name,
+            facultyName: faculty.name,
+            divisionName: divisions.displayName,
+            color: timetableEntries.color,
+            isLab: timetableEntries.isLab,
+            labId: timetableEntries.labId,
+          })
+          .from(timetableEntries)
+          .innerJoin(
+            facultySubjectAssignments,
+            eq(facultySubjectAssignments.id, timetableEntries.assignmentId)
+          )
+          .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+          .innerJoin(faculty, eq(facultySubjectAssignments.facultyId, faculty.id))
+          .innerJoin(divisions, eq(timetableEntries.divisionId, divisions.id))
+          .where(
+            and(
+              eq(facultySubjectAssignments.facultyId, id),
+              eq(timetableEntries.isActive, true)
+            )
+          );
+        return ok({ role: "admin", type: "faculty", targetId: id, entries });
+      } else {
+        return err("Invalid type", 400);
+      }
+    }
 
     if (activeRole === "student") {
       if (!auth.divisionId || !auth.semesterId) {

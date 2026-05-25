@@ -108,11 +108,11 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
     const isGlobalAdmin = roles.includes("principal") || roles.includes("vice_principal");
-    const isHod     = roles.includes("hod") || isGlobalAdmin;
-    const isFaculty = roles.includes("faculty") || roles.includes("counselor") || isHod;
+    const isHod     = roles.includes("hod");
+    const isFaculty = roles.includes("faculty") || roles.includes("counselor") || isHod || isGlobalAdmin;
     const isStudent = roles.includes("student") && !isFaculty;
 
-    console.log(`[GET /api/circulars] userId=${userId} roles=${JSON.stringify(roles)} isHod=${isHod} isFaculty=${isFaculty} isStudent=${isStudent}`);
+    console.log(`[GET /api/circulars] userId=${userId} roles=${JSON.stringify(roles)} isGlobalAdmin=${isGlobalAdmin} isHod=${isHod} isFaculty=${isFaculty} isStudent=${isStudent}`);
 
     // ── STUDENT ────────────────────────────────────────────────────────────────
     if (isStudent) {
@@ -139,6 +139,36 @@ export async function GET(req: NextRequest) {
 
       console.log(`[GET /api/circulars] STUDENT year=${studentYear} divId=${studentDivId} → ${total} results (cached)`);
       return ok(paginated, { total: Number(total), limit, offset });
+    }
+
+    // ── GLOBAL ADMIN ───────────────────────────────────────────────────────────
+    if (isGlobalAdmin) {
+      const [rows, [{ total }]] = await Promise.all([
+        db
+          .select()
+          .from(circulars)
+          .where(
+            or(
+              inArray(circulars.targetType, ["ALL", "FACULTY"]),
+              eq(circulars.adminId, userId)
+            )
+          )
+          .orderBy(desc(circulars.createdAt))
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ total: count(circulars.id) })
+          .from(circulars)
+          .where(
+            or(
+              inArray(circulars.targetType, ["ALL", "FACULTY"]),
+              eq(circulars.adminId, userId)
+            )
+          ),
+      ]);
+
+      console.log(`[GET /api/circulars] ADMIN userId=${userId} → ${total} global/own circulars`);
+      return ok(await enrichWithDivisions(rows), { total: Number(total), limit, offset });
     }
 
     // ── HOD — sees everything, no filter ──────────────────────────────────────

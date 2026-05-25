@@ -5,6 +5,7 @@ import { Card, Button, Spinner, Dropdown } from "@heroui/react";
 import { Funnel, Flask } from "@gravity-ui/icons";
 import { useReadonlyTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { useQuery } from "@tanstack/react-query";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FIXED_TIME_SLOTS = [
@@ -85,33 +86,97 @@ function ReadonlySlotCard({
 
 export default function AcademicsTimetablePage() {
   const { activeRole } = useAuthStore();
-  const { data, isLoading, isError, error, refetch } = useReadonlyTimetableQuery(activeRole ?? undefined);
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
+  const [forWhom, setForWhom] = useState<"class" | "faculty">("class");
+  const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
+
+  // Fetch list of divisions
+  const { data: divisionsData, isLoading: isDivisionsLoading } = useQuery({
+    queryKey: ["admin-divisions-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/divisions?limit=1000", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch divisions");
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const divisions = divisionsData?.data?.divisions ?? [];
+
+  // Fetch list of faculty
+  const { data: facultyData, isLoading: isFacultyLoading } = useQuery({
+    queryKey: ["admin-faculty-list"],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/faculty?limit=1000", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch faculty");
+      return res.json();
+    },
+    enabled: isAdmin,
+  });
+
+  const facultyList = facultyData?.data?.faculty ?? [];
+
+  // Fetch dynamic admin timetable
+  const { data: adminTimetableData, isLoading: isAdminTimetableLoading, isError: isAdminTimetableError, error: adminTimetableError, refetch: refetchAdminTimetable } = useQuery({
+    queryKey: ["admin-timetable", forWhom, selectedTargetId],
+    queryFn: async () => {
+      if (!selectedTargetId) return { entries: [] };
+      const res = await fetch(`/api/academics/timetable?type=${forWhom}&id=${selectedTargetId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch timetable");
+      const json = await res.json();
+      return json.data;
+    },
+    enabled: isAdmin && !!selectedTargetId,
+  });
+
+  // Non-admin query
+  const { data: nonAdminData, isLoading: isNonAdminLoading, isError: isNonAdminError, error: nonAdminError, refetch: refetchNonAdmin } = useReadonlyTimetableQuery(
+    isAdmin ? undefined : (activeRole ?? undefined)
+  );
+
+  const data = isAdmin ? adminTimetableData : nonAdminData;
+  const isLoading = isAdmin ? (isDivisionsLoading || isFacultyLoading || (!!selectedTargetId && isAdminTimetableLoading)) : isNonAdminLoading;
+  const isError = isAdmin ? isAdminTimetableError : isNonAdminError;
+  const error = isAdmin ? adminTimetableError : nonAdminError;
+  const refetch = isAdmin ? refetchAdminTimetable : refetchNonAdmin;
 
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
 
   const counselorDivisions = useMemo(() => {
+    if (isAdmin) return [];
     if (data?.role !== "counselor") return [];
     if (data?.divisionName) {
-      return data.divisionName.split(",").map(d => d.trim()).filter(Boolean);
+      return data.divisionName.split(",").map((d: string) => d.trim()).filter(Boolean);
     }
     return [];
-  }, [data]);
+  }, [data, isAdmin]);
 
   useEffect(() => {
-    if (data?.role === "counselor" && counselorDivisions.length > 0 && !selectedDivision) {
+    if (!isAdmin && data?.role === "counselor" && counselorDivisions.length > 0 && !selectedDivision) {
       setSelectedDivision(counselorDivisions[0]);
     }
-  }, [data, counselorDivisions, selectedDivision]);
+  }, [data, counselorDivisions, selectedDivision, isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      if (forWhom === "class" && divisions.length > 0) {
+        setSelectedTargetId((prev) => (prev && divisions.some((d: any) => d.id === prev) ? prev : divisions[0].id));
+      } else if (forWhom === "faculty" && facultyList.length > 0) {
+        setSelectedTargetId((prev) => (prev && facultyList.some((f: any) => f.id === prev) ? prev : facultyList[0].id));
+      }
+    }
+  }, [isAdmin, forWhom, divisions, facultyList]);
 
   const slots = useMemo(() => {
     const allSlots = data?.entries ?? [];
-    if (data?.role === "counselor" && selectedDivision) {
-      return allSlots.filter((s) => s.divisionName === selectedDivision);
+    if (!isAdmin && data?.role === "counselor" && selectedDivision) {
+      return allSlots.filter((s: any) => s.divisionName === selectedDivision);
     }
     return allSlots;
-  }, [data, selectedDivision]);
+  }, [data, selectedDivision, isAdmin]);
 
-  const showDivision = data?.role === "faculty";
+  const showDivision = isAdmin ? (forWhom === "faculty") : (data?.role === "faculty");
   const { getColorForSlot } = useTimetableColors(slots, showDivision ? "division" : "subject");
 
   if (isLoading) {
@@ -175,7 +240,19 @@ export default function AcademicsTimetablePage() {
     );
   }
 
+  const selectedTargetLabel = useMemo(() => {
+    if (!selectedTargetId) return "";
+    if (forWhom === "class") {
+      const found = divisions.find((d: any) => d.id === selectedTargetId);
+      return found ? found.displayName : "";
+    } else {
+      const found = facultyList.find((f: any) => f.id === selectedTargetId);
+      return found ? found.name : "";
+    }
+  }, [selectedTargetId, forWhom, divisions, facultyList]);
+
   const roleTitle =
+    isAdmin ? (selectedTargetLabel ? `Timetable for ${forWhom === "class" ? "Class" : "Faculty"} ${selectedTargetLabel}` : "Select a target to view timetable") :
     data?.role === "faculty" ? "Teaching Schedule" :
     data?.role === "counselor" ? `Timetable for ${selectedDivision || data.divisionName || "Assigned Division"}` :
     data?.role === "student" ? `Timetable for ${data.divisionName}` :
@@ -187,14 +264,90 @@ export default function AcademicsTimetablePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-foreground">
-            {data?.role === "faculty" ? "My Timetable" : "Timetable"}
+            {isAdmin ? "Timetable Viewer" : (data?.role === "faculty" ? "My Timetable" : "Timetable")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {roleTitle}
           </p>
         </div>
 
-        {data?.role === "counselor" && counselorDivisions.length > 1 && (
+        {isAdmin && (
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* For Whom? Dropdown */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium">For Whom?</span>
+              <Dropdown>
+                <Button variant="secondary" className="min-w-[130px] justify-between">
+                  <div className="flex items-center gap-2">
+                    <Funnel className="size-4" />
+                    {forWhom === "class" ? "Class" : "Faculty"}
+                  </div>
+                </Button>
+                <Dropdown.Popover className="min-w-[130px]">
+                  <Dropdown.Menu
+                    selectionMode="single"
+                    selectedKeys={new Set([forWhom])}
+                    onSelectionChange={(keys) => {
+                      const key = Array.from(keys)[0] as "class" | "faculty";
+                      if (key) {
+                        setForWhom(key);
+                        setSelectedTargetId(null);
+                      }
+                    }}
+                  >
+                    <Dropdown.Item key="class" id="class" textValue="Class">Class</Dropdown.Item>
+                    <Dropdown.Item key="faculty" id="faculty" textValue="Faculty">Faculty</Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            </div>
+
+            {/* Selection Dropdown */}
+            <div className="flex flex-col gap-1">
+              <span className="text-xs text-muted-foreground font-medium">
+                Select {forWhom === "class" ? "Class" : "Faculty"}
+              </span>
+              <Dropdown>
+                <Button
+                  variant="secondary"
+                  className="min-w-[200px] justify-between"
+                  isDisabled={forWhom === "class" ? divisions.length === 0 : facultyList.length === 0}
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Funnel className="size-4" />
+                    {selectedTargetLabel || `Select ${forWhom === "class" ? "Class" : "Faculty"}`}
+                  </div>
+                </Button>
+                <Dropdown.Popover className="min-w-[200px] max-h-[300px] overflow-auto">
+                  <Dropdown.Menu
+                    selectionMode="single"
+                    selectedKeys={selectedTargetId ? new Set([selectedTargetId.toString()]) : new Set()}
+                    onSelectionChange={(keys) => {
+                      const keyStr = Array.from(keys)[0] as string;
+                      if (keyStr) {
+                        setSelectedTargetId(parseInt(keyStr, 10));
+                      }
+                    }}
+                  >
+                    {forWhom === "class"
+                      ? divisions.map((div: any) => (
+                          <Dropdown.Item key={div.id.toString()} id={div.id.toString()} textValue={div.displayName}>
+                            {div.displayName}
+                          </Dropdown.Item>
+                        ))
+                      : facultyList.map((fac: any) => (
+                          <Dropdown.Item key={fac.id.toString()} id={fac.id.toString()} textValue={fac.name}>
+                            {fac.name} ({fac.designation || "Faculty"})
+                          </Dropdown.Item>
+                        ))}
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+            </div>
+          </div>
+        )}
+
+        {!isAdmin && data?.role === "counselor" && counselorDivisions.length > 1 && (
           <Dropdown>
             <Button variant="secondary" className="min-w-[200px] justify-between">
               <div className="flex items-center gap-2">
@@ -211,7 +364,7 @@ export default function AcademicsTimetablePage() {
                   if (key) setSelectedDivision(key);
                 }}
               >
-                {counselorDivisions.map((div) => (
+                {counselorDivisions.map((div: string) => (
                   <Dropdown.Item key={div} id={div} textValue={div}>
                     {div}
                   </Dropdown.Item>
@@ -275,7 +428,7 @@ export default function AcademicsTimetablePage() {
                 {/* Day cells */}
                 {DAYS.map((day) => {
                   const cellSlots = slots.filter(
-                    (s) =>
+                    (s: any) =>
                       s.dayOfWeek === day &&
                       normalizeTime(s.startTime) === time.start &&
                       normalizeTime(s.endTime) === time.end
@@ -289,7 +442,7 @@ export default function AcademicsTimetablePage() {
                       <div className="h-full min-h-[80px] overflow-hidden">
                         {cellSlots.length > 0 ? (
                           <div className="flex flex-col gap-1.5 h-full">
-                            {cellSlots.map((slot, idx) => (
+                            {cellSlots.map((slot: any, idx: number) => (
                               <ReadonlySlotCard
                                 key={slot.id || idx}
                                 slot={slot}

@@ -62,7 +62,16 @@ export default function CreateCircularPage() {
   const [error, setError] = useState("");
 
   const canCreate =
-    activeRole === "faculty" || activeRole === "hod" || activeRole === "counselor";
+    activeRole === "faculty" ||
+    activeRole === "hod" ||
+    activeRole === "counselor" ||
+    activeRole === "principal" ||
+    activeRole === "vice_principal";
+
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+  const audienceOptions = isAdmin
+    ? AUDIENCE_OPTIONS.filter((o) => o.id === "ALL" || o.id === "FACULTY")
+    : AUDIENCE_OPTIONS;
 
   const { data: divisionsData, isLoading: isDivisionsLoading } = useQuery({
     queryKey: ["divisions-all"],
@@ -272,7 +281,7 @@ export default function CreateCircularPage() {
 
               {/* Audience type cards */}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {AUDIENCE_OPTIONS.map((opt) => (
+                {audienceOptions.map((opt) => (
                   <button
                     key={opt.id}
                     type="button"

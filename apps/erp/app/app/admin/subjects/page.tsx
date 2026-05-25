@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -27,6 +27,7 @@ import { AddSubjectDrawer } from "./add-subject-drawer";
 import { EditSubjectModal } from "./edit-subject-modal";
 import { SubjectActionsMenu } from "./subject-actions-menu";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,16 @@ function DeleteConfirmModal({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SubjectsPage() {
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
+  const columns = useMemo(() => {
+    if (isAdmin) {
+      return COLUMNS.filter((col) => col.uid !== "actions");
+    }
+    return COLUMNS;
+  }, [isAdmin]);
+
   const [editingSubject, setEditingSubject] = useState<SubjectAdminListItem | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -334,16 +345,18 @@ export default function SubjectsPage() {
             Manage subjects, marking schemes, and assignments
           </p>
         </div>
-        <Button onPress={drawerState.open}>
-          <Plus className="size-4" />
-          Add Subject
-        </Button>
+        {!isAdmin && (
+          <Button onPress={drawerState.open}>
+            <Plus className="size-4" />
+            Add Subject
+          </Button>
+        )}
       </div>
 
       <DataTable
         data={data || []}
-        columns={COLUMNS}
-        initialVisibleColumns={INITIAL_VISIBLE_COLUMNS}
+        columns={columns}
+        initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => !isAdmin || c !== "actions")}
         searchKeys={["code", "name", "shortCode"]}
         searchPlaceholder="Search by code or name..."
         renderCell={renderCell}
@@ -367,29 +380,33 @@ export default function SubjectsPage() {
       />
 
       {/* ── Add Subject Drawer ───────────────────────────────────────── */}
-      <AddSubjectDrawer state={drawerState} />
+      {!isAdmin && <AddSubjectDrawer state={drawerState} />}
 
       {/* ── Edit Subject Modal ───────────────────────────────────────── */}
-      <EditSubjectModal
-        subject={editingSubject}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingSubject(null);
-        }}
-      />
+      {!isAdmin && (
+        <EditSubjectModal
+          subject={editingSubject}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingSubject(null);
+          }}
+        />
+      )}
 
       {/* ── Delete Confirm Modal ─────────────────────────────────────── */}
-      <DeleteConfirmModal
-        subject={deletingSubject}
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setDeletingSubject(null);
-        }}
-        onConfirm={handleDeleteConfirm}
-        isLoading={deleteMutation.isPending}
-      />
+      {!isAdmin && (
+        <DeleteConfirmModal
+          subject={deletingSubject}
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setDeletingSubject(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          isLoading={deleteMutation.isPending}
+        />
+      )}
     </div>
   );
 }

@@ -28,6 +28,7 @@ import {
 import { StudentActionsMenu } from "./student-actions-menu";
 import { EditStudentModal } from "@/components/edit-student-modal";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 const COLUMNS: TableColumnDef[] = [
   { uid: "studentId", name: "Student ID", allowsSorting: true, isRowHeader: true, className: "w-[160px]" },
@@ -126,9 +127,19 @@ function parseCsvText(text: string): Array<{ id: string; name: string; email: st
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function DivisionDetailPage() {
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const divisionId = parseInt(id, 10);
+
+  const columns = useMemo(() => {
+    if (isAdmin) {
+      return COLUMNS.filter((col) => col.uid !== "actions");
+    }
+    return COLUMNS;
+  }, [isAdmin]);
 
   const { data: division, isLoading, isError, error } =
     useDivisionDetailQuery(divisionId);
@@ -514,7 +525,7 @@ export default function DivisionDetailPage() {
       <Tabs>
         <Tabs.List>
           <Tabs.Tab id="students">Students ({division.students.length})</Tabs.Tab>
-          <Tabs.Tab id="upload">CSV Upload</Tabs.Tab>
+          {!isAdmin && <Tabs.Tab id="upload">CSV Upload</Tabs.Tab>}
         </Tabs.List>
 
         {/* ── Students Tab ──────────────────────────────────────── */}
@@ -536,7 +547,7 @@ export default function DivisionDetailPage() {
                     ? `${selectedCount} selected`
                     : "Select students to run bulk actions"}
                 </p>
-                {selectedCount > 0 && (
+                {!isAdmin && selectedCount > 0 && (
                   <StudentActionsMenu
                     variant="secondary"
                     ariaLabel="Bulk student actions"
@@ -592,13 +603,13 @@ export default function DivisionDetailPage() {
 
               <DataTable
                 data={division.students}
-                columns={COLUMNS}
-                initialVisibleColumns={INITIAL_VISIBLE_COLUMNS}
+                columns={columns}
+                initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => !isAdmin || c !== "actions")}
                 searchKeys={["studentId", "fullName", "email"]}
                 searchPlaceholder="Search students..."
                 renderCell={renderCell}
                 localStorageKey={`division_${divisionId}_students_table`}
-                selectionMode="multiple"
+                selectionMode={isAdmin ? "none" : "multiple"}
                 selectedKeys={selectedStudentIds}
                 onSelectionChange={setSelectedStudentIds}
                 onRowAction={(key) =>
@@ -610,202 +621,206 @@ export default function DivisionDetailPage() {
         </Tabs.Panel>
 
         {/* ── CSV Upload Tab ────────────────────────────────────── */}
-        <Tabs.Panel id="upload">
-          <div className="flex flex-col gap-5 mt-4">
-            {/* Next available ID info */}
-            {nextIdData && (
-              <Card className="border border-accent/20 bg-accent/5">
-                <Card.Content className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/10">
-                      <span className="text-lg font-bold text-accent">#</span>
+        {!isAdmin && (
+          <Tabs.Panel id="upload">
+            <div className="flex flex-col gap-5 mt-4">
+              {/* Next available ID info */}
+              {nextIdData && (
+                <Card className="border border-accent/20 bg-accent/5">
+                  <Card.Content className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent/10">
+                        <span className="text-lg font-bold text-accent">#</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">
+                          Next available Student ID number:{" "}
+                          <span className="font-mono font-bold text-accent">
+                            {nextIdData.nextFormatted}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Use this as the starting sequence when creating IDs in your CSV
+                          (prefix: {nextIdData.yearPrefix})
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Next available Student ID number:{" "}
-                        <span className="font-mono font-bold text-accent">
-                          {nextIdData.nextFormatted}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Use this as the starting sequence when creating IDs in your CSV
-                        (prefix: {nextIdData.yearPrefix})
-                      </p>
-                    </div>
+                  </Card.Content>
+                </Card>
+              )}
+
+              {/* Drop zone */}
+              <div
+                className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-200 ${
+                  isDragging
+                    ? "border-accent bg-accent/5 scale-[1.01]"
+                    : "border-divider hover:border-accent/40"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex size-14 items-center justify-center rounded-xl bg-default/10">
+                    <FileArrowUp className="size-7 text-muted-foreground" />
                   </div>
-                </Card.Content>
-              </Card>
-            )}
-
-            {/* Drop zone */}
-            <div
-              className={`relative rounded-2xl border-2 border-dashed p-8 text-center transition-all duration-200 ${
-                isDragging
-                  ? "border-accent bg-accent/5 scale-[1.01]"
-                  : "border-divider hover:border-accent/40"
-              }`}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex size-14 items-center justify-center rounded-xl bg-default/10">
-                  <FileArrowUp className="size-7 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Drag & drop a CSV file here
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    or click to browse • Required columns: id, name, email
-                  </p>
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onPress={() => fileInputRef.current?.click()}
-                >
-                  Browse Files
-                </Button>
-              </div>
-            </div>
-
-            {/* Preview table */}
-            {csvRows && csvRows.length > 0 && (
-              <div className="flex flex-col gap-4">
-                {/* Summary */}
-                <div className="flex items-center gap-4">
-                  <Chip color="success" size="sm" variant="soft">
-                    {validCount} valid
-                  </Chip>
-                  {errorCount > 0 && (
-                    <Chip color="danger" size="sm" variant="soft">
-                      {errorCount} error{errorCount !== 1 ? "s" : ""}
-                    </Chip>
-                  )}
-                  <span className="text-xs text-muted-foreground">
-                    {csvRows.length} total rows parsed
-                  </span>
-                </div>
-
-                {/* Preview Table */}
-                <Table>
-                  <Table.ScrollContainer>
-                    <Table.Content
-                      aria-label="CSV preview table"
-                      className="min-w-[600px]"
-                    >
-                      <Table.Header>
-                        <Table.Column isRowHeader className="w-[160px]">
-                          ID
-                        </Table.Column>
-                        <Table.Column>Name</Table.Column>
-                        <Table.Column>Email</Table.Column>
-                        <Table.Column className="w-[200px]">
-                          Status
-                        </Table.Column>
-                      </Table.Header>
-                      <Table.Body>
-                        {csvRows.map((row, idx) => (
-                          <Table.Row key={idx} id={idx}>
-                            <Table.Cell>
-                              <span
-                                className={`font-mono text-xs font-medium ${
-                                  row.status === "valid"
-                                    ? "text-foreground"
-                                    : "text-danger"
-                                }`}
-                              >
-                                {row.id || "—"}
-                              </span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <span className="text-sm text-foreground">
-                                {row.name || "—"}
-                              </span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              <span className="text-sm text-foreground/80">
-                                {row.email || "—"}
-                              </span>
-                            </Table.Cell>
-                            <Table.Cell>
-                              {row.status === "valid" ? (
-                                <Chip color="success" size="sm" variant="soft">
-                                  Valid
-                                </Chip>
-                              ) : (
-                                <div className="flex flex-col">
-                                  <Chip color="danger" size="sm" variant="soft">
-                                    Error
-                                  </Chip>
-                                  {row.reason && (
-                                    <span className="text-[10px] text-danger mt-0.5">
-                                      {row.reason}
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                            </Table.Cell>
-                          </Table.Row>
-                        ))}
-                      </Table.Body>
-                    </Table.Content>
-                  </Table.ScrollContainer>
-                </Table>
-
-                {/* Action buttons */}
-                <div className="flex items-center gap-3 justify-end">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Drag & drop a CSV file here
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      or click to browse • Required columns: id, name, email
+                    </p>
+                  </div>
                   <Button
                     variant="secondary"
                     size="sm"
-                    onPress={() => setCsvRows(null)}
-                    isDisabled={uploadMutation.isPending}
+                    onPress={() => fileInputRef.current?.click()}
                   >
-                    Clear
-                  </Button>
-                  <Button
-                    size="sm"
-                    onPress={handleConfirmUpload}
-                    isDisabled={validCount === 0}
-                    isPending={uploadMutation.isPending}
-                  >
-                    {({ isPending }) => (
-                      <>
-                        {isPending && <Spinner color="current" size="sm" />}
-                        {isPending
-                          ? "Uploading…"
-                          : `Confirm Upload (${validCount} student${validCount !== 1 ? "s" : ""})`}
-                      </>
-                    )}
+                    Browse Files
                   </Button>
                 </div>
               </div>
-            )}
-          </div>
-        </Tabs.Panel>
+
+              {/* Preview table */}
+              {csvRows && csvRows.length > 0 && (
+                <div className="flex flex-col gap-4">
+                  {/* Summary */}
+                  <div className="flex items-center gap-4">
+                    <Chip color="success" size="sm" variant="soft">
+                      {validCount} valid
+                    </Chip>
+                    {errorCount > 0 && (
+                      <Chip color="danger" size="sm" variant="soft">
+                        {errorCount} error{errorCount !== 1 ? "s" : ""}
+                      </Chip>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {csvRows.length} total rows parsed
+                    </span>
+                  </div>
+
+                  {/* Preview Table */}
+                  <Table>
+                    <Table.ScrollContainer>
+                      <Table.Content
+                        aria-label="CSV preview table"
+                        className="min-w-[600px]"
+                      >
+                        <Table.Header>
+                          <Table.Column isRowHeader className="w-[160px]">
+                            ID
+                          </Table.Column>
+                          <Table.Column>Name</Table.Column>
+                          <Table.Column>Email</Table.Column>
+                          <Table.Column className="w-[200px]">
+                            Status
+                          </Table.Column>
+                        </Table.Header>
+                        <Table.Body>
+                          {csvRows.map((row, idx) => (
+                            <Table.Row key={idx} id={idx}>
+                              <Table.Cell>
+                                <span
+                                  className={`font-mono text-xs font-medium ${
+                                    row.status === "valid"
+                                      ? "text-foreground"
+                                      : "text-danger"
+                                  }`}
+                                >
+                                  {row.id || "—"}
+                                </span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <span className="text-sm text-foreground">
+                                  {row.name || "—"}
+                                </span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                <span className="text-sm text-foreground/80">
+                                  {row.email || "—"}
+                                </span>
+                              </Table.Cell>
+                              <Table.Cell>
+                                {row.status === "valid" ? (
+                                  <Chip color="success" size="sm" variant="soft">
+                                    Valid
+                                  </Chip>
+                                ) : (
+                                  <div className="flex flex-col">
+                                    <Chip color="danger" size="sm" variant="soft">
+                                      Error
+                                    </Chip>
+                                    {row.reason && (
+                                      <span className="text-[10px] text-danger mt-0.5">
+                                        {row.reason
+                                      }</span>
+                                    )}
+                                  </div>
+                                )}
+                              </Table.Cell>
+                            </Table.Row>
+                          ))}
+                        </Table.Body>
+                      </Table.Content>
+                    </Table.ScrollContainer>
+                  </Table>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-3 justify-end">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => setCsvRows(null)}
+                      isDisabled={uploadMutation.isPending}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      size="sm"
+                      onPress={handleConfirmUpload}
+                      isDisabled={validCount === 0}
+                      isPending={uploadMutation.isPending}
+                    >
+                      {({ isPending }) => (
+                        <>
+                          {isPending && <Spinner color="current" size="sm" />}
+                          {isPending
+                            ? "Uploading…"
+                            : `Confirm Upload (${validCount} student${validCount !== 1 ? "s" : ""})`}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Tabs.Panel>
+        )}
       </Tabs>
 
-      <EditStudentModal
-        student={editingStudent}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingStudent(null);
-        }}
-        onSave={handleEditSave}
-      />
+      {!isAdmin && (
+        <EditStudentModal
+          student={editingStudent}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingStudent(null);
+          }}
+          onSave={handleEditSave}
+        />
+      )}
     </div>
   );
 }

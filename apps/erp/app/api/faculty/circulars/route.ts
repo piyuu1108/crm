@@ -18,8 +18,9 @@ export async function POST(req: NextRequest) {
     if (!payload) return err("Unauthorized", 401);
 
     const roles = Array.isArray(payload.roles) ? payload.roles : [];
-    if (!roles.some((r) => r === "faculty" || r === "counselor" || r === "hod")) {
-      return err("Forbidden: faculty role required", 403);
+    const isGlobalAdmin = roles.includes("principal") || roles.includes("vice_principal");
+    if (!isGlobalAdmin && !roles.some((r) => r === "faculty" || r === "counselor" || r === "hod")) {
+      return err("Forbidden: faculty or administrator role required", 403);
     }
 
     const body = await req.json();
@@ -60,14 +61,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Get Faculty Name ────────────────────────────────────────────────────────
-    const [facultyData] = await db
-      .select({ name: faculty.name })
-      .from(faculty)
-      .where(eq(faculty.id, payload.userId))
-      .limit(1);
-
-    if (!facultyData) return err("Faculty not found", 404);
+    // ── Get Creator Name ────────────────────────────────────────────────────────
+    let creatorName = "";
+    if (isGlobalAdmin) {
+      const { administrators } = await import("@/app/lib/schema");
+      const [adminData] = await db
+        .select({ name: administrators.name })
+        .from(administrators)
+        .where(eq(administrators.id, payload.userId))
+        .limit(1);
+      if (!adminData) return err("Administrator not found", 404);
+      creatorName = adminData.name;
+    } else {
+      const [facultyData] = await db
+        .select({ name: faculty.name })
+        .from(faculty)
+        .where(eq(faculty.id, payload.userId))
+        .limit(1);
+      if (!facultyData) return err("Faculty not found", 404);
+      creatorName = facultyData.name;
+    }
 
     // ── Generate slug ───────────────────────────────────────────────────────────
     const baseSlug = title
@@ -91,8 +104,9 @@ export async function POST(req: NextRequest) {
         attachmentSize: attachmentSize ?? null,
         targetType,
         targetYear: targetType === "YEAR" ? Number(targetYear) : null,
-        facultyId: payload.userId,
-        facultyName: facultyData.name,
+        facultyId: isGlobalAdmin ? null : payload.userId,
+        adminId: isGlobalAdmin ? payload.userId : null,
+        facultyName: creatorName,
       })
       .returning();
 

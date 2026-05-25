@@ -396,7 +396,8 @@ export const circulars = pgTable("circulars", {
   targetType: varchar("target_type", { length: 20 }).notNull().default("ALL"),
   targetYear: integer("target_year"),
 
-  facultyId: integer("faculty_id").notNull().references(() => faculty.id),
+  facultyId: integer("faculty_id").references(() => faculty.id),
+  adminId: integer("admin_id").references(() => administrators.id),
   facultyName: varchar("faculty_name", { length: 150 }).notNull(),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -404,6 +405,7 @@ export const circulars = pgTable("circulars", {
 }, (t) => [
   index("circ_target_idx").on(t.targetType, t.targetYear),
   index("circ_faculty_idx").on(t.facultyId),
+  index("circ_admin_idx").on(t.adminId),
   index("circ_created_idx").on(t.createdAt),
 ]);
 

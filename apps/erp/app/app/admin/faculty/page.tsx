@@ -23,6 +23,7 @@ import { AddFacultyDrawer } from "./add-faculty-drawer";
 import { FacultyActionsMenu } from "./faculty-actions-menu";
 import { EditFacultyModal } from "./edit-faculty-modal";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 const STATUS_COLOR: Record<string, "success" | "danger"> = {
   true: "success",
@@ -52,6 +53,16 @@ const INITIAL_VISIBLE_COLUMNS = [
 ];
 
 export default function FacultyPage() {
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
+  const columns = useMemo(() => {
+    if (isAdmin) {
+      return COLUMNS.filter((col) => col.uid !== "actions");
+    }
+    return COLUMNS;
+  }, [isAdmin]);
+
   const [editingFaculty, setEditingFaculty] = useState<any | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -216,10 +227,12 @@ export default function FacultyPage() {
             Manage faculty members, assignments, and roles
           </p>
         </div>
-        <Button onPress={drawerState.open}>
-          <Plus className="size-4" />
-          Add Faculty
-        </Button>
+        {!isAdmin && (
+          <Button onPress={drawerState.open}>
+            <Plus className="size-4" />
+            Add Faculty
+          </Button>
+        )}
       </div>
 
       {/* ── Email Job Progress ────────────────────────────────── */}
@@ -284,8 +297,8 @@ export default function FacultyPage() {
       {/* ── DataTable ─────────────────────────────────────────── */}
       <DataTable
         data={data?.faculty || []}
-        columns={COLUMNS}
-        initialVisibleColumns={INITIAL_VISIBLE_COLUMNS}
+        columns={columns}
+        initialVisibleColumns={INITIAL_VISIBLE_COLUMNS.filter(c => !isAdmin || c !== "actions")}
         searchKeys={["name", "facultyCode", "email"]}
         searchPlaceholder="Search by name, code, or email…"
         renderCell={renderCell}
@@ -304,17 +317,19 @@ export default function FacultyPage() {
       />
 
       {/* ── Add Faculty Drawer ────────────────────────────────── */}
-      <AddFacultyDrawer state={drawerState} />
+      {!isAdmin && <AddFacultyDrawer state={drawerState} />}
 
       {/* ── Edit Faculty Modal ────────────────────────────────── */}
-      <EditFacultyModal
-        faculty={editingFaculty}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setIsEditModalOpen(false);
-          setEditingFaculty(null);
-        }}
-      />
+      {!isAdmin && (
+        <EditFacultyModal
+          faculty={editingFaculty}
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingFaculty(null);
+          }}
+        />
+      )}
     </div>
   );
 }

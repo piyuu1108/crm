@@ -9,6 +9,8 @@ import {
   useAdminStudentVerificationMutation,
 } from "@/app/lib/queries/divisions";
 
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
+
 function statusChip(status: string): {
   label: string;
   color: "success" | "warning" | "danger" | "default";
@@ -22,6 +24,9 @@ function statusChip(status: string): {
 }
 
 export default function AdminStudentDetailPage() {
+  const { activeRole } = useAuthStore();
+  const isAdmin = activeRole === "principal" || activeRole === "vice_principal";
+
   const params = useParams<{ id: string; studentId: string }>();
   const router = useRouter();
   const divisionId = Number(params.id);
@@ -91,22 +96,24 @@ export default function AdminStudentDetailPage() {
           <p>Semester: {data.currentSemesterNo ?? "—"}</p>
           <p>Profile Completion: {data.profileStatus} (Step {data.profileStep}/5)</p>
         </Card.Content>
-        <Card.Footer className="flex gap-2 px-5 pb-5">
-          <Button
-            variant="primary"
-            onPress={() => handleAction("approve")}
-            isDisabled={verifyMutation.isPending}
-          >
-            Approve
-          </Button>
-          <Button
-            variant="secondary"
-            onPress={() => handleAction("reject")}
-            isDisabled={verifyMutation.isPending}
-          >
-            Reject
-          </Button>
-        </Card.Footer>
+        {!isAdmin && (
+          <Card.Footer className="flex gap-2 px-5 pb-5">
+            <Button
+              variant="primary"
+              onPress={() => handleAction("approve")}
+              isDisabled={verifyMutation.isPending}
+            >
+              Approve
+            </Button>
+            <Button
+              variant="secondary"
+              onPress={() => handleAction("reject")}
+              isDisabled={verifyMutation.isPending}
+            >
+              Reject
+            </Button>
+          </Card.Footer>
+        )}
       </Card>
     </div>
   );

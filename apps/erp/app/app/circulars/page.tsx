@@ -258,7 +258,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
 
   if (isLoading) {
     return (
-      <Card className="flex-1 p-8 h-full bg-white rounded-2xl shadow-sm border border-divider/30 flex flex-col gap-6">
+      <Card className="flex-1 p-8 h-full bg-surface rounded-2xl shadow-sm border border-divider/30 flex flex-col gap-6">
         <Skeleton className="h-10 w-3/4 rounded-xl" />
         <div className="flex items-center gap-4 bg-default-50 border border-divider/25 rounded-2xl p-4 sm:p-5">
           <Skeleton className="h-10 w-10 rounded-full" />
@@ -287,7 +287,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
   }
 
   return (
-    <Card className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-divider/30 overflow-hidden h-full">
+    <Card className="flex flex-col flex-1 bg-surface rounded-2xl shadow-sm border border-divider/30 overflow-hidden h-full">
       {/* Top Toolbar */}
       <div className="flex h-12 shrink-0 items-center justify-between px-5 border-b border-divider/25 select-none">
         {/* Left Side Actions */}
@@ -345,7 +345,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
           <div className="flex items-center gap-3 min-w-0">
             {/* Avatar circle matching template styling */}
             <Avatar className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-              <Avatar.Fallback className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-teal-400 to-emerald-500 text-white font-semibold text-sm">
+              <Avatar.Fallback className="w-full h-full flex items-center justify-center text-default-400 font-semibold text-sm">
                 {getInitials(data.facultyName)}
               </Avatar.Fallback>
             </Avatar>
@@ -517,13 +517,13 @@ export default function CircularsPage() {
                     className={cn(
                       "relative flex items-start gap-3 rounded-lg p-3 transition-all duration-200 cursor-pointer select-none border border-transparent",
                       isActive
-                        ? "bg-white shadow-sm text-foreground border-divider/10"
+                        ? "bg-surface shadow-sm text-foreground border-divider/10"
                         : "bg-transparent hover:bg-default-100/60 text-default-600"
                     )}
                   >
                     {/* Circle Avatar on Left */}
                     <Avatar className="w-9 h-9 rounded-full overflow-hidden shrink-0">
-                      <Avatar.Fallback className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-cyan-400 to-blue-500 text-white font-semibold text-xs">
+                      <Avatar.Fallback className="w-full h-full flex items-center justify-center text-default-400 font-semibold text-xs">
                         {getInitials(circular.facultyName)}
                       </Avatar.Fallback>
                     </Avatar>

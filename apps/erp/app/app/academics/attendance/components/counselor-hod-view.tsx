@@ -157,13 +157,13 @@ export function CounselorHodView({ role }: CounselorHodViewProps) {
 
       {/* Sessions list */}
       {browseQuery.isSuccess && selectedDivisionId > 0 && (
-        <div>
+        <div className="">
           <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">
             Sessions ({filteredSessions.length})
           </h2>
 
           {filteredSessions.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-divider py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-xl bg-surface border border-dashed border-divider py-8 text-center text-sm text-muted-foreground">
               No attendance sessions found for this date.
             </div>
           ) : (
@@ -181,7 +181,7 @@ export function CounselorHodView({ role }: CounselorHodViewProps) {
                     key={session.id}
                     type="button"
                     onClick={() => setActiveSession(session)}
-                    className="group flex flex-col gap-2.5 rounded-xl border border-divider bg-content1 px-4 py-3.5 text-left transition-all hover:border-accent/50 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="group bg-surface cursor-pointer flex flex-col gap-2.5 rounded-xl border border-divider px-4 py-3.5 text-left transition-all hover:border-accent/50 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     {/* Subject */}
                     <div className="flex items-center gap-2">
@@ -223,7 +223,7 @@ export function CounselorHodView({ role }: CounselorHodViewProps) {
 
       {/* Empty state: no division selected */}
       {selectedDivisionId === 0 && browseQuery.isSuccess && (
-        <div className="flex items-center justify-center rounded-xl border border-dashed border-divider py-16 text-sm text-muted-foreground">
+        <div className="flex bg-surface items-center justify-center rounded-xl border border-dashed border-divider py-16 text-sm text-muted-foreground">
           Select a division to view attendance sessions.
         </div>
       )}

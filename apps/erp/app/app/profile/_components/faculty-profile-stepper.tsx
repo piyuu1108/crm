@@ -277,12 +277,12 @@ export function FacultyProfileStepper() {
               onClick={() => isClickable && goToStep(step.id)}
               className={`group flex items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition-all ${
                 isCurrent
-                  ? "border-accent bg-accent/10 text-accent shadow-sm"
+                  ? " bg-surface text-accent shadow-sm"
                   : isDone
-                  ? "border-success/30 bg-success/5 text-success"
+                  ? " bg-success/5 text-success"
                   : isClickable
-                  ? "border-divider bg-background text-muted-foreground hover:border-accent/40 hover:bg-accent/5"
-                  : "border-divider/50 bg-background/50 text-muted-foreground/40 cursor-not-allowed"
+                  ? "border-divider bg-surface text-muted-foreground hover:border-accent/40 hover:bg-accent/5"
+                  : "border-divider/50 bg-surface/50 text-muted-foreground/40 cursor-not-allowed"
               }`}
             >
               <span
@@ -302,7 +302,7 @@ export function FacultyProfileStepper() {
         })}
       </div>
 
-      <Card className="overflow-hidden border border-divider bg-background shadow-sm">
+      <Card className="overflow-hidden border border-divider bg-surface shadow-sm">
         <Card.Header className="border-b border-divider bg-default/5 px-6 py-4">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-bold text-accent-foreground">
@@ -671,7 +671,7 @@ export function FacultyProfileStepper() {
 
               <div
                 className={`
-                  relative rounded-xl border-2 border-dashed p-4 transition-all duration-200
+                  relative bg-surface rounded-xl border-2 border-dashed p-4 transition-all duration-200
                   ${getFieldError(errors, "profilePhotoUrl")
                     ? "border-danger bg-danger/5"
                     : documents.profilePhotoUrl

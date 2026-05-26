@@ -163,7 +163,7 @@ function CircularSkeleton() {
   return (
     <div className="flex flex-col gap-3">
       {[...Array(4)].map((_, i) => (
-        <Card key={i} className="w-full border border-divider/45 p-4 flex flex-col gap-3 bg-transparent shadow-none">
+        <Card key={i} className="w-full border border-divider/25 p-4 flex flex-col gap-3 bg-transparent shadow-none">
           <div className="flex items-center justify-between gap-4">
             <Skeleton className="h-3.5 w-24 rounded" />
             <Skeleton className="h-3 w-12 rounded" />
@@ -182,9 +182,9 @@ function CircularSkeleton() {
 
 function DetailEmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-default-50/30 rounded-[32px] h-full border border-divider/50 shadow-inner select-none">
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-default-50/40 rounded-3xl h-full border border-divider/30 shadow-inner select-none">
       <div className="flex flex-col items-center text-center max-w-sm gap-2">
-        <div className="rounded-full bg-default-100 p-4 border border-divider/40 shadow-sm">
+        <div className="rounded-full bg-default-100 p-4 border border-divider/25 shadow-sm">
           <Envelope className="w-8 h-8 text-default-400" />
         </div>
         <h3 className="text-sm font-semibold text-foreground mt-2">Select a circular</h3>
@@ -220,16 +220,16 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
 
   if (isLoading) {
     return (
-      <Card className="flex-1 p-8 h-full bg-content1 rounded-[32px] shadow-small border border-divider/50 flex flex-col gap-6">
+      <Card className="flex-1 p-8 h-full bg-white rounded-3xl shadow-sm border border-divider/30 flex flex-col gap-6">
         <Skeleton className="h-10 w-3/4 rounded-xl" />
-        <div className="flex items-center gap-4 bg-default-50 border border-divider/50 rounded-2xl p-4 sm:p-5">
+        <div className="flex items-center gap-4 bg-default-50 border border-divider/25 rounded-2xl p-4 sm:p-5">
           <Skeleton className="h-10 w-10 rounded-full" />
           <div className="flex flex-col gap-2 flex-1">
             <Skeleton className="h-4 w-32 rounded" />
             <Skeleton className="h-3 w-48 rounded" />
           </div>
         </div>
-        <div className="flex flex-col gap-3 p-6 border border-divider/40 rounded-2xl flex-1">
+        <div className="flex flex-col gap-3 p-6 border border-divider/25 rounded-2xl flex-1">
           <Skeleton className="h-4 w-full rounded" />
           <Skeleton className="h-4 w-11/12 rounded" />
         </div>
@@ -239,7 +239,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
 
   if (error || !data) {
     return (
-      <div className="flex-1 flex flex-col gap-4 p-8 bg-content1 rounded-[32px] shadow-small border border-divider/50 items-center justify-center">
+      <div className="flex-1 flex flex-col gap-4 p-8 bg-white rounded-3xl shadow-sm border border-divider/30 items-center justify-center">
         <p className="text-sm font-semibold text-danger">Notice could not be loaded.</p>
         <Button variant="secondary" size="sm" onPress={onBack}>
           Back to List
@@ -249,9 +249,9 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
   }
 
   return (
-    <Card className="flex flex-col flex-1 bg-content1 rounded-[32px] shadow-small border border-divider/50 overflow-hidden h-full">
+    <Card className="flex flex-col flex-1 bg-white rounded-3xl shadow-sm border border-divider/30 overflow-hidden h-full">
       {/* Top Toolbar */}
-      <div className="flex h-14 shrink-0 items-center justify-between px-6 border-b border-divider/50 select-none">
+      <div className="flex h-14 shrink-0 items-center justify-between px-6 border-b border-divider/25 select-none">
         {/* Left Side Actions */}
         <div className="flex items-center gap-1.5">
           <Button
@@ -399,11 +399,11 @@ export default function CircularsPage() {
   };
 
   return (
-    <div className="w-full h-[calc(100vh-8.5rem)] flex bg-background overflow-hidden border border-divider/50 rounded-[32px]">
+    <div className="w-full h-[calc(100vh-6.5rem)] flex bg-transparent overflow-hidden">
       {/* ── Left Sidebar Master List Pane ── */}
       <div
         className={cn(
-          "w-full lg:w-[350px] shrink-0 flex flex-col border-r border-divider h-full bg-background p-4",
+          "w-full lg:w-[320px] shrink-0 flex flex-col border-r border-divider/30 h-full bg-transparent pr-6 py-1",
           selectedSlug ? "hidden lg:flex" : "flex"
         )}
       >
@@ -415,11 +415,11 @@ export default function CircularsPage() {
             onChange={setSearchQuery}
             className="w-full"
           >
-            <InputGroup className="rounded-full bg-default-100 border-none shadow-none">
+            <InputGroup className="rounded-full bg-white border border-divider/30 shadow-sm">
               <InputGroup.Prefix>
-                <SearchIcon className="text-default-400 w-4 h-4 ml-1" />
+                <SearchIcon className="text-default-400 w-4 h-4 ml-2" />
               </InputGroup.Prefix>
-              <InputGroup.Input placeholder="Search..." className="bg-transparent text-sm h-9" />
+              <InputGroup.Input placeholder="Search..." className="bg-transparent text-sm h-9 pl-1" />
             </InputGroup>
           </TextField>
         </div>
@@ -429,7 +429,7 @@ export default function CircularsPage() {
           {isLoading ? (
             <CircularSkeleton />
           ) : isError ? (
-            <div className="text-center p-8 border border-divider/40 rounded-2xl bg-default-50/20">
+            <div className="text-center p-8 border border-divider/25 rounded-2xl bg-default-50/20">
               <p className="text-xs text-danger font-medium">Failed to load announcements.</p>
               <Button
                 variant="secondary"
@@ -441,7 +441,7 @@ export default function CircularsPage() {
               </Button>
             </div>
           ) : filteredCirculars.length === 0 ? (
-            <div className="text-center p-8 border border-divider/40 rounded-2xl bg-default-50/20">
+            <div className="text-center p-8 border border-divider/25 rounded-2xl bg-default-50/20">
               <p className="text-xs text-default-400 font-medium">No circulars match your search.</p>
             </div>
           ) : (
@@ -455,7 +455,7 @@ export default function CircularsPage() {
                     className={cn(
                       "relative flex items-start gap-3 rounded-2xl p-3.5 transition-all duration-200 cursor-pointer select-none border border-transparent",
                       isActive
-                        ? "bg-content1 shadow-small text-foreground border-divider/10"
+                        ? "bg-white shadow-sm text-foreground border-divider/10"
                         : "bg-transparent hover:bg-default-100/60 text-default-600"
                     )}
                   >
@@ -492,7 +492,7 @@ export default function CircularsPage() {
 
         {/* Simple Pagination bar */}
         {totalPages > 1 && (
-          <div className="flex justify-center pt-3 border-t border-divider/40 shrink-0">
+          <div className="flex justify-center pt-3 border-t border-divider/30 shrink-0">
             <Pagination>
               <Pagination.Content>
                 <Pagination.Item>
@@ -527,7 +527,7 @@ export default function CircularsPage() {
       {/* ── Right Canvas Detail Reader Pane ── */}
       <div
         className={cn(
-          "flex-1 min-w-0 h-full flex flex-col p-4 bg-default-50/50",
+          "flex-1 min-w-0 h-full flex flex-col pl-6 bg-transparent",
           selectedSlug ? "flex animate-fade-in" : "hidden lg:flex"
         )}
       >

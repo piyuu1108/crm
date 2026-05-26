@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Alert, Spinner, Button } from "@heroui/react";
+import { Alert, Spinner, Button, Select, ListBox } from "@heroui/react";
 import { Clock, BookOpen, Persons, ArrowLeft } from "@gravity-ui/icons";
 import { AttendanceSheet } from "./attendance-sheet";
 import { AttendanceFilters } from "./attendance-filters";
@@ -102,18 +102,29 @@ export function CounselorHodView({ role }: CounselorHodViewProps) {
         {/* Division picker */}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Division</label>
-          <select
-            value={selectedDivisionId}
-            onChange={(e) => handleDivisionChange(parseInt(e.target.value, 10))}
-            className="min-w-[200px] appearance-none rounded-lg border border-divider bg-content1 px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
+          <Select
+            className="min-w-[200px]"
+            placeholder="Select Division"
+            selectedKey={selectedDivisionId ? selectedDivisionId.toString() : "0"}
+            onSelectionChange={(key) => handleDivisionChange(parseInt(key as string, 10) || 0)}
           >
-            <option value={0}>Select Division</option>
-            {divisions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.displayName}
-              </option>
-            ))}
-          </select>
+            <Select.Trigger className="bg-white border border-divider hover:border-accent/40 rounded-lg py-2 px-3 text-sm text-foreground flex items-center justify-between shadow-sm min-h-[38px] w-full">
+              <Select.Value className="text-sm font-medium text-foreground" />
+              <Select.Indicator className="size-4 text-default-500" />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox className="bg-white border border-divider/60 rounded-xl shadow-lg p-1 min-w-[200px] outline-none">
+                <ListBox.Item id="0" textValue="Select Division" className="text-sm rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
+                  Select Division
+                </ListBox.Item>
+                {divisions.map((d) => (
+                  <ListBox.Item key={d.id.toString()} id={d.id.toString()} textValue={d.displayName} className="text-sm rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
+                    {d.displayName}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
         </div>
 
         {/* Date + Subject filters */}

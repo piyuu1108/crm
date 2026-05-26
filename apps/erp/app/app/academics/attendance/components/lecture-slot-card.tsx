@@ -38,8 +38,8 @@ export function LectureSlotCard({
       onClick={onClick}
       className={`group relative flex w-full flex-col gap-2 rounded-xl border px-4 py-3.5 text-left transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
         isSelected
-          ? "border-accent bg-accent/10 shadow-md"
-          : "border-divider bg-content1 hover:border-accent/50 hover:shadow-sm"
+          ? "border-accent bg-white shadow-md ring-1 ring-accent/30"
+          : "border-divider bg-white hover:border-accent/50 hover:shadow-sm"
       }`}
     >
       {/* Session badge */}

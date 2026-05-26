@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Calendar, Funnel } from "@gravity-ui/icons";
+import { Select, ListBox } from "@heroui/react";
 
 interface AttendanceFiltersProps {
   date: string;
@@ -42,7 +43,7 @@ export function AttendanceFilters({
                 type="date"
                 value={dateFrom ?? ""}
                 onChange={(e) => onDateFromChange?.(e.target.value)}
-                className="rounded-lg border border-divider bg-content1 py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
+                className="rounded-lg border border-divider bg-white py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
               />
             </div>
           </div>
@@ -54,7 +55,7 @@ export function AttendanceFilters({
                 type="date"
                 value={dateTo ?? ""}
                 onChange={(e) => onDateToChange?.(e.target.value)}
-                className="rounded-lg border border-divider bg-content1 py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
+                className="rounded-lg border border-divider bg-white py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
               />
             </div>
           </div>
@@ -68,7 +69,7 @@ export function AttendanceFilters({
               type="date"
               value={date}
               onChange={(e) => onDateChange(e.target.value)}
-              className="rounded-lg border border-divider bg-content1 py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
+              className="rounded-lg border border-divider bg-white py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
             />
           </div>
         </div>
@@ -78,21 +79,32 @@ export function AttendanceFilters({
       {subjects && subjects.length > 0 && onSubjectChange && (
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-muted-foreground">Subject</label>
-          <div className="relative">
-            <Funnel className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <select
-              value={selectedSubject ?? ""}
-              onChange={(e) => onSubjectChange(e.target.value)}
-              className="min-w-[180px] appearance-none rounded-lg border border-divider bg-content1 py-2 pl-9 pr-8 text-sm text-foreground outline-none transition-colors focus:border-accent focus:ring-1 focus:ring-accent"
-            >
-              <option value="">All Subjects</option>
-              {subjects.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            className="min-w-[200px]"
+            placeholder="All Subjects"
+            selectedKey={selectedSubject || "all-subjects"}
+            onSelectionChange={(key) => onSubjectChange(key === "all-subjects" ? "" : String(key))}
+          >
+            <Select.Trigger className="bg-white border border-divider hover:border-accent/40 rounded-lg py-2 px-3 text-sm text-foreground flex items-center justify-between shadow-sm min-h-[38px] w-full">
+              <div className="flex items-center gap-2">
+                <Funnel className="size-4 text-muted-foreground shrink-0" />
+                <Select.Value className="text-sm font-medium text-foreground" />
+              </div>
+              <Select.Indicator className="size-4 text-default-500" />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox className="bg-white border border-divider/60 rounded-xl shadow-lg p-1 min-w-[200px] outline-none">
+                <ListBox.Item id="all-subjects" textValue="All Subjects" className="text-sm rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
+                  All Subjects
+                </ListBox.Item>
+                {subjects.map((s) => (
+                  <ListBox.Item key={s} id={s} textValue={s} className="text-sm rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
+                    {s}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
         </div>
       )}
     </div>

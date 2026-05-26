@@ -6,6 +6,9 @@ import { StatCard } from "./stat-card";
 import { TimetableToday } from "./timetable-today";
 import { RequestList } from "./request-list";
 import type { FacultyDashboardData } from "@/app/lib/queries/dashboard";
+import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 
 const StudentsChart = dynamic(() => import("./students-chart").then(m => ({ default: m.StudentsChart })), { ssr: false });
 const AttendanceChart = dynamic(() => import("./attendance-chart").then(m => ({ default: m.AttendanceChart })), { ssr: false });
@@ -18,10 +21,36 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
   const {
     assignedSubjectsCount,
     assignedDivisionsCount,
-    pendingRequestsCount,
     todayTimetable,
-    pendingRequests,
   } = data;
+
+  const { user, activeRole } = useAuthStore();
+
+  // Real-time unread notifications from Convex
+  const recentUnread = useQuery(
+    api.notifications.getRecentUnread,
+    user && activeRole
+      ? { receiverUserId: user.id, receiverRole: activeRole }
+      : "skip"
+  );
+
+  const unreadCount = useQuery(
+    api.notifications.getUnreadCount,
+    user && activeRole
+      ? { receiverUserId: user.id, receiverRole: activeRole }
+      : "skip"
+  ) ?? 0;
+
+  // Map Convex notifications to the format RequestList expects
+  const pendingRequests = (recentUnread ?? []).map((n) => ({
+    id: 0, // Not used for rendering
+    requestType: n.notificationType,
+    subject: n.title,
+    status: n.priority,
+    studentName: n.message,
+    divisionName: "",
+    createdAt: new Date(n._creationTime).toISOString(),
+  }));
 
   return (
     <>
@@ -47,11 +76,8 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
         <StatCard title="Assigned Subjects" value={String(assignedSubjectsCount)} trend="0%" trendDirection="up" />
         <StatCard title="Assigned Divisions" value={String(assignedDivisionsCount)} trend="0%" trendDirection="up" />
         <StatCard title="Today's Classes" value={String(todayTimetable?.length ?? 0)} trend="Active" trendDirection="up" />
-        <StatCard title="Unread Notifications" value={String(pendingRequestsCount)} trend="Inbox" trendDirection="up" />
+        <StatCard title="Unread Notifications" value={String(unreadCount)} trend="Inbox" trendDirection="up" />
       </div>
-
-      {/* Today's Schedule & Pending Requests Grid */}
-      
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -83,7 +109,7 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
           </h3>
           <Card className="rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-divider p-5 min-h-[250px] flex flex-col">
             <div className="flex-1 overflow-y-auto max-h-[350px] pr-1">
-              <RequestList requests={pendingRequests || []} emptyMessage="No unread notifications!" />
+              <RequestList requests={pendingRequests} emptyMessage="No unread notifications!" />
             </div>
           </Card>
         </div>

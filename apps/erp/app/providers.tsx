@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toast } from "@heroui/react";
 import { ThemeConfigProvider } from "./theme/theme-context";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { ConvexClientProvider } from "./providers/convex-provider";
 
 // Stable singleton — created once per app mount, not per render
 function makeQueryClient() {
@@ -36,13 +37,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeConfigProvider>
-        <ErrorBoundary>
-          <Toast.Provider />
-          {children}
-        </ErrorBoundary>
-      </ThemeConfigProvider>
-    </QueryClientProvider>
+    <ConvexClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeConfigProvider>
+          <ErrorBoundary>
+            <Toast.Provider />
+            {children}
+          </ErrorBoundary>
+        </ThemeConfigProvider>
+      </QueryClientProvider>
+    </ConvexClientProvider>
   );
 }
+

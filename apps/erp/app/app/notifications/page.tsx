@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Button,
@@ -26,13 +26,30 @@ import {
   CircleInfo,
 } from "@gravity-ui/icons";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
-import {
-  useNotificationsQuery,
-  useMarkNotificationsReadMutation,
-  useCreateNotificationMutation,
-  type Notification,
-} from "@/app/lib/queries/notifications";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
+
+// Notification type matching Convex document shape
+interface Notification {
+  _id: Id<"notifications">;
+  _creationTime: number;
+  title: string;
+  message: string;
+  notificationType: string;
+  relatedEntityType?: string;
+  relatedEntityId?: number;
+  createdBy?: number;
+  receiverUserId: number;
+  receiverRole: string;
+  priority: "low" | "medium" | "high";
+  isRead: boolean;
+  metadata?: any;
+  // Computed for compatibility
+  id: number;
+  createdAt: string;
+}
 
 // ─── Columns Definition ──────────────────────────────────────────────────────
 const COLUMNS: TableColumnDef[] = [
@@ -97,34 +114,76 @@ export default function NotificationsPage() {
   const [simReceiverRole, setSimReceiverRole] = useState("student");
   const [simPriority, setSimPriority] = useState("medium");
 
-  // ─── Fetch API ─────────────────────────────────────────────────────────────
-  const params = useMemo(() => {
-    const qParams: any = {
-      limit: rowsPerPage,
-      offset: (page - 1) * rowsPerPage,
-    };
-    if (isReadFilter !== "all") qParams.isRead = isReadFilter;
-    if (priorityFilter !== "all") qParams.priority = priorityFilter;
-    if (typeFilter !== "all") qParams.notificationType = typeFilter;
-    if (dateRangeFilter !== "all") qParams.dateRange = dateRangeFilter;
-    if (searchInput) qParams.search = searchInput;
-    return qParams;
-  }, [page, rowsPerPage, isReadFilter, priorityFilter, typeFilter, dateRangeFilter, searchInput]);
+  // ─── Convex Reactive Data ──────────────────────────────────────────────────
+  const { user } = useAuthStore();
+  const convexData = useQuery(
+    api.notifications.listForUser,
+    user && activeRole
+      ? { receiverUserId: user.id, receiverRole: activeRole }
+      : "skip"
+  );
 
-  const { data, isLoading, isError, error } = useNotificationsQuery(params, activeRole);
+  const isLoading = convexData === undefined;
+  const isError = false;
+  const error = null;
 
-  const notificationsList = data?.notifications || [];
-  const metrics = data?.metrics || { total: 0, unread: 0, read: 0, highPriority: 0, today: 0 };
-  const pagination = data?.pagination || { total: 0, limit: rowsPerPage, offset: 0, totalPages: 0 };
+  const allNotifications: Notification[] = useMemo(() => {
+    if (!convexData) return [];
+    return convexData.notifications.map((n, idx) => ({
+      ...n,
+      id: idx,
+      createdAt: new Date(n._creationTime).toISOString(),
+    }));
+  }, [convexData]);
 
-  // ─── Mutations ─────────────────────────────────────────────────────────────
-  const markReadMutation = useMarkNotificationsReadMutation(activeRole);
-  const createNotificationMutation = useCreateNotificationMutation();
+  // Client-side filtering
+  const filteredNotifications = useMemo(() => {
+    let items = [...allNotifications];
+    if (isReadFilter !== "all") {
+      items = items.filter((n) => String(n.isRead) === isReadFilter);
+    }
+    if (priorityFilter !== "all") {
+      items = items.filter((n) => n.priority === priorityFilter);
+    }
+    if (typeFilter !== "all") {
+      items = items.filter((n) => n.notificationType === typeFilter);
+    }
+    if (dateRangeFilter !== "all") {
+      const now = new Date();
+      if (dateRangeFilter === "today") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        items = items.filter((n) => n._creationTime >= start);
+      } else if (dateRangeFilter === "week") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
+        items = items.filter((n) => n._creationTime >= start);
+      } else if (dateRangeFilter === "month") {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        items = items.filter((n) => n._creationTime >= start);
+      }
+    }
+    if (searchInput.trim()) {
+      const q = searchInput.trim().toLowerCase();
+      items = items.filter(
+        (n) =>
+          n.title.toLowerCase().includes(q) ||
+          n.message.toLowerCase().includes(q)
+      );
+    }
+    return items;
+  }, [allNotifications, isReadFilter, priorityFilter, typeFilter, dateRangeFilter, searchInput]);
+
+  const notificationsList = filteredNotifications;
+  const metrics = convexData?.metrics || { total: 0, unread: 0, read: 0, highPriority: 0, today: 0 };
+
+  // ─── Convex Mutations ─────────────────────────────────────────────────────
+  const convexMarkAsRead = useMutation(api.notifications.markAsRead);
+  const convexMarkAllAsRead = useMutation(api.notifications.markAllAsRead);
+  const convexCreate = useMutation(api.notifications.create);
 
   const handleMarkAsRead = useCallback(
-    async (ids: number[]) => {
+    async (ids: Id<"notifications">[]) => {
       try {
-        await markReadMutation.mutateAsync({ ids });
+        await convexMarkAsRead({ ids });
         toast.success("Notifications updated successfully");
         setSelectedKeys(new Set());
       } catch (err: any) {
@@ -133,19 +192,20 @@ export default function NotificationsPage() {
         });
       }
     },
-    [markReadMutation]
+    [convexMarkAsRead]
   );
 
   const handleMarkAllAsRead = useCallback(async () => {
+    if (!user || !activeRole) return;
     try {
-      await markReadMutation.mutateAsync({ all: true });
+      await convexMarkAllAsRead({ receiverUserId: user.id, receiverRole: activeRole });
       toast.success("All notifications marked as read");
     } catch (err: any) {
       toast.danger("Failed to update notifications", {
         description: err.message || "Please try again.",
       });
     }
-  }, [markReadMutation]);
+  }, [convexMarkAllAsRead, user, activeRole]);
 
   const handleSimulateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,13 +215,13 @@ export default function NotificationsPage() {
     }
 
     try {
-      await createNotificationMutation.mutateAsync({
-        title: simTitle,
-        message: simMessage,
+      await convexCreate({
+        title: simTitle.trim(),
+        message: simMessage.trim(),
         notificationType: simType,
-        receiverUserId: simReceiverId.trim(),
+        receiverUserId: Number(simReceiverId.trim()),
         receiverRole: simReceiverRole,
-        priority: simPriority,
+        priority: simPriority as "low" | "medium" | "high",
       });
 
       toast.success("Notification event simulated successfully");
@@ -196,15 +256,21 @@ export default function NotificationsPage() {
     setPage(1);
   }, []);
 
-  const totalPages = Math.ceil(pagination.total / rowsPerPage) || 1;
+  const totalPages = Math.ceil(filteredNotifications.length / rowsPerPage) || 1;
+
+  // Client-side pagination
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * rowsPerPage;
+    return sortedItems.slice(start, start + rowsPerPage);
+  }, [sortedItems, page, rowsPerPage]);
 
   // ─── Selection Logic ───────────────────────────────────────────────────────
   const selectedCount = selectedKeys === "all" ? sortedItems.length : selectedKeys.size;
 
   const handleMarkAsReadSelected = () => {
     const idsToMark = selectedKeys === "all"
-      ? sortedItems.map((item) => item.id)
-      : Array.from(selectedKeys).map((k) => Number(k));
+      ? sortedItems.map((item) => item._id)
+      : Array.from(selectedKeys).map((k) => k as Id<"notifications">);
     handleMarkAsRead(idsToMark);
   };
 
@@ -283,7 +349,7 @@ export default function NotificationsPage() {
         return (
           <div className="flex justify-end gap-1.5">
             {!notif.isRead && (
-              <Button size="sm" variant="ghost" className="p-1 min-w-[28px] size-7" onPress={() => handleMarkAsRead([notif.id])}>
+              <Button size="sm" variant="ghost" className="p-1 min-w-[28px] size-7" onPress={() => handleMarkAsRead([notif._id])}>
                 <Check className="size-4" />
               </Button>
             )}
@@ -380,8 +446,7 @@ export default function NotificationsPage() {
 
       {/* ─── Notifications DataTable ────────────────────────────────────────── */}
       <DataTable
-        serverSide
-        data={sortedItems}
+        data={paginatedItems}
         columns={COLUMNS}
         initialVisibleColumns={INITIAL_VISIBLE_COLUMNS}
         searchPlaceholder="Search alerts..."
@@ -390,7 +455,7 @@ export default function NotificationsPage() {
         page={page}
         onPageChange={setPage}
         totalPages={totalPages}
-        totalItems={pagination.total}
+        totalItems={filteredNotifications.length}
         itemsPerPage={rowsPerPage}
         onItemsPerPageChange={(limit) => {
           setRowsPerPage(limit);

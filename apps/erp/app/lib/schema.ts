@@ -506,27 +506,7 @@ export const attendanceAnalyticsSummary = pgTable("attendance_analytics_summary"
   index("aas_div_pct_idx").on(t.divisionId, t.attendancePercentage),
 ]);
 
-// -- NOTIFICATIONS --
-
-export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
-  message: text("message").notNull(),
-  notificationType: varchar("notification_type", { length: 50 }).notNull(),
-  relatedEntityType: varchar("related_entity_type", { length: 50 }),
-  relatedEntityId: integer("related_entity_id"),
-  createdBy: integer("created_by"),
-  receiverUserId: integer("receiver_user_id").notNull(),
-  receiverRole: varchar("receiver_role", { length: 50 }).notNull(),
-  priority: varchar("priority", { length: 20 }).notNull().default("medium"),
-  isRead: boolean("is_read").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  metadata: jsonb("metadata"),
-}, (t) => [
-  index("notifications_receiver_idx").on(t.receiverUserId, t.receiverRole),
-  index("notifications_read_idx").on(t.isRead),
-  index("notifications_created_at_idx").on(t.createdAt),
-]);
+// -- NOTIFICATIONS MIGRATED TO CONVEX --
 
 export const administrators = pgTable("administrators", {
   id: serial("id").primaryKey(),

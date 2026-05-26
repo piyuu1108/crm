@@ -15,7 +15,8 @@ import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { useSidebar } from "@/components/layout/sidebar-context";
 import { useRouter } from "next/navigation";
 import { authMeQueryKey } from "@/app/lib/queries/auth";
-import { useNotificationsQuery } from "@/app/lib/queries/notifications";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { CourseSwitcher } from "./course-switcher";
 
 const ThemeSwitcher = dynamic(
@@ -50,8 +51,14 @@ export function Navbar() {
   const { toggle, toggleMobile } = useSidebar();
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { data: notificationsData } = useNotificationsQuery({}, activeRole);
-  const unreadCount = notificationsData?.metrics?.unread ?? 0;
+
+  // Real-time unread count from Convex — updates instantly via WebSocket
+  const unreadCount = useQuery(
+    api.notifications.getUnreadCount,
+    user && activeRole
+      ? { receiverUserId: user.id, receiverRole: activeRole }
+      : "skip"
+  ) ?? 0;
 
   const handleToggle = () => {
     toggle();

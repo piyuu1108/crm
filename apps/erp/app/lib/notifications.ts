@@ -1,8 +1,7 @@
-import { EventEmitter } from "events";
-import { db } from "./db";
-import { notifications } from "./schema";
+import { convexClient } from "./convex";
+import { api } from "../../convex/_generated/api";
 
-// Priority mapping configuration per notification type. Can be easily changed/extended.
+// Priority mapping configuration per notification type.
 export const NOTIFICATION_TYPE_PRIORITIES: Record<string, "low" | "medium" | "high"> = {
   student_application: "medium",
   leave_request: "medium",
@@ -15,46 +14,10 @@ export const NOTIFICATION_TYPE_PRIORITIES: Record<string, "low" | "medium" | "hi
   system_alert: "high",
 };
 
-export const notificationEvents = new EventEmitter();
-
-// Handle notification insertion asynchronously to prevent blocking business requests
-notificationEvents.on("create", async (data: {
-  title: string;
-  message: string;
-  notificationType: string;
-  receiverUserId: number;
-  receiverRole: string;
-  priority?: "low" | "medium" | "high";
-  createdBy?: number;
-  relatedEntityType?: string;
-  relatedEntityId?: number;
-  metadata?: any;
-}) => {
-  try {
-    // Resolve priority from configuration if not explicitly set
-    const resolvedPriority = data.priority || NOTIFICATION_TYPE_PRIORITIES[data.notificationType] || "medium";
-
-    await db.insert(notifications).values({
-      title: data.title,
-      message: data.message,
-      notificationType: data.notificationType,
-      relatedEntityType: data.relatedEntityType || null,
-      relatedEntityId: data.relatedEntityId || null,
-      createdBy: data.createdBy || null,
-      receiverUserId: data.receiverUserId,
-      receiverRole: data.receiverRole,
-      priority: resolvedPriority,
-      isRead: false,
-      metadata: data.metadata ? JSON.stringify(data.metadata) : null,
-    });
-  } catch (error) {
-    console.error("[Notification Event Listener] Error writing notification to database:", error);
-  }
-});
-
 /**
- * Publishes a notification by emitting a 'create' event.
- * Decouples database insertion from HTTP request handlers.
+ * Publishes a notification by writing directly to Convex.
+ * Fire-and-forget: does not block the calling API route.
+ * All 16+ call sites across the codebase use this function unchanged.
  */
 export function publishNotification(data: {
   title: string;
@@ -68,5 +31,31 @@ export function publishNotification(data: {
   relatedEntityId?: number;
   metadata?: any;
 }) {
-  notificationEvents.emit("create", data);
+  const resolvedPriority =
+    data.priority ||
+    NOTIFICATION_TYPE_PRIORITIES[data.notificationType] ||
+    "medium";
+
+  // Fire-and-forget Convex mutation — preserves the same async semantics
+  // as the previous EventEmitter pattern.
+  convexClient
+    .mutation(api.notifications.create, {
+      title: data.title,
+      message: data.message,
+      notificationType: data.notificationType,
+      receiverUserId: data.receiverUserId,
+      receiverRole: data.receiverRole,
+      priority: resolvedPriority,
+      // Convert null → undefined for Convex optional fields
+      relatedEntityType: data.relatedEntityType ?? undefined,
+      relatedEntityId: data.relatedEntityId ?? undefined,
+      createdBy: data.createdBy ?? undefined,
+      metadata: data.metadata ?? undefined,
+    })
+    .catch((error) => {
+      console.error(
+        "[publishNotification] Convex mutation error:",
+        error
+      );
+    });
 }

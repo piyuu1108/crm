@@ -14,7 +14,6 @@ import {
   administrators,
   timetableSlots,
   facultyRequestProxies,
-  notifications,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -99,34 +98,6 @@ export async function GET(req: NextRequest) {
         },
         tags
       );
-
-      // If the role is faculty, always fetch notifications in real-time to bypass the 2h cache.
-      if (activeRole === "faculty" && payloadData && payloadData.dashboard) {
-        const unreadNotifications = await db
-          .select({
-            id: notifications.id,
-            requestType: notifications.notificationType,
-            subject: notifications.title,
-            status: notifications.priority,
-            studentName: notifications.message,
-            divisionName: sql<string>`''`,
-            createdAt: sql<string>`${notifications.createdAt}::text`,
-          })
-          .from(notifications)
-          .where(
-            and(
-              eq(notifications.receiverUserId, userId),
-              eq(notifications.receiverRole, "faculty"),
-              eq(notifications.isRead, false)
-            )
-          )
-          .orderBy(sql`${notifications.createdAt} DESC`)
-          .limit(5);
-
-        // Inject the fresh unread notifications into the dashboard payload
-        (payloadData.dashboard as any).pendingRequests = unreadNotifications;
-        (payloadData.dashboard as any).pendingRequestsCount = unreadNotifications.length;
-      }
 
       profiler.finish();
       return ok(payloadData, isDbFetch ? "db" : "cache");
@@ -318,47 +289,25 @@ async function buildStudentDashboard(studentId: number, auth: AuthContext) {
 }
 
 async function buildFacultyDashboard(facultyId: number) {
-  const [assignmentsRows, pendingRows] = await Promise.all([
-    db
-      .select({
-        id: facultySubjectAssignments.id,
-        subjectName: subjects.name,
-        subjectType: subjects.subjectType,
-        divisionName: divisions.displayName,
-        courseCode: divisions.courseCode,
-        divisionId: facultySubjectAssignments.divisionId,
-      })
-      .from(facultySubjectAssignments)
-      .innerJoin(
-        divisions,
-        and(
-          eq(facultySubjectAssignments.divisionId, divisions.id),
-          eq(facultySubjectAssignments.semesterId, divisions.semesterId)
-        )
+  const assignmentsRows = await db
+    .select({
+      id: facultySubjectAssignments.id,
+      subjectName: subjects.name,
+      subjectType: subjects.subjectType,
+      divisionName: divisions.displayName,
+      courseCode: divisions.courseCode,
+      divisionId: facultySubjectAssignments.divisionId,
+    })
+    .from(facultySubjectAssignments)
+    .innerJoin(
+      divisions,
+      and(
+        eq(facultySubjectAssignments.divisionId, divisions.id),
+        eq(facultySubjectAssignments.semesterId, divisions.semesterId)
       )
-      .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
-      .where(eq(facultySubjectAssignments.facultyId, facultyId)),
-    db
-      .select({
-        id: notifications.id,
-        requestType: notifications.notificationType,
-        subject: notifications.title,
-        status: notifications.priority,
-        studentName: notifications.message,
-        divisionName: sql<string>`''`,
-        createdAt: sql<string>`${notifications.createdAt}::text`,
-      })
-      .from(notifications)
-      .where(
-        and(
-          eq(notifications.receiverUserId, facultyId),
-          eq(notifications.receiverRole, "faculty"),
-          eq(notifications.isRead, false)
-        )
-      )
-      .orderBy(sql`${notifications.createdAt} DESC`)
-      .limit(5),
-  ]);
+    )
+    .innerJoin(subjects, eq(facultySubjectAssignments.subjectId, subjects.id))
+    .where(eq(facultySubjectAssignments.facultyId, facultyId));
 
   const uniqueDivisions = new Set(assignmentsRows.map((a) => a.divisionId));
   const assignmentIds = assignmentsRows.map((a) => a.id);
@@ -475,7 +424,7 @@ async function buildFacultyDashboard(facultyId: number) {
   return {
     assignedSubjectsCount: assignmentsRows.length,
     assignedDivisionsCount: uniqueDivisions.size,
-    pendingRequestsCount: pendingRows.length,
+    pendingRequestsCount: 0,
     todayTimetable: finalSchedule,
     assignments: assignmentsRows.map((a) => ({
       id: a.id,
@@ -484,7 +433,7 @@ async function buildFacultyDashboard(facultyId: number) {
       divisionName: a.divisionName,
       courseCode: a.courseCode,
     })),
-    pendingRequests: pendingRows,
+    pendingRequests: [],
   };
 }
 

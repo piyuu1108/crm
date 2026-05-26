@@ -58,6 +58,46 @@ export function Navbar() {
     user ? { receiverUserId: user.id } : "skip"
   ) ?? 0;
 
+  // Real-time unread list from Convex to detect new incoming notifications
+  const recentUnread = useQuery(
+    api.notifications.getRecentUnread,
+    user ? { receiverUserId: user.id } : "skip"
+  );
+
+  // Track seen notifications to prevent duplicate toasts
+  const seenNotificationIdsRef = React.useRef<Set<string>>(new Set());
+  const isFirstLoadRef = React.useRef(true);
+
+  // Reset tracking if user logs out or switches
+  React.useEffect(() => {
+    seenNotificationIdsRef.current = new Set();
+    isFirstLoadRef.current = true;
+  }, [user?.id]);
+
+  React.useEffect(() => {
+    if (!recentUnread) return;
+
+    if (isFirstLoadRef.current) {
+      // On first load, mark all existing unread notifications as seen so we don't toast spam
+      for (const n of recentUnread) {
+        seenNotificationIdsRef.current.add(n._id);
+      }
+      isFirstLoadRef.current = false;
+      return;
+    }
+
+    // Check for new, unseen notifications
+    for (const n of recentUnread) {
+      if (!seenNotificationIdsRef.current.has(n._id)) {
+        seenNotificationIdsRef.current.add(n._id);
+        
+        // Trigger a premium real-time toast alert
+        toast.info(n.title, {
+          description: n.message,
+        });
+      }
+    }
+  }, [recentUnread]);
   const handleToggle = () => {
     toggle();
     toggleMobile();

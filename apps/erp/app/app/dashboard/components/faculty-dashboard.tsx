@@ -47,7 +47,7 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
         <StatCard title="Assigned Subjects" value={String(assignedSubjectsCount)} trend="0%" trendDirection="up" />
         <StatCard title="Assigned Divisions" value={String(assignedDivisionsCount)} trend="0%" trendDirection="up" />
         <StatCard title="Today's Classes" value={String(todayTimetable?.length ?? 0)} trend="Active" trendDirection="up" />
-        <StatCard title="Pending Requests" value={String(pendingRequestsCount)} trend="Pending" trendDirection="down" />
+        <StatCard title="Unread Notifications" value={String(pendingRequestsCount)} trend="Inbox" trendDirection="up" />
       </div>
 
       {/* Today's Schedule & Pending Requests Grid */}
@@ -76,14 +76,14 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
           </Card>
         </div>
 
-        {/* Right Column (1 col wide): Pending Requests */}
+        {/* Right Column (1 col wide): Unread Notifications */}
         <div className="lg:col-span-1 flex flex-col gap-3">
           <h3 className="text-base font-bold tracking-tight text-foreground">
-            Pending Student Requests
+            Unread Notifications
           </h3>
           <Card className="rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-divider p-5 min-h-[250px] flex flex-col">
             <div className="flex-1 overflow-y-auto max-h-[350px] pr-1">
-              <RequestList requests={pendingRequests || []} emptyMessage="All requests resolved! No pending items." />
+              <RequestList requests={pendingRequests || []} emptyMessage="No unread notifications!" />
             </div>
           </Card>
         </div>

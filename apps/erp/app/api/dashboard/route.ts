@@ -14,6 +14,7 @@ import {
   administrators,
   timetableSlots,
   facultyRequestProxies,
+  notifications,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
@@ -98,6 +99,34 @@ export async function GET(req: NextRequest) {
         },
         tags
       );
+
+      // If the role is faculty, always fetch notifications in real-time to bypass the 2h cache.
+      if (activeRole === "faculty" && payloadData && payloadData.dashboard) {
+        const unreadNotifications = await db
+          .select({
+            id: notifications.id,
+            requestType: notifications.notificationType,
+            subject: notifications.title,
+            status: notifications.priority,
+            studentName: notifications.message,
+            divisionName: sql<string>`''`,
+            createdAt: sql<string>`${notifications.createdAt}::text`,
+          })
+          .from(notifications)
+          .where(
+            and(
+              eq(notifications.receiverUserId, userId),
+              eq(notifications.receiverRole, "faculty"),
+              eq(notifications.isRead, false)
+            )
+          )
+          .orderBy(sql`${notifications.createdAt} DESC`)
+          .limit(5);
+
+        // Inject the fresh unread notifications into the dashboard payload
+        (payloadData.dashboard as any).pendingRequests = unreadNotifications;
+        (payloadData.dashboard as any).pendingRequestsCount = unreadNotifications.length;
+      }
 
       profiler.finish();
       return ok(payloadData, isDbFetch ? "db" : "cache");
@@ -311,24 +340,24 @@ async function buildFacultyDashboard(facultyId: number) {
       .where(eq(facultySubjectAssignments.facultyId, facultyId)),
     db
       .select({
-        id: studentRequests.id,
-        requestType: studentRequests.requestType,
-        subject: studentRequests.subject,
-        status: studentRequests.status,
-        studentName: students.fullName,
-        divisionName: sql<string>`coalesce(${students.currentDivisionName}, 'N/A')`,
-        createdAt: sql<string>`${studentRequests.createdAt}::text`,
+        id: notifications.id,
+        requestType: notifications.notificationType,
+        subject: notifications.title,
+        status: notifications.priority,
+        studentName: notifications.message,
+        divisionName: sql<string>`''`,
+        createdAt: sql<string>`${notifications.createdAt}::text`,
       })
-      .from(studentRequests)
-      .innerJoin(students, eq(studentRequests.studentId, students.id))
+      .from(notifications)
       .where(
         and(
-          eq(studentRequests.targetFacultyId, facultyId),
-          eq(studentRequests.status, "pending")
+          eq(notifications.receiverUserId, facultyId),
+          eq(notifications.receiverRole, "faculty"),
+          eq(notifications.isRead, false)
         )
       )
-      .orderBy(sql`${studentRequests.createdAt} DESC`)
-      .limit(10),
+      .orderBy(sql`${notifications.createdAt} DESC`)
+      .limit(5),
   ]);
 
   const uniqueDivisions = new Set(assignmentsRows.map((a) => a.divisionId));

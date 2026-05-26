@@ -14,6 +14,8 @@ import {
   Avatar,
   TextField,
   InputGroup,
+  toast,
+  AlertDialog,
 } from "@heroui/react";
 import {
   ArrowLeft,
@@ -204,6 +206,14 @@ interface CircularDetailReaderProps {
 }
 
 function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+
+  const canDeleteAny = usePermission("circulars.delete_any");
+  const canDeleteOwn = usePermission("circulars.delete_own");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["circular", slug],
     queryFn: async () => {
@@ -217,6 +227,33 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
     staleTime: 60_000,
     retry: false,
   });
+
+  const isOwner = data && (data.facultyId === user?.id || data.adminId === user?.id);
+  const canDelete = canDeleteAny || (canDeleteOwn && isOwner);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/faculty/circulars/${slug}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error ?? "Failed to delete circular");
+      }
+      toast.success("Circular deleted successfully");
+      await queryClient.invalidateQueries({ queryKey: ["circulars"] });
+      setIsConfirmOpen(false);
+      onBack();
+    } catch (err: any) {
+      toast.danger("Deletion failed", {
+        description: err.message || "Something went wrong.",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -263,9 +300,18 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
           >
             <Xmark className="w-4 h-4" />
           </Button>
-          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
-            <TrashBin className="w-4 h-4" />
-          </Button>
+          {canDelete && (
+            <Button
+              isIconOnly
+              variant="ghost"
+              className="text-default-400 hover:text-danger w-8 h-8 border-none shadow-none"
+              isDisabled={isDeleting}
+              onPress={() => setIsConfirmOpen(true)}
+              aria-label="Delete circular"
+            >
+              <TrashBin className="w-4 h-4" />
+            </Button>
+          )}
           <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
             <TriangleExclamation className="w-4 h-4" />
           </Button>
@@ -341,6 +387,32 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
           </div>
         )}
       </ScrollShadow>
+
+      {/* AlertDialog Backdrop and Confirmation overlay */}
+      <AlertDialog.Backdrop isOpen={isConfirmOpen} onOpenChange={setIsConfirmOpen} variant="blur">
+        <AlertDialog.Container>
+          <AlertDialog.Dialog className="sm:max-w-[400px]">
+            <AlertDialog.CloseTrigger />
+            <AlertDialog.Header>
+              <AlertDialog.Icon status="danger" />
+              <AlertDialog.Heading>Delete circular permanently?</AlertDialog.Heading>
+            </AlertDialog.Header>
+            <AlertDialog.Body>
+              <p className="text-sm text-default-600">
+                Are you sure you want to delete the circular <strong>{data.title}</strong>? This action cannot be undone.
+              </p>
+            </AlertDialog.Body>
+            <AlertDialog.Footer>
+              <Button slot="close" variant="tertiary" isDisabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button slot="close" variant="danger" isDisabled={isDeleting} onPress={handleDelete}>
+                Delete
+              </Button>
+            </AlertDialog.Footer>
+          </AlertDialog.Dialog>
+        </AlertDialog.Container>
+      </AlertDialog.Backdrop>
     </Card>
   );
 }

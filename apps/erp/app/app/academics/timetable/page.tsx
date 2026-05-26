@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
-import { Card, Button, Spinner, Dropdown, ComboBox, Input, Label, ListBox } from "@heroui/react";
+import { Card, Button, Spinner, Dropdown, ComboBox, Input, Label, ListBox, Table } from "@heroui/react";
 import { Funnel, Flask } from "@gravity-ui/icons";
 import { useReadonlyTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { DataTable, TableColumnDef } from "@/components/data-table";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const FIXED_TIME_SLOTS = [
@@ -81,6 +83,15 @@ function ReadonlySlotCard({
       </span>
     </div>
   );
+}
+
+function formatProxyDate(dateStr: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(new Date(dateStr));
 }
 
 // ─── Page ───────────────────────────────────────────────────────────────────
@@ -190,6 +201,61 @@ export default function AcademicsTimetablePage() {
 
   const showDivision = isAdmin ? (forWhom === "faculty") : (data?.role === "faculty");
   const { getColorForSlot } = useTimetableColors(slots, showDivision ? "division" : "subject");
+
+  const showProxiesSection = data?.role === "faculty" || data?.role === "hod" || (isAdmin && forWhom === "faculty");
+  const upcomingProxies = (data as any)?.upcomingProxies ?? [];
+
+  const proxyColumns: TableColumnDef[] = useMemo(() => [
+    { name: "Date", uid: "date", allowsSorting: true, isRowHeader: true },
+    { name: "Subject", uid: "subjectName", allowsSorting: true },
+    { name: "Class & Slot", uid: "divisionName", allowsSorting: true },
+    { name: "Time Slot", uid: "timeSlot", allowsSorting: false },
+    { name: "Requested For", uid: "originalFacultyName", allowsSorting: true },
+    { name: "Status", uid: "status", allowsSorting: true },
+  ], []);
+
+  const renderProxyCell = React.useCallback((proxy: any, columnKey: string) => {
+    switch (columnKey) {
+      case "date":
+        return <span className="font-semibold text-default-900 text-sm">{formatProxyDate(proxy.date)}</span>;
+      case "subjectName":
+        return <div className="font-medium text-foreground text-sm">{proxy.subjectName}</div>;
+      case "divisionName":
+        return (
+          <div className="flex items-center gap-2">
+            <span className="bg-primary/5 text-primary text-xs px-2 py-0.5 rounded font-semibold">
+              {proxy.divisionName}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Slot {proxy.slotLabel}
+            </span>
+          </div>
+        );
+      case "timeSlot":
+        return (
+          <span className="font-mono text-xs text-muted-foreground">
+            {normalizeTime(proxy.startTime)} - {normalizeTime(proxy.endTime)}
+          </span>
+        );
+      case "originalFacultyName":
+        return <span className="text-sm text-default-600">{proxy.originalFacultyName}</span>;
+      case "status":
+        return (
+          <span className={cn(
+            "inline-block text-[10px] font-bold px-2 py-0.5 rounded-full capitalize",
+            proxy.status === "approved"
+              ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+              : proxy.status === "pending"
+              ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-400"
+              : "bg-default-100 text-default-700"
+          )}>
+            {proxy.status}
+          </span>
+        );
+      default:
+        return proxy[columnKey];
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -467,6 +533,41 @@ export default function AcademicsTimetablePage() {
           </tbody>
         </table>
       </div>
+
+      {/* Upcoming Proxies List Section */}
+      {showProxiesSection && (
+        <div className="mt-8 animate-fade-in">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Upcoming Proxy Duties</h2>
+              <p className="text-sm text-muted-foreground">
+                Classes assigned to you as a proxy for other faculty members
+              </p>
+            </div>
+          </div>
+
+          {upcomingProxies.length === 0 ? (
+            <Card className="border border-divider bg-default-50/50 p-6 text-center shadow-none">
+              <Card.Content className="flex flex-col items-center gap-2">
+                <span className="text-3xl">☕</span>
+                <h3 className="text-sm font-semibold text-foreground">No upcoming proxy duties</h3>
+                <p className="text-xs text-muted-foreground">
+                  You are all caught up! There are no proxy assignments scheduled for you.
+                </p>
+              </Card.Content>
+            </Card>
+          ) : (
+            <DataTable
+              data={upcomingProxies}
+              columns={proxyColumns}
+              initialVisibleColumns={["date", "subjectName", "divisionName", "timeSlot", "originalFacultyName", "status"]}
+              searchKeys={["subjectName", "divisionName", "originalFacultyName", "status"]}
+              searchPlaceholder="Search proxy duties..."
+              renderCell={renderProxyCell}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

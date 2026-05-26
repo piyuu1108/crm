@@ -10,8 +10,11 @@ import {
   counselorDivisionAssignments,
   facultySubjectAssignments,
   subjects,
+  timetableSlots,
+  facultyRequestProxies,
 } from "@/app/lib/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, gte } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { remember, cacheTags, TTL } from "@/app/lib/cache";
 
 export const dynamic = 'force-dynamic';
@@ -22,6 +25,40 @@ function ok(data: unknown) {
 }
 function err(message: string, status: number) {
   return NextResponse.json({ success: false, error: message }, { status });
+}
+
+async function getUpcomingProxiesForFaculty(facultyId: number) {
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const localDate = new Date(now.getTime() - (offset * 60 * 1000));
+  const todayDateStr = localDate.toISOString().split("T")[0];
+
+  const origFac = alias(faculty, "orig_fac");
+
+  return db
+    .select({
+      id: facultyRequestProxies.id,
+      date: facultyRequestProxies.date,
+      slotLabel: timetableSlots.label,
+      startTime: timetableSlots.startTime,
+      endTime: timetableSlots.endTime,
+      originalFacultyName: origFac.name,
+      divisionName: divisions.displayName,
+      subjectName: subjects.name,
+      status: facultyRequestProxies.status,
+    })
+    .from(facultyRequestProxies)
+    .innerJoin(timetableSlots, eq(facultyRequestProxies.slotId, timetableSlots.id))
+    .innerJoin(divisions, eq(facultyRequestProxies.divisionId, divisions.id))
+    .innerJoin(subjects, eq(facultyRequestProxies.subjectId, subjects.id))
+    .innerJoin(origFac, eq(facultyRequestProxies.originalFacultyId, origFac.id))
+    .where(
+      and(
+        eq(facultyRequestProxies.proxyFacultyId, facultyId),
+        gte(facultyRequestProxies.date, todayDateStr)
+      )
+    )
+    .orderBy(facultyRequestProxies.date, timetableSlots.startTime);
 }
 
 export async function GET(req: NextRequest) {
@@ -103,7 +140,8 @@ export async function GET(req: NextRequest) {
               eq(timetableEntries.isActive, true)
             )
           );
-        return ok({ role: "admin", type: "faculty", targetId: id, entries });
+        const upcomingProxies = await getUpcomingProxiesForFaculty(id);
+        return ok({ role: "admin", type: "faculty", targetId: id, entries, upcomingProxies });
       } else {
         return err("Invalid type", 400);
       }
@@ -202,7 +240,8 @@ export async function GET(req: NextRequest) {
         }
       );
 
-      return ok({ role: activeRole, entries });
+      const upcomingProxies = await getUpcomingProxiesForFaculty(userId);
+      return ok({ role: activeRole, entries, upcomingProxies });
 
     } else if (activeRole === "counselor") {
       const divisionIds = auth.counselorDivisionIds ?? [];

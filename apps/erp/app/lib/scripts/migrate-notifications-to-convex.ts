@@ -1,9 +1,40 @@
-import { db } from "../db";
-import { sql } from "drizzle-orm";
-import { convexClient } from "../convex";
+import fs from "fs";
+import path from "path";
+
+// Pure TypeScript dependency-free environment variable loader.
+// Prevents needing 'dotenv' npm package inside Next.js/Turbopack scope.
+function loadEnv(file: string) {
+  const p = path.resolve(process.cwd(), file);
+  if (!fs.existsSync(p)) return;
+  const lines = fs.readFileSync(p, "utf-8").split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const idx = trimmed.indexOf("=");
+    if (idx === -1) continue;
+    const key = trimmed.slice(0, idx).trim();
+    let val = trimmed.slice(idx + 1).trim();
+    if (val.startsWith('"') && val.endsWith('"')) {
+      val = val.slice(1, -1);
+    } else if (val.startsWith("'") && val.endsWith("'")) {
+      val = val.slice(1, -1);
+    }
+    process.env[key] = val;
+  }
+}
+
+loadEnv(".env");
+loadEnv(".env.local");
+
+import { getConvexClient } from "../convex";
 import { api } from "../../../convex/_generated/api";
 
 async function run() {
+  // Dynamically import db and sql to prevent ES6 import hoisting from executing db.ts
+  // before loadEnv has populated process.env.DATABASE_URL.
+  const { db } = await import("../db");
+  const { sql } = await import("drizzle-orm");
+
   console.log("Checking if legacy 'notifications' table exists...");
   
   // Verify table exists before reading
@@ -34,7 +65,7 @@ async function run() {
   let migratedCount = 0;
   for (const n of notifications) {
     try {
-      await convexClient.mutation(api.notifications.create, {
+      await getConvexClient().mutation(api.notifications.create, {
         title: n.title,
         message: n.message,
         notificationType: n.notification_type,

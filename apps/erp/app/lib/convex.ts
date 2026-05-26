@@ -1,9 +1,16 @@
-/**
- * Server-side Convex HTTP client.
- * Used inside Next.js API routes to call Convex mutations (e.g. publishNotification).
- */
 import { ConvexHttpClient } from "convex/browser";
 
-export const convexClient = new ConvexHttpClient(
-  process.env.NEXT_PUBLIC_CONVEX_URL!
-);
+let client: ConvexHttpClient | null = null;
+
+export function getConvexClient(): ConvexHttpClient {
+  if (!client) {
+    const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+    if (!url) {
+      throw new Error("NEXT_PUBLIC_CONVEX_URL environment variable is missing!");
+    }
+    client = new ConvexHttpClient(url);
+  }
+  return client;
+}
+
+

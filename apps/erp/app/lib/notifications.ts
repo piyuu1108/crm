@@ -1,4 +1,4 @@
-import { convexClient } from "./convex";
+import { getConvexClient } from "./convex";
 import { api } from "../../convex/_generated/api";
 
 // Priority mapping configuration per notification type.
@@ -38,7 +38,7 @@ export function publishNotification(data: {
 
   // Fire-and-forget Convex mutation — preserves the same async semantics
   // as the previous EventEmitter pattern.
-  convexClient
+  getConvexClient()
     .mutation(api.notifications.create, {
       title: data.title,
       message: data.message,

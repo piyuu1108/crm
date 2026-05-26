@@ -12,7 +12,7 @@ import {
   roles,
   administrators,
 } from "@/app/lib/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, inArray } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
 
 export async function POST(req: NextRequest) {
@@ -70,6 +70,45 @@ export async function POST(req: NextRequest) {
 
     const chain = (config?.approvalChain as string[]) || ["HOD"];
 
+    // Validate proxy faculty availability in a single batch query (no N+1 query problem)
+    if (requestTypeCode === "leave_approval" && proxies.length > 0) {
+      const proxyConflictConditions = proxies.map((p: any) =>
+        and(
+          eq(facultyRequestProxies.proxyFacultyId, p.proxyFacultyId),
+          eq(facultyRequestProxies.date, p.date),
+          eq(facultyRequestProxies.slotId, p.slotId)
+        )
+      );
+
+      const existingProxies = await db
+        .select({
+          id: facultyRequestProxies.id,
+          date: facultyRequestProxies.date,
+          proxyFacultyName: faculty.name,
+        })
+        .from(facultyRequestProxies)
+        .innerJoin(faculty, eq(facultyRequestProxies.proxyFacultyId, faculty.id))
+        .innerJoin(facultyRequests, eq(facultyRequestProxies.requestId, facultyRequests.id))
+        .where(
+          and(
+            or(...proxyConflictConditions),
+            inArray(facultyRequestProxies.status, ["pending", "approved"]),
+            inArray(facultyRequests.status, ["pending", "approved"])
+          )
+        );
+
+      if (existingProxies.length > 0) {
+        const conflict = existingProxies[0];
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Faculty ${conflict.proxyFacultyName} is already assigned as a proxy for another lecture on ${conflict.date}.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // 3. Atomically perform creation inside a database transaction
     const newRequest = await db.transaction(async (tx) => {
       // Create request entry
@@ -111,7 +150,7 @@ export async function POST(req: NextRequest) {
           requestId: insertedRequest.id,
           date: p.date,
           slotId: p.slotId,
-          originalFacultyId: userId,
+          originalFacultyId: p.originalFacultyId ?? userId,
           senderProxyFacultyId: p.proxyFacultyId,
           proxyFacultyId: p.proxyFacultyId,
           divisionId: p.divisionId,

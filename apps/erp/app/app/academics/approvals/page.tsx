@@ -329,9 +329,16 @@ export default function ApprovalsPage() {
                 year: "numeric",
               }).format(new Date(row.createdAt));
 
+              const getDaysCount = (fromStr: string, toStr: string) => {
+                const from = new Date(fromStr);
+                const to = new Date(toStr);
+                const diffTime = Math.abs(to.getTime() - from.getTime());
+                return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+              };
+
               const leavePeriod = row.fromDate === row.toDate
-                ? new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(row.fromDate))
-                : `${new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(row.fromDate))} - ${new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(row.toDate))}`;
+                ? `${new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(row.fromDate))} (1 Day)`
+                : `${new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(row.fromDate))} - ${new Intl.DateTimeFormat("en-US", { month: "short", day: "2-digit" }).format(new Date(row.toDate))} (${getDaysCount(row.fromDate, row.toDate)} Days)`;
 
               return (
                 <div
@@ -417,7 +424,9 @@ export default function ApprovalsPage() {
                           Date Range
                         </span>
                         <span className="font-medium text-default-800">
-                          {detail.request.fromDate} to {detail.request.toDate}
+                          {detail.request.fromDate === detail.request.toDate
+                            ? `${detail.request.fromDate} (1 Day)`
+                            : `${detail.request.fromDate} to ${detail.request.toDate} (${Math.ceil(Math.abs(new Date(detail.request.toDate).getTime() - new Date(detail.request.fromDate).getTime()) / (1000 * 60 * 60 * 24)) + 1} Days)`}
                         </span>
                       </div>
                     </div>

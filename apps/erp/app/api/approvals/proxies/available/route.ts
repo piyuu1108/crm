@@ -111,11 +111,29 @@ export async function GET(req: NextRequest) {
 
     const occupiedProxyIds = new Set(occupiedByProxy.map((o) => o.proxyFacultyId));
 
-    // 4. Exclude occupied faculties from the list
+    // 4. Fetch faculties who are on leave themselves on this date
+    const facultiesOnLeave = await db
+      .select({
+        facultyId: facultyRequests.facultyId,
+      })
+      .from(facultyRequests)
+      .where(
+        and(
+          eq(facultyRequests.requestTypeCode, "leave_approval"),
+          inArray(facultyRequests.status, ["pending", "approved"]),
+          sql`${dateStr} >= ${facultyRequests.fromDate}`,
+          sql`${dateStr} <= ${facultyRequests.toDate}`
+        )
+      );
+
+    const onLeaveIds = new Set(facultiesOnLeave.map((f) => f.facultyId));
+
+    // 5. Exclude occupied and on-leave faculties from the list
     const availableFaculties = allFaculties.filter(
       (fac) =>
         !occupiedTimetableIds.has(fac.id) &&
         !occupiedProxyIds.has(fac.id) &&
+        !onLeaveIds.has(fac.id) &&
         fac.id !== auth.userId // Can't be a proxy for yourself!
     );
 

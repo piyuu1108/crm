@@ -38,11 +38,13 @@ function ProxyDropdown({
   slotId,
   value,
   onSelect,
+  proxyAssignments,
 }: {
   date: string;
   slotId: number;
   value: number | null;
   onSelect: (id: number) => void;
+  proxyAssignments: Record<string, number>;
 }) {
   const { data: response, isLoading } = useQuery({
     queryKey: ["approvals", "proxies", "available", date, slotId],
@@ -55,6 +57,19 @@ function ProxyDropdown({
   });
 
   const availableList = response?.data || [];
+
+  // Exclude faculties already selected for the same date and slot in other dropdowns of this form
+  const alreadySelectedIds = Object.entries(proxyAssignments)
+    .filter(([key, val]) => {
+      const [assignedDate, assignedSlotStr] = key.split("_");
+      const assignedSlotId = parseInt(assignedSlotStr, 10);
+      return assignedDate === date && assignedSlotId === slotId && val !== value;
+    })
+    .map(([_, val]) => val);
+
+  const filteredList = availableList.filter(
+    (f: any) => !alreadySelectedIds.includes(f.id)
+  );
 
   return (
     <div className="w-full sm:w-[280px]">
@@ -82,7 +97,7 @@ function ProxyDropdown({
         </Select.Trigger>
         <Select.Popover className="backdrop-blur-md bg-content1/95 border border-divider/80 shadow-2xl rounded-xl min-w-[280px]">
           <ListBox className="p-1">
-            {availableList.length === 0 ? (
+            {filteredList.length === 0 ? (
               <ListBox.Item id="none" textValue="No free faculty found" isDisabled className="py-2.5">
                 <div className="flex items-center gap-2 px-2 text-rose-500 font-medium text-xs">
                   <AlertCircle className="h-3.5 w-3.5" />
@@ -90,7 +105,7 @@ function ProxyDropdown({
                 </div>
               </ListBox.Item>
             ) : (
-              availableList.map((f: any) => (
+              filteredList.map((f: any) => (
                 <ListBox.Item id={String(f.id)} key={f.id} textValue={f.name} className="p-2 rounded-lg hover:bg-primary/10 transition-colors">
                   <div className="flex items-center gap-3 text-left w-full">
                     <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
@@ -275,6 +290,7 @@ export default function NewRequestPage() {
               divisionId: lect.divisionId,
               subjectId: lect.subjectId,
               slotLabel: lect.label,
+              originalFacultyId: lect.isProxyDuty ? lect.originalFacultyId : null,
             });
           }
         }
@@ -537,15 +553,25 @@ export default function NewRequestPage() {
                                 className="p-4 bg-content1 rounded-xl border border-divider/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-sm hover:border-primary/20 transition-all"
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-9 h-9 rounded-xl bg-primary/5 text-primary flex items-center justify-center font-bold text-xs shadow-inner">
-                                    {lect.label.split(" ")[0] || "L"}
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shadow-inner ${lect.isProxyDuty ? "bg-amber-500/10 text-amber-600" : "bg-primary/5 text-primary"}`}>
+                                    {lect.isProxyDuty ? "P" : (lect.label.split(" ")[0] || "L")}
                                   </div>
                                   <div className="flex flex-col text-left">
-                                    <span className="text-xs font-bold text-foreground">
-                                      {lect.label}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-foreground">
+                                        {lect.label}
+                                      </span>
+                                      {lect.isProxyDuty && (
+                                        <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 text-[9px] font-bold uppercase tracking-wide">
+                                          Proxy Reassignment
+                                        </span>
+                                      )}
+                                    </div>
                                     <span className="text-[10px] text-default-400 mt-0.5">
                                       Division: <span className="font-semibold text-foreground/80">{lect.divisionName}</span> • Subject: <span className="font-semibold text-foreground/80">{lect.subjectName}</span>
+                                      {lect.isProxyDuty && (
+                                        <> • Covering for: <span className="font-semibold text-amber-600">{lect.originalFacultyName}</span></>
+                                      )}
                                     </span>
                                   </div>
                                 </div>
@@ -555,6 +581,7 @@ export default function NewRequestPage() {
                                   slotId={lect.slotId}
                                   value={currentProxyId}
                                   onSelect={(id) => handleSelectProxy(day.date, lect.slotId, id)}
+                                  proxyAssignments={proxyAssignments}
                                 />
                               </div>
                             );

@@ -7,8 +7,11 @@ import {
   timetableSlots,
   divisions,
   subjects,
+  facultyRequests,
+  facultyRequestProxies,
+  faculty,
 } from "@/app/lib/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -114,12 +117,44 @@ export async function GET(req: NextRequest) {
         )
       );
 
+    // Query active proxy duties assigned to the faculty on dates within the range
+    const activeProxies = await db
+      .select({
+        id: facultyRequestProxies.id,
+        date: facultyRequestProxies.date,
+        slotId: facultyRequestProxies.slotId,
+        divisionId: facultyRequestProxies.divisionId,
+        divisionName: divisions.displayName,
+        subjectId: facultyRequestProxies.subjectId,
+        subjectName: subjects.name,
+        startTime: timetableSlots.startTime,
+        endTime: timetableSlots.endTime,
+        originalFacultyId: facultyRequestProxies.originalFacultyId,
+        originalFacultyName: faculty.name,
+      })
+      .from(facultyRequestProxies)
+      .innerJoin(facultyRequests, eq(facultyRequestProxies.requestId, facultyRequests.id))
+      .innerJoin(divisions, eq(facultyRequestProxies.divisionId, divisions.id))
+      .innerJoin(subjects, eq(facultyRequestProxies.subjectId, subjects.id))
+      .innerJoin(timetableSlots, eq(facultyRequestProxies.slotId, timetableSlots.id))
+      .innerJoin(faculty, eq(facultyRequestProxies.originalFacultyId, faculty.id))
+      .where(
+        and(
+          eq(facultyRequestProxies.proxyFacultyId, userId),
+          inArray(facultyRequestProxies.status, ["pending", "approved"]),
+          inArray(facultyRequests.status, ["pending", "approved"]),
+          sql`${facultyRequestProxies.date} >= ${fromDateStr}`,
+          sql`${facultyRequestProxies.date} <= ${toDateStr}`
+        )
+      );
+
     // Group matching entries day by day
     const result = dates.map((d) => {
       const dayName = DAYS_OF_WEEK[d.getUTCDay()];
       const dateStr = d.toISOString().split("T")[0];
 
-      const matchingEntries = entries
+      // 1. Regular timetable lectures for this day of the week
+      const matchingTimetable = entries
         .filter((entry) => entry.dayOfWeek.toLowerCase() === dayName.toLowerCase())
         .map((entry) => {
           const resolvedSlot = entry.slotId ? slotMap.get(entry.slotId) : null;
@@ -132,13 +167,41 @@ export async function GET(req: NextRequest) {
             divisionName: entry.divisionName,
             subjectId: entry.subjectId,
             subjectName: entry.subjectName,
+            isProxyDuty: false,
           };
         });
+
+      // 2. Active proxy duties for this specific calendar date
+      const matchingProxies = activeProxies
+        .filter((proxy) => proxy.date === dateStr)
+        .map((proxy) => {
+          const resolvedSlot = proxy.slotId ? slotMap.get(proxy.slotId) : null;
+          return {
+            slotId: proxy.slotId,
+            label: resolvedSlot ? `Proxy: ${resolvedSlot.label} (${resolvedSlot.startTime.slice(0, 5)} - ${resolvedSlot.endTime.slice(0, 5)})` : `Proxy: ${proxy.startTime.slice(0, 5)} - ${proxy.endTime.slice(0, 5)}`,
+            startTime: proxy.startTime,
+            endTime: proxy.endTime,
+            divisionId: proxy.divisionId,
+            divisionName: proxy.divisionName,
+            subjectId: proxy.subjectId,
+            subjectName: proxy.subjectName,
+            isProxyDuty: true,
+            originalFacultyId: proxy.originalFacultyId,
+            originalFacultyName: proxy.originalFacultyName,
+          };
+        });
+
+      // Combine chronologically
+      const allLectures = [...matchingTimetable, ...matchingProxies].sort((a, b) => {
+        const timeA = a.startTime || "";
+        const timeB = b.startTime || "";
+        return timeA.localeCompare(timeB);
+      });
 
       return {
         date: dateStr,
         dayOfWeek: dayName,
-        lectures: matchingEntries,
+        lectures: allLectures,
       };
     });
 

@@ -4,103 +4,361 @@ import React, { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission } from "@/app/lib/hooks/use-permission";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Button, Card, Chip, Pagination, Skeleton } from "@heroui/react";
-import { Plus, Bell } from "@gravity-ui/icons";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Button,
+  Card,
+  Pagination,
+  Skeleton,
+  ScrollShadow,
+  Avatar,
+  TextField,
+  InputGroup,
+} from "@heroui/react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Envelope,
+  TrashBin,
+  TriangleExclamation,
+  Xmark,
+} from "@gravity-ui/icons";
+import { cn } from "@/lib/utils";
 
-// ─── Audience badge config ────────────────────────────────────────────────────
+// ─── Custom SVG Icons for Precise Replication ───────────────────────────────
 
-type AudienceVariant = "accent" | "success" | "warning" | "danger" | "default";
-
-const AUDIENCE_CONFIG: Record<
-  string,
-  { label: (c: any) => string; color: AudienceVariant }
-> = {
-  ALL: { label: () => "Global", color: "success" },
-  FACULTY: { label: () => "Faculty", color: "accent" },
-  YEAR: { label: (c) => `Year ${c.targetYear}`, color: "warning" },
-  DIVISION: {
-    label: (c) =>
-      c.targetDivisionIds?.length
-        ? `${c.targetDivisionIds.length} Division${c.targetDivisionIds.length > 1 ? "s" : ""}`
-        : "Division",
-    color: "danger",
-  },
-};
-
-function AudienceBadge({ circular }: { circular: any }) {
-  const cfg = AUDIENCE_CONFIG[circular.targetType] ?? {
-    label: () => circular.targetType,
-    color: "default" as AudienceVariant,
-  };
+function DotsVerticalIcon({ className }: { className?: string }) {
   return (
-    <Chip color={cfg.color} variant="soft" size="sm">
-      {cfg.label(circular)}
-    </Chip>
+    <svg viewBox="0 0 16 16" fill="currentColor" className={className} width="16" height="16">
+      <circle cx="8" cy="3" r="1.5" />
+      <circle cx="8" cy="8" r="1.5" />
+      <circle cx="8" cy="13" r="1.5" />
+    </svg>
   );
 }
 
-// ─── Skeleton cards ───────────────────────────────────────────────────────────
+function StarIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+function ReplyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="9 17 4 12 9 7" />
+      <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      focusable="false"
+      height="1em"
+      role="presentation"
+      viewBox="0 0 24 24"
+      width="1em"
+      className={className}
+    >
+      <path
+        d="M11.5 21C16.7467 21 21 16.7467 21 11.5C21 6.25329 16.7467 2 11.5 2C6.25329 2 2 6.25329 2 11.5C2 16.7467 6.25329 21 11.5 21Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M22 22L20 20"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function getInitials(name?: string): string {
+  if (!name) return "?";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase();
+}
+
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffDays < 1 && d.getDate() === now.getDate()) {
+    return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  }
+  if (diffDays < 2 && d.getDate() === now.getDate() - 1) {
+    return "Yesterday";
+  }
+  return d.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+}
+
+function formatFullDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const dateText = d.toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" });
+  return `${dateText} ${timeStr}`;
+}
+
+function getAudienceLabel(circular: any): string {
+  if (circular.targetType === "ALL") return "All Students & Staff";
+  if (circular.targetType === "FACULTY") return "Faculty & Staff";
+  if (circular.targetType === "YEAR") return `Year ${circular.targetYear}`;
+  if (circular.targetType === "DIVISION") return "Specific Divisions";
+  return circular.targetType || "Everyone";
+}
+
+// ─── Skeleton ────────────────────────────────────────────────────────────────
 
 function CircularSkeleton() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {[...Array(4)].map((_, i) => (
-        <Card key={i} className="w-full border border-divider">
-          <Card.Content className="flex justify-between items-center gap-4 p-4">
-            <div className="flex flex-col gap-2 flex-1">
-              <Skeleton className="h-5 w-2/3 rounded" />
-              <Skeleton className="h-3.5 w-1/3 rounded" />
-            </div>
-            <Skeleton className="h-6 w-20 rounded-full" />
-          </Card.Content>
+        <Card key={i} className="w-full border border-divider/45 p-4 flex flex-col gap-3 bg-transparent shadow-none">
+          <div className="flex items-center justify-between gap-4">
+            <Skeleton className="h-3.5 w-24 rounded" />
+            <Skeleton className="h-3 w-12 rounded" />
+          </div>
+          <Skeleton className="h-4.5 w-3/4 rounded" />
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-full rounded" />
+          </div>
         </Card>
       ))}
     </div>
   );
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
+// ─── Empty State ─────────────────────────────────────────────────────────────
 
-function EmptyState({ canCreate, onCreateClick }: { canCreate: boolean; onCreateClick: () => void }) {
+function DetailEmptyState() {
   return (
-    <Card className="w-full border border-divider p-12 text-center">
-      <Card.Content className="flex flex-col items-center gap-4">
-        <div className="rounded-full bg-default/20 p-4">
-          <Bell className="w-8 h-8 text-muted-foreground" />
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-default-50/30 rounded-[32px] h-full border border-divider/50 shadow-inner select-none">
+      <div className="flex flex-col items-center text-center max-w-sm gap-2">
+        <div className="rounded-full bg-default-100 p-4 border border-divider/40 shadow-sm">
+          <Envelope className="w-8 h-8 text-default-400" />
         </div>
-        <div>
-          <p className="text-base font-semibold text-foreground">No circulars yet</p>
-          <p className="text-sm text-muted-foreground mt-1">
-            {canCreate
-              ? "Publish the first circular to notify your students."
-              : "No notices have been published for you yet."}
-          </p>
+        <h3 className="text-sm font-semibold text-foreground mt-2">Select a circular</h3>
+        <p className="text-xs text-default-400">
+          Choose any notice from the sidebar to read its details.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Circular Detail Reader Pane ──────────────────────────────────────────────
+
+interface CircularDetailReaderProps {
+  slug: string;
+  onBack: () => void;
+}
+
+function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["circular", slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/circulars/${slug}`, {
+        credentials: "include",
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed to fetch circular");
+      return json.data;
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="flex-1 p-8 h-full bg-content1 rounded-[32px] shadow-small border border-divider/50 flex flex-col gap-6">
+        <Skeleton className="h-10 w-3/4 rounded-xl" />
+        <div className="flex items-center gap-4 bg-default-50 border border-divider/50 rounded-2xl p-4 sm:p-5">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="flex flex-col gap-2 flex-1">
+            <Skeleton className="h-4 w-32 rounded" />
+            <Skeleton className="h-3 w-48 rounded" />
+          </div>
         </div>
-        {canCreate && (
-          <Button size="sm" onPress={onCreateClick}>
-            <Plus className="w-4 h-4" />
-            Create Circular
+        <div className="flex flex-col gap-3 p-6 border border-divider/40 rounded-2xl flex-1">
+          <Skeleton className="h-4 w-full rounded" />
+          <Skeleton className="h-4 w-11/12 rounded" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="flex-1 flex flex-col gap-4 p-8 bg-content1 rounded-[32px] shadow-small border border-divider/50 items-center justify-center">
+        <p className="text-sm font-semibold text-danger">Notice could not be loaded.</p>
+        <Button variant="secondary" size="sm" onPress={onBack}>
+          Back to List
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Card className="flex flex-col flex-1 bg-content1 rounded-[32px] shadow-small border border-divider/50 overflow-hidden h-full">
+      {/* Top Toolbar */}
+      <div className="flex h-14 shrink-0 items-center justify-between px-6 border-b border-divider/50 select-none">
+        {/* Left Side Actions */}
+        <div className="flex items-center gap-1.5">
+          <Button
+            isIconOnly
+            variant="ghost"
+            size="sm"
+            onPress={onBack}
+            className="rounded-full bg-default-100 hover:bg-default-200 text-default-600 w-8 h-8 flex items-center justify-center shrink-0 mr-1 border-none shadow-none"
+          >
+            <Xmark className="w-4 h-4" />
           </Button>
+          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+            <TrashBin className="w-4 h-4" />
+          </Button>
+          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+            <TriangleExclamation className="w-4 h-4" />
+          </Button>
+          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+            <Envelope className="w-4 h-4" />
+          </Button>
+          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+            <DotsVerticalIcon className="w-4 h-4" />
+          </Button>
+        </div>
+
+        {/* Right Side Pagination */}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-default-400 font-medium select-none">1 of 1</span>
+          <div className="flex items-center gap-0.5">
+            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+              <ArrowRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Detail Canvas Content */}
+      <ScrollShadow className="flex-1 overflow-y-auto px-8 py-6" hideScrollBar>
+        {/* Title */}
+        <h1 className="text-2xl font-bold text-foreground leading-tight mb-6">
+          {data.title}
+        </h1>
+
+        {/* Sender details row */}
+        <div className="flex items-center justify-between gap-4 mb-8 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Avatar circle matching template styling */}
+            <Avatar className="w-10 h-10 rounded-full overflow-hidden shrink-0">
+              <Avatar.Fallback className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-teal-400 to-emerald-500 text-white font-semibold text-sm">
+                {getInitials(data.facultyName)}
+              </Avatar.Fallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold text-foreground truncate leading-none">
+                {data.facultyName}
+              </span>
+              <span className="text-xs text-default-400 flex items-center gap-1.5 mt-1 select-none">
+                <span>{data.facultyName.toLowerCase().replace(/\s+/g, "")}@heroui.dev</span>
+                <span className="text-default-300">to me</span>
+                <ChevronDownIcon className="w-3 h-3 text-default-400 -ml-0.5" />
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-default-400 select-none mr-1">
+              {formatFullDate(data.createdAt)}
+            </span>
+            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+              <ReplyIcon className="w-4 h-4" />
+            </Button>
+            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+              <StarIcon className="w-4 h-4" />
+            </Button>
+            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
+              <DotsVerticalIcon className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Pure description canvas */}
+        {data.description && (
+          <div className="text-default-700 leading-relaxed text-base whitespace-pre-line">
+            <div dangerouslySetInnerHTML={{ __html: data.description }} />
+          </div>
         )}
-      </Card.Content>
+      </ScrollShadow>
     </Card>
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── Main Unified Circulars Page ──────────────────────────────────────────────
 
 export default function CircularsPage() {
-  const { activeRole } = useAuthStore();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
   const limit = 10;
 
-  const canCreate = usePermission("circulars.create");
+  // Read selected slug from URL parameters (?select=slug)
+  const searchParams = useSearchParams();
+  const selectedSlug = searchParams.get("select") || undefined;
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["circulars", page, limit],
     queryFn: async () => {
       const res = await fetch(
@@ -122,127 +380,166 @@ export default function CircularsPage() {
   const total: number = data?.pagination?.total ?? 0;
   const totalPages = Math.ceil(total / limit) || 1;
 
-  return (
-    <div className="flex flex-col gap-6">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">
-            Circulars &amp; Notices
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {total > 0
-              ? `${total} notice${total !== 1 ? "s" : ""} visible to you`
-              : "Stay updated with the latest announcements"}
-          </p>
-        </div>
-        {canCreate && (
-          <Button onPress={() => router.push("/app/circulars/create")}>
-            <Plus className="h-4 w-4" />
-            Create Circular
-          </Button>
-        )}
-      </div>
+  // Client-side dynamic matching
+  const filteredCirculars = circularsData.filter((c: any) =>
+    c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    c.facultyName.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-      {/* ── Content ────────────────────────────────────────────────────── */}
-      {isLoading ? (
-        <CircularSkeleton />
-      ) : isError ? (
-        <Card className="border border-danger/30 bg-danger/5 p-8 text-center">
-          <Card.Content className="flex flex-col items-center gap-3">
-            <p className="text-sm text-danger font-medium">
-              {error instanceof Error ? error.message : "Failed to load circulars"}
-            </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onPress={() =>
-                queryClient.invalidateQueries({ queryKey: ["circulars"] })
-              }
-            >
-              Try Again
-            </Button>
-          </Card.Content>
-        </Card>
-      ) : circularsData.length === 0 ? (
-        <EmptyState
-          canCreate={canCreate}
-          onCreateClick={() => router.push("/app/circulars/create")}
-        />
-      ) : (
-        <div className="flex flex-col gap-3">
-          {circularsData.map((circular: any) => (
-            <Link
-              key={circular.id}
-              href={`/app/circulars/${circular.slug}`}
-              className="block w-full"
-            >
-              <Card className="w-full border border-divider hover:border-accent/50 hover:shadow-sm transition-all duration-150">
-                <Card.Content className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4">
-                  <div className="flex flex-col gap-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground truncate">
-                      {circular.title}
-                    </h3>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>By {circular.facultyName}</span>
-                      <span>•</span>
-                      <span>
-                        {new Intl.DateTimeFormat("en-IN", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        }).format(new Date(circular.createdAt))}
+  const handleSelectCircular = (slug: string) => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("select", slug);
+    router.push(`/app/circulars?${params.toString()}`);
+  };
+
+  const handleClearSelection = () => {
+    const params = new URLSearchParams(window.location.search);
+    params.delete("select");
+    router.push(`/app/circulars?${params.toString()}`);
+  };
+
+  return (
+    <div className="w-full h-[calc(100vh-8.5rem)] flex bg-background overflow-hidden border border-divider/50 rounded-[32px]">
+      {/* ── Left Sidebar Master List Pane ── */}
+      <div
+        className={cn(
+          "w-full lg:w-[350px] shrink-0 flex flex-col border-r border-divider h-full bg-background p-4",
+          selectedSlug ? "hidden lg:flex" : "flex"
+        )}
+      >
+        {/* Dynamic Search Box matching inspiration */}
+        <div className="w-full mb-4 shrink-0">
+          <TextField
+            aria-label="Search"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            className="w-full"
+          >
+            <InputGroup className="rounded-full bg-default-100 border-none shadow-none">
+              <InputGroup.Prefix>
+                <SearchIcon className="text-default-400 w-4 h-4 ml-1" />
+              </InputGroup.Prefix>
+              <InputGroup.Input placeholder="Search..." className="bg-transparent text-sm h-9" />
+            </InputGroup>
+          </TextField>
+        </div>
+
+        {/* Scrollable Notices List */}
+        <ScrollShadow className="flex-1 overflow-y-auto px-1 pb-4" hideScrollBar>
+          {isLoading ? (
+            <CircularSkeleton />
+          ) : isError ? (
+            <div className="text-center p-8 border border-divider/40 rounded-2xl bg-default-50/20">
+              <p className="text-xs text-danger font-medium">Failed to load announcements.</p>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="mt-2"
+                onPress={() => queryClient.invalidateQueries({ queryKey: ["circulars"] })}
+              >
+                Retry
+              </Button>
+            </div>
+          ) : filteredCirculars.length === 0 ? (
+            <div className="text-center p-8 border border-divider/40 rounded-2xl bg-default-50/20">
+              <p className="text-xs text-default-400 font-medium">No circulars match your search.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1 flex-1">
+              {filteredCirculars.map((circular: any) => {
+                const isActive = circular.slug === selectedSlug;
+                return (
+                  <div
+                    key={circular.id}
+                    onClick={() => handleSelectCircular(circular.slug)}
+                    className={cn(
+                      "relative flex items-start gap-3 rounded-2xl p-3.5 transition-all duration-200 cursor-pointer select-none border border-transparent",
+                      isActive
+                        ? "bg-content1 shadow-small text-foreground border-divider/10"
+                        : "bg-transparent hover:bg-default-100/60 text-default-600"
+                    )}
+                  >
+                    {/* Circle Avatar on Left */}
+                    <Avatar className="w-9 h-9 rounded-full overflow-hidden shrink-0">
+                      <Avatar.Fallback className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-cyan-400 to-blue-500 text-white font-semibold text-xs">
+                        {getInitials(circular.facultyName)}
+                      </Avatar.Fallback>
+                    </Avatar>
+
+                    {/* Three-Line Clean Metadata Content */}
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-xs text-foreground truncate leading-none">
+                          {circular.facultyName}
+                        </span>
+                        <span className="text-[10px] text-default-400 shrink-0 select-none">
+                          {formatShortDate(circular.createdAt)}
+                        </span>
+                      </div>
+                      <span className="font-semibold text-xs text-foreground truncate mt-0.5 leading-tight">
+                        {circular.title}
+                      </span>
+                      <span className="text-[11px] text-default-500 line-clamp-1">
+                        For: {getAudienceLabel(circular)}
                       </span>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
+        </ScrollShadow>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    {circular.attachmentUrl && (
-                      <Chip variant="soft" size="sm" color="default">
-                        Attachment
-                      </Chip>
-                    )}
-                    <AudienceBadge circular={circular} />
-                  </div>
-                </Card.Content>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* ── Pagination ─────────────────────────────────────────────────── */}
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-2">
-          <Pagination>
-            <Pagination.Content>
-              <Pagination.Item>
-                <Pagination.Previous
-                  isDisabled={page === 1}
-                  onPress={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <Pagination.PreviousIcon />
-                </Pagination.Previous>
-              </Pagination.Item>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <Pagination.Item key={p}>
-                  <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>
-                    {p}
-                  </Pagination.Link>
+        {/* Simple Pagination bar */}
+        {totalPages > 1 && (
+          <div className="flex justify-center pt-3 border-t border-divider/40 shrink-0">
+            <Pagination>
+              <Pagination.Content>
+                <Pagination.Item>
+                  <Pagination.Previous
+                    isDisabled={page === 1}
+                    onPress={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    <Pagination.PreviousIcon />
+                  </Pagination.Previous>
                 </Pagination.Item>
-              ))}
-              <Pagination.Item>
-                <Pagination.Next
-                  isDisabled={page === totalPages}
-                  onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  <Pagination.NextIcon />
-                </Pagination.Next>
-              </Pagination.Item>
-            </Pagination.Content>
-          </Pagination>
-        </div>
-      )}
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <Pagination.Item key={p}>
+                    <Pagination.Link isActive={p === page} onPress={() => setPage(p)}>
+                      {p}
+                    </Pagination.Link>
+                  </Pagination.Item>
+                ))}
+                <Pagination.Item>
+                  <Pagination.Next
+                    isDisabled={page === totalPages}
+                    onPress={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    <Pagination.NextIcon />
+                  </Pagination.Next>
+                </Pagination.Item>
+              </Pagination.Content>
+            </Pagination>
+          </div>
+        )}
+      </div>
+
+      {/* ── Right Canvas Detail Reader Pane ── */}
+      <div
+        className={cn(
+          "flex-1 min-w-0 h-full flex flex-col p-4 bg-default-50/50",
+          selectedSlug ? "flex animate-fade-in" : "hidden lg:flex"
+        )}
+      >
+        {selectedSlug ? (
+          <CircularDetailReader
+            slug={selectedSlug}
+            onBack={handleClearSelection}
+          />
+        ) : (
+          <DetailEmptyState />
+        )}
+      </div>
     </div>
   );
 }

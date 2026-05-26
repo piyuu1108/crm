@@ -13,7 +13,7 @@ interface StatCardProps {
 export function StatCard({ title, value, trend, trendDirection }: StatCardProps) {
   return (
     <Card className="px-4 py-3 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-      <dt className="text-xs text-default-500">{title}</dt>
+      <dt className="text-xs text-white">{title}</dt>
       <div className="flex items-center justify-between mt-1">
         <dd className="text-2xl font-semibold tabular-nums text-foreground">
           {value}

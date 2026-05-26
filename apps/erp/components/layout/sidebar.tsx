@@ -313,8 +313,8 @@ export function Sidebar() {
                             : "gap-2.5 px-2.5 py-1.5 text-[13px]"
                         } ${
                           isActive
-                            ? "bg-white dark:bg-default-100 shadow-sm  text-foreground font-medium"
-                            : "text-default-500 hover:bg-default-50/50 hover:text-foreground font-normal"
+                            ? "bg-surface shadow-sm  text-foreground font-medium"
+                            : "text-default-500 hover:bg-surface hover:text-foreground font-normal"
                         }`}
                         aria-label={item.title}
                         aria-current={isActive ? "page" : undefined}

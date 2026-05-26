@@ -185,7 +185,7 @@ function CircularSkeleton() {
 
 function DetailEmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-default-50/40 rounded-2xl h-full border border-divider/30 shadow-inner select-none">
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-surface rounded-2xl h-full border border-divider/30 shadow-inner select-none">
       <div className="flex flex-col items-center text-center max-w-sm gap-2">
         <div className="rounded-full bg-default-100 p-4 border border-divider/25 shadow-sm">
           <Envelope className="w-8 h-8 text-default-400" />
@@ -475,9 +475,9 @@ export default function CircularsPage() {
             aria-label="Search"
             value={searchQuery}
             onChange={setSearchQuery}
-            className="w-full"
+            className="w-full placeholder-primary"
           >
-            <InputGroup className="rounded-lg bg-white border border-divider/30 shadow-sm">
+            <InputGroup className="rounded-lg bg-surface border border-divider/30 shadow-sm">
               <InputGroup.Prefix>
                 <SearchIcon className="text-default-400 w-4 h-4 ml-2" />
               </InputGroup.Prefix>

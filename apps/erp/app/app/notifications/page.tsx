@@ -394,12 +394,12 @@ export default function NotificationsPage() {
       {/* ─── Metrics Dashboard Grid ─────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Card className="border border-divider bg-card/40 backdrop-blur-md">
-          <Card.Content className="p-4 flex flex-col gap-1">
+          <Card.Content className="p-4 h-12 flex flex-col gap-1">
             <span className="text-xs font-semibold text-muted-foreground capitalize">Total Alerts</span>
             <span className="text-2xl font-bold text-foreground">{metrics.total}</span>
           </Card.Content>
         </Card>
-        <Card className="border border-divider bg-card/40 backdrop-blur-md">
+        <Card className="border bg-card/40 backdrop-blur-md">
           <Card.Content className="p-4 flex flex-col gap-1 border-l-4 border-l-primary">
             <span className="text-xs font-semibold text-muted-foreground capitalize">Unread</span>
             <span className="text-2xl font-bold text-primary">{metrics.unread}</span>

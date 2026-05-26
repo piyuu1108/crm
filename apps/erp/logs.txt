@@ -1,0 +1,640 @@
+GET /api/approvals/config 200 in 444ms (next.js: 212ms, proxy.ts: 101ms, application-code: 131ms)
+ GET /api/approvals/types 200 in 454ms (next.js: 85ms, proxy.ts: 98ms, application-code: 271ms)
+ GET /api/approvals/timetable?fromDate=2026-05-26&toDate=2026-05-26 200 in 338ms (next.js: 124ms, proxy.ts: 52ms, application-code: 163ms)
+ GET /api/approvals/proxies/available?date=2026-05-26&slotId=18 200 in 304ms (next.js: 55ms, proxy.ts: 43ms, application-code: 206ms)
+ GET /api/approvals/proxies/available?date=2026-05-26&slotId=13 200 in 461ms (next.js: 64ms, proxy.ts: 46ms, application-code: 350ms)
+ GET /api/approvals/proxies/available?date=2026-05-26&slotId=17 200 in 480ms (next.js: 39ms, proxy.ts: 184ms, application-code: 257ms)
+ GET /api/approvals/proxies/available?date=2026-05-26&slotId=14 200 in 500ms (next.js: 32ms, proxy.ts: 180ms, application-code: 289ms)
+ GET /api/approvals/timetable?fromDate=2026-05-27&toDate=2026-05-26 400 in 70ms (next.js: 8ms, proxy.ts: 50ms, application-code: 13ms)
+ GET /api/approvals/timetable?fromDate=2026-05-27&toDate=2026-05-26 400 in 43ms (next.js: 8ms, proxy.ts: 18ms, application-code: 16ms)
+ GET /api/approvals/timetable?fromDate=2026-05-27&toDate=2026-05-27 200 in 71ms (next.js: 1938µs, proxy.ts: 18ms, application-code: 51ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 200 in 153ms (next.js: 19ms, proxy.ts: 17ms, application-code: 118ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 200 in 166ms (next.js: 32ms, proxy.ts: 27ms, application-code: 108ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 200 in 178ms (next.js: 24ms, proxy.ts: 78ms, application-code: 76ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 200 in 181ms (next.js: 18ms, proxy.ts: 72ms, application-code: 91ms)
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+ POST /api/approvals/submit 200 in 511ms (next.js: 165ms, proxy.ts: 78ms, application-code: 269ms)
+ GET /app/academics/approvals 200 in 67ms (next.js: 8ms, proxy.ts: 8ms, application-code: 51ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/academics/approvals 200 in 403ms (next.js: 6ms, proxy.ts: 5ms, application-code: 392ms)
+ GET /api/auth/me 200 in 244ms (next.js: 96ms, proxy.ts: 19ms, application-code: 129ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 420ms (next.js: 153ms, proxy.ts: 33ms, application-code: 234ms)
+ GET /api/notifications 200 in 502ms (next.js: 103ms, proxy.ts: 214ms, application-code: 185ms)
+ GET /api/approvals/list 200 in 504ms (next.js: 153ms, proxy.ts: 216ms, application-code: 134ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/academics/approvals 200 in 99ms (next.js: 6ms, proxy.ts: 4ms, application-code: 89ms)
+ GET /api/auth/me 200 in 523ms (next.js: 16ms, proxy.ts: 81ms, application-code: 425ms)
+ GET /api/notifications 200 in 533ms (next.js: 64ms, proxy.ts: 128ms, application-code: 342ms)
+ GET /api/approvals/list 200 in 530ms (next.js: 333ms, proxy.ts: 140ms, application-code: 57ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/courses 200 in 588ms (next.js: 241ms, proxy.ts: 135ms, application-code: 213ms)
+ GET /api/courses 200 in 58ms (next.js: 8ms, proxy.ts: 26ms, application-code: 24ms)
+ GET /api/approvals/list?id=3 200 in 197ms (next.js: 11ms, proxy.ts: 20ms, application-code: 166ms)
+ GET /app/academics/approvals 200 in 109ms (next.js: 5ms, proxy.ts: 4ms, application-code: 100ms)
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+ GET /api/auth/me 200 in 203ms (next.js: 31ms, proxy.ts: 97ms, application-code: 76ms)
+ GET /api/approvals/list 200 in 202ms (next.js: 25ms, proxy.ts: 103ms, application-code: 75ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 222ms (next.js: 32ms, proxy.ts: 91ms, application-code: 100ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications 200 in 286ms (next.js: 38ms, proxy.ts: 110ms, application-code: 138ms)
+ GET /api/approvals/list?id=3 200 in 156ms (next.js: 8ms, proxy.ts: 17ms, application-code: 131ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 200 in 183ms (next.js: 41ms, proxy.ts: 51ms, application-code: 91ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 200 in 190ms (next.js: 36ms, proxy.ts: 48ms, application-code: 106ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 200 in 187ms (next.js: 48ms, proxy.ts: 54ms, application-code: 85ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 200 in 195ms (next.js: 44ms, proxy.ts: 63ms, application-code: 88ms)
+ POST /api/approvals/action 200 in 513ms (next.js: 152ms, proxy.ts: 52ms, application-code: 310ms)
+ GET /api/approvals/list 200 in 327ms (next.js: 41ms, proxy.ts: 88ms, application-code: 199ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 200 in 331ms (next.js: 56ms, proxy.ts: 173ms, application-code: 101ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 200 in 381ms (next.js: 62ms, proxy.ts: 193ms, application-code: 125ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 200 in 353ms (next.js: 60ms, proxy.ts: 171ms, application-code: 123ms)
+ GET /api/approvals/list?id=3 200 in 408ms (next.js: 36ms, proxy.ts: 113ms, application-code: 259ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 200 in 351ms (next.js: 68ms, proxy.ts: 175ms, application-code: 108ms)
+ GET /app/notifications 200 in 87ms (next.js: 6ms, proxy.ts: 11ms, application-code: 70ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 175ms (next.js: 15ms, proxy.ts: 90ms, application-code: 70ms)
+ GET /app/notifications 200 in 215ms (next.js: 13ms, proxy.ts: 4ms, application-code: 198ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 159ms (next.js: 28ms, proxy.ts: 30ms, application-code: 101ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 180ms (next.js: 16ms, proxy.ts: 55ms, application-code: 109ms)
+ GET /api/notifications 200 in 215ms (next.js: 26ms, proxy.ts: 121ms, application-code: 68ms)
+ GET /api/notifications?limit=10&offset=0 200 in 275ms (next.js: 29ms, proxy.ts: 119ms, application-code: 127ms)
+ GET /app/academics/approvals 200 in 76ms (next.js: 7ms, proxy.ts: 2ms, application-code: 66ms)
+ GET /api/approvals/list 200 in 84ms (next.js: 7ms, proxy.ts: 21ms, application-code: 56ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/approvals/list?id=3 200 in 287ms (next.js: 7ms, proxy.ts: 99ms, application-code: 180ms)
+ GET /api/approvals/list?id=3 200 in 1412ms (next.js: 11ms, proxy.ts: 311ms, application-code: 1091ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 111ms (next.js: 9ms, proxy.ts: 76ms, application-code: 26ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 115ms (next.js: 13ms, proxy.ts: 78ms, application-code: 23ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 403 in 196ms (next.js: 18ms, proxy.ts: 158ms, application-code: 20ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 199ms (next.js: 19ms, proxy.ts: 164ms, application-code: 16ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 81ms (next.js: 5ms, proxy.ts: 64ms, application-code: 12ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 153ms (next.js: 7ms, proxy.ts: 134ms, application-code: 13ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 403 in 137ms (next.js: 7ms, proxy.ts: 119ms, application-code: 11ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 138ms (next.js: 9ms, proxy.ts: 120ms, application-code: 9ms)
+ POST /api/approvals/action 200 in 788ms (next.js: 7ms, proxy.ts: 193ms, application-code: 587ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 251ms (next.js: 3ms, proxy.ts: 222ms, application-code: 26ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 286ms (next.js: 26ms, proxy.ts: 212ms, application-code: 48ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 403 in 288ms (next.js: 31ms, proxy.ts: 215ms, application-code: 41ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 290ms (next.js: 35ms, proxy.ts: 220ms, application-code: 35ms)
+ GET /api/approvals/list 200 in 334ms (next.js: 35ms, proxy.ts: 56ms, application-code: 243ms)
+ GET /api/approvals/list?id=3 200 in 470ms (next.js: 31ms, proxy.ts: 72ms, application-code: 367ms)
+ GET /app/academics/approvals 200 in 178ms (next.js: 22ms, proxy.ts: 11ms, application-code: 145ms)
+ GET /api/courses 200 in 372ms (next.js: 46ms, proxy.ts: 279ms, application-code: 46ms)
+ GET /api/auth/me 200 in 435ms (next.js: 21ms, proxy.ts: 325ms, application-code: 90ms)
+ GET /api/approvals/list 200 in 290ms (next.js: 14ms, proxy.ts: 153ms, application-code: 122ms)
+ GET /api/notifications 200 in 498ms (next.js: 23ms, proxy.ts: 274ms, application-code: 201ms)
+ GET /api/courses 200 in 119ms (next.js: 16ms, proxy.ts: 31ms, application-code: 72ms)    
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+✓ Compiled in 790ms
+ GET /app/academics/approvals 200 in 810ms (next.js: 166ms, proxy.ts: 85ms, application-code: 559ms)
+ GET /app/academics/approvals 200 in 733ms (next.js: 296ms, proxy.ts: 9ms, application-code: 429ms)
+ GET /app/academics/approvals 200 in 733ms (next.js: 458ms, proxy.ts: 8ms, application-code: 267ms)
+ GET /api/approvals/list?id=3 200 in 413ms (next.js: 209ms, proxy.ts: 27ms, application-code: 177ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 165ms (next.js: 79ms, proxy.ts: 47ms, application-code: 39ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 170ms (next.js: 81ms, proxy.ts: 55ms, application-code: 34ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 403 in 171ms (next.js: 86ms, proxy.ts: 57ms, application-code: 28ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 175ms (next.js: 92ms, proxy.ts: 60ms, application-code: 23ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 77ms (next.js: 16ms, proxy.ts: 49ms, application-code: 12ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 89ms (next.js: 19ms, proxy.ts: 49ms, application-code: 21ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 86ms (next.js: 13ms, proxy.ts: 66ms, application-code: 8ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 403 in 540ms (next.js: 12ms, proxy.ts: 503ms, application-code: 25ms)
+ GET /app/academics/approvals 200 in 479ms (next.js: 155ms, proxy.ts: 33ms, application-code: 292ms)
+ GET /app/academics/approvals 200 in 479ms (next.js: 286ms, proxy.ts: 33ms, application-code: 160ms)
+ GET /app/academics/approvals 200 in 455ms (next.js: 375ms, proxy.ts: 6ms, application-code: 74ms)
+ POST /api/approvals/action 200 in 524ms (next.js: 115ms, proxy.ts: 78ms, application-code: 330ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 294ms (next.js: 171ms, proxy.ts: 78ms, application-code: 45ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 301ms (next.js: 189ms, proxy.ts: 67ms, application-code: 44ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=16 403 in 393ms (next.js: 64ms, proxy.ts: 286ms, application-code: 44ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 395ms (next.js: 69ms, proxy.ts: 291ms, application-code: 35ms)
+ GET /api/approvals/list 200 in 668ms (next.js: 138ms, proxy.ts: 49ms, application-code: 481ms)
+ GET /api/approvals/list?id=3 200 in 708ms (next.js: 157ms, proxy.ts: 53ms, application-code: 498ms)
+ GET /app/notifications 200 in 108ms (next.js: 38ms, proxy.ts: 4ms, application-code: 66ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 511ms (next.js: 290ms, proxy.ts: 157ms, application-code: 64ms)
+ PATCH /api/notifications 200 in 107ms (next.js: 7ms, proxy.ts: 62ms, application-code: 39ms)
+ GET /api/notifications 200 in 246ms (next.js: 24ms, proxy.ts: 29ms, application-code: 193ms)
+ GET /api/notifications?limit=10&offset=0 200 in 244ms (next.js: 27ms, proxy.ts: 31ms, application-code: 186ms)
+ GET /app/academics/approvals 200 in 452ms (next.js: 4ms, proxy.ts: 2ms, application-code: 446ms)
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+ GET /api/auth/me 200 in 324ms (next.js: 101ms, proxy.ts: 87ms, application-code: 137ms)
+ GET /api/approvals/list 200 in 324ms (next.js: 188ms, proxy.ts: 78ms, application-code: 59ms)
+ GET /api/notifications 200 in 333ms (next.js: 176ms, proxy.ts: 74ms, application-code: 82ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 341ms (next.js: 171ms, proxy.ts: 67ms, application-code: 103ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /auth/login 200 in 427ms (next.js: 41ms, proxy.ts: 4ms, application-code: 382ms)
+ POST /api/auth/login 200 in 672ms (next.js: 172ms, proxy.ts: 101ms, application-code: 399ms)
+ GET /app/dashboard 200 in 162ms (next.js: 33ms, proxy.ts: 4ms, application-code: 125ms)
+ GET /api/auth/me 200 in 115ms (next.js: 41ms, proxy.ts: 20ms, application-code: 54ms)
+[Cache REMEMBER] key=erp:dashboard:user:18 tags=
+🔴 [Cache MISS] key=erp:dashboard:user:18 → Fetching from Database
+[Dashboard Cache] MISS for key: erp:dashboard:user:18. Fetching from DB...
+ GET /api/requests/faculty?status=pending&limit=1 200 in 330ms (next.js: 23ms, proxy.ts: 33ms, application-code: 274ms)
+ GET /api/notifications 200 in 362ms (next.js: 18ms, proxy.ts: 79ms, application-code: 266ms)
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :   197.08 ms  ████████████████████
+  Estimated CPU     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  DB Wait           :   262.86 ms  ████████████████████
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+  [db           ] db:resolveUserInfo              111.18 ms
+  [db           ] db:buildDashboard:faculty       151.68 ms
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 484ms (next.js: 186ms, proxy.ts: 83ms, application-code: 215ms)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 11ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 12ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /app/notifications 200 in 76ms (next.js: 7ms, proxy.ts: 6ms, application-code: 63ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 104ms (next.js: 12ms, proxy.ts: 23ms, application-code: 69ms)
+ GET /app/notifications 200 in 55ms (next.js: 7ms, proxy.ts: 3ms, application-code: 45ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 457ms (next.js: 9ms, proxy.ts: 225ms, application-code: 223ms)
+ GET /app/notifications 200 in 620ms (next.js: 198ms, proxy.ts: 4ms, application-code: 418ms)
+ GET /app/notifications 200 in 733ms (next.js: 577ms, proxy.ts: 44ms, application-code: 112ms)
+ GET /app/notifications 200 in 692ms (next.js: 494ms, proxy.ts: 7ms, application-code: 191ms)
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+    at DataTable (components/data-table.tsx:428:13)
+    at NotificationsPage (app/app/notifications/page.tsx:382:7)
+  426 |         <Table>
+  427 |           <Table.ScrollContainer className="w-full overflow-x-auto">
+> 428 |             <Table.Content
+      |             ^
+  429 |               aria-label={title || "Data table"}
+  430 |               className="min-w-[700px]"
+  431 |               sortDescriptor={sortDescVal}
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+    at DataTable (components/data-table.tsx:428:13)
+    at NotificationsPage (app/app/notifications/page.tsx:382:7)
+  426 |         <Table>
+  427 |           <Table.ScrollContainer className="w-full overflow-x-auto">
+> 428 |             <Table.Content
+      |             ^
+  429 |               aria-label={title || "Data table"}
+  430 |               className="min-w-[700px]"
+  431 |               sortDescriptor={sortDescVal}
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+ PATCH /api/notifications 200 in 442ms (next.js: 173ms, proxy.ts: 94ms, application-code: 175ms)
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+    at DataTable (components/data-table.tsx:428:13)
+    at NotificationsPage (app/app/notifications/page.tsx:382:7)
+  426 |         <Table>
+  427 |           <Table.ScrollContainer className="w-full overflow-x-auto">
+> 428 |             <Table.Content
+      |             ^
+  429 |               aria-label={title || "Data table"}
+  430 |               className="min-w-[700px]"
+  431 |               sortDescriptor={sortDescVal}
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+ GET /api/notifications 200 in 825ms (next.js: 20ms, proxy.ts: 88ms, application-code: 717ms)
+ GET /api/notifications?limit=10&offset=0 200 in 870ms (next.js: 23ms, proxy.ts: 90ms, application-code: 757ms)
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+    at DataTable (components/data-table.tsx:428:13)
+    at NotificationsPage (app/app/notifications/page.tsx:382:7)
+  426 |         <Table>
+  427 |           <Table.ScrollContainer className="w-full overflow-x-auto">
+> 428 |             <Table.Content
+      |             ^
+  429 |               aria-label={title || "Data table"}
+  430 |               className="min-w-[700px]"
+  431 |               sortDescriptor={sortDescVal}
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+[browser] Uncaught Error: A table must have at least one Column with the isRowHeader prop set to true
+ GET /app/dashboard 200 in 104ms (next.js: 40ms, proxy.ts: 4ms, application-code: 60ms)
+[Cache REMEMBER] key=erp:dashboard:user:1 tags=
+🟢 [Cache HIT] key=erp:dashboard:user:1
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :    50.94 ms  ████████████████████
+  Estimated CPU     :    50.94 ms  ████████████████████
+  DB Wait           :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 268ms (next.js: 107ms, proxy.ts: 90ms, application-code: 70ms)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 19ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+[Cache REMEMBER] key=erp:admin:faculty:list:page:1:limit:50:search::status::sortBy:name:sortOrder:asc tags=none
+🔴 [Cache MISS] key=erp:admin:faculty:list:page:1:limit:50:search::status::sortBy:name:sortOrder:asc → Fetching from Database
+ GET /api/admin/faculty?page=1&limit=1000 200 in 523ms (next.js: 195ms, proxy.ts: 31ms, application-code: 296ms)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 29ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 36ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /app/notifications 200 in 587ms (next.js: 6ms, proxy.ts: 5ms, application-code: 575ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 497ms (next.js: 142ms, proxy.ts: 204ms, application-code: 150ms)
+ GET /api/notifications 200 in 505ms (next.js: 210ms, proxy.ts: 209ms, application-code: 87ms)
+ GET /api/notifications?limit=10&offset=0 200 in 570ms (next.js: 146ms, proxy.ts: 190ms, application-code: 234ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 577ms (next.js: 206ms, proxy.ts: 203ms, application-code: 168ms)
+ PATCH /api/notifications 200 in 80ms (next.js: 2ms, proxy.ts: 48ms, application-code: 30ms)
+ GET /api/notifications 200 in 122ms (next.js: 8ms, proxy.ts: 23ms, application-code: 91ms)
+ GET /api/notifications?limit=10&offset=0 200 in 138ms (next.js: 5ms, proxy.ts: 59ms, application-code: 74ms)
+ GET /app/dashboard 200 in 79ms (next.js: 7ms, proxy.ts: 22ms, application-code: 50ms)
+[Cache REMEMBER] key=erp:dashboard:user:18 tags=
+🟢 [Cache HIT] key=erp:dashboard:user:18
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :    28.03 ms  ████████████████████
+  Estimated CPU     :    28.03 ms  ████████████████████
+  DB Wait           :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 77ms (next.js: 7ms, proxy.ts: 31ms, application-code: 39ms)    
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 18ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /app/academics/approvals 200 in 93ms (next.js: 32ms, proxy.ts: 5ms, application-code: 56ms)
+ GET /api/approvals/list 200 in 240ms (next.js: 94ms, proxy.ts: 93ms, application-code: 53ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/academics/approvals/new 200 in 338ms (next.js: 139ms, proxy.ts: 3ms, application-code: 197ms)
+ GET /api/approvals/types 200 in 369ms (next.js: 87ms, proxy.ts: 33ms, application-code: 249ms)
+ GET /api/approvals/config 200 in 367ms (next.js: 167ms, proxy.ts: 34ms, application-code: 166ms)
+ GET /api/approvals/timetable?fromDate=2026-05-27&toDate=2026-05-27 200 in 178ms (next.js: 47ms, proxy.ts: 70ms, application-code: 62ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 200 in 188ms (next.js: 54ms, proxy.ts: 28ms, application-code: 105ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 200 in 194ms (next.js: 49ms, proxy.ts: 25ms, application-code: 119ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 200 in 285ms (next.js: 5ms, proxy.ts: 121ms, application-code: 159ms)
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+ POST /api/approvals/submit 200 in 425ms (next.js: 76ms, proxy.ts: 167ms, application-code: 182ms)
+ GET /app/academics/approvals 200 in 84ms (next.js: 13ms, proxy.ts: 7ms, application-code: 64ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/notifications 200 in 106ms (next.js: 10ms, proxy.ts: 10ms, application-code: 87ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/notifications 200 in 158ms (next.js: 6ms, proxy.ts: 4ms, application-code: 148ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 153ms (next.js: 47ms, proxy.ts: 24ms, application-code: 83ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 181ms (next.js: 35ms, proxy.ts: 39ms, application-code: 108ms)
+ GET /api/notifications 200 in 224ms (next.js: 28ms, proxy.ts: 111ms, application-code: 85ms)
+ GET /api/notifications?limit=10&offset=0 200 in 237ms (next.js: 40ms, proxy.ts: 117ms, application-code: 80ms)
+ GET /app/dashboard 200 in 114ms (next.js: 10ms, proxy.ts: 4ms, application-code: 100ms)
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+ GET /api/auth/me 200 in 161ms (next.js: 6ms, proxy.ts: 83ms, application-code: 72ms)
+[Cache REMEMBER] key=erp:dashboard:user:1 tags=
+🟢 [Cache HIT] key=erp:dashboard:user:1
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :    26.01 ms  ████████████████████
+  Estimated CPU     :    26.01 ms  ████████████████████
+  DB Wait           :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 196ms (next.js: 47ms, proxy.ts: 116ms, application-code: 33ms) 
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 14ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /api/notifications 200 in 250ms (next.js: 39ms, proxy.ts: 105ms, application-code: 105ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 250ms (next.js: 39ms, proxy.ts: 94ms, application-code: 117ms)
+[Cache REMEMBER] key=erp:admin:faculty:list:page:1:limit:50:search::status::sortBy:name:sortOrder:asc tags=none
+🟢 [Cache HIT] key=erp:admin:faculty:list:page:1:limit:50:search::status::sortBy:name:sortOrder:asc
+ GET /api/admin/faculty?page=1&limit=1000 200 in 86ms (next.js: 7ms, proxy.ts: 18ms, application-code: 62ms)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 14ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /app/notifications 200 in 39ms (next.js: 3ms, proxy.ts: 3ms, application-code: 34ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 105ms (next.js: 11ms, proxy.ts: 30ms, application-code: 64ms)
+ GET /app/academics/approvals 200 in 56ms (next.js: 8ms, proxy.ts: 2ms, application-code: 46ms)
+ GET /api/approvals/list 200 in 125ms (next.js: 8ms, proxy.ts: 68ms, application-code: 49ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/approvals/list?id=4 200 in 156ms (next.js: 7ms, proxy.ts: 24ms, application-code: 124ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 200 in 193ms (next.js: 27ms, proxy.ts: 28ms, application-code: 138ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 200 in 194ms (next.js: 49ms, proxy.ts: 38ms, application-code: 108ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 200 in 217ms (next.js: 23ms, proxy.ts: 116ms, application-code: 78ms)
+ POST /api/approvals/action 200 in 423ms (next.js: 142ms, proxy.ts: 14ms, application-code: 267ms)
+ GET /api/approvals/list 200 in 228ms (next.js: 27ms, proxy.ts: 43ms, application-code: 158ms)
+ GET /api/approvals/list?id=4 200 in 291ms (next.js: 33ms, proxy.ts: 52ms, application-code: 206ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 200 in 297ms (next.js: 49ms, proxy.ts: 141ms, application-code: 107ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 200 in 291ms (next.js: 48ms, proxy.ts: 140ms, application-code: 103ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 200 in 292ms (next.js: 47ms, proxy.ts: 147ms, application-code: 98ms)
+[browser] ⨯ unhandledRejection: InvalidStateError: Transition was aborted because of invalid state
+
+ GET /app/notifications 200 in 114ms (next.js: 6ms, proxy.ts: 6ms, application-code: 103ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/courses 200 in 322ms (next.js: 130ms, proxy.ts: 106ms, application-code: 86ms)
+ GET /api/auth/me 200 in 374ms (next.js: 47ms, proxy.ts: 126ms, application-code: 201ms)
+ GET /api/notifications?limit=10&offset=0 200 in 375ms (next.js: 49ms, proxy.ts: 97ms, application-code: 229ms)
+ GET /api/notifications 200 in 408ms (next.js: 171ms, proxy.ts: 115ms, application-code: 123ms)
+ GET /api/courses 200 in 98ms (next.js: 22ms, proxy.ts: 47ms, application-code: 28ms)
+ GET /app/notifications 200 in 28ms (next.js: 8ms, proxy.ts: 5ms, application-code: 15ms)
+ GET /app/notifications 200 in 62ms (next.js: 9ms, proxy.ts: 5ms, application-code: 48ms)
+ GET /app/notifications 200 in 19ms (next.js: 4ms, proxy.ts: 3ms, application-code: 11ms)
+ GET /app/notifications 200 in 64ms (next.js: 4ms, proxy.ts: 5ms, application-code: 55ms)
+ GET /app/notifications 200 in 20ms (next.js: 6ms, proxy.ts: 3ms, application-code: 11ms)
+ GET /app/notifications 200 in 60ms (next.js: 6ms, proxy.ts: 5ms, application-code: 49ms)
+ GET /app/notifications 200 in 24ms (next.js: 8ms, proxy.ts: 3ms, application-code: 13ms)
+ GET /app/notifications 200 in 85ms (next.js: 7ms, proxy.ts: 5ms, application-code: 73ms)
+ GET /app/notifications 200 in 24ms (next.js: 8ms, proxy.ts: 2ms, application-code: 14ms)
+ GET /app/notifications 200 in 99ms (next.js: 8ms, proxy.ts: 5ms, application-code: 87ms)
+ GET /app/notifications 200 in 21ms (next.js: 8ms, proxy.ts: 4ms, application-code: 9ms)
+ GET /app/notifications 200 in 45ms (next.js: 7ms, proxy.ts: 3ms, application-code: 35ms)
+ GET /app/notifications 200 in 35ms (next.js: 12ms, proxy.ts: 5ms, application-code: 18ms)
+ GET /app/notifications 200 in 87ms (next.js: 15ms, proxy.ts: 9ms, application-code: 63ms)
+ GET /app/notifications 200 in 23ms (next.js: 7ms, proxy.ts: 4ms, application-code: 12ms)
+ GET /app/notifications 200 in 61ms (next.js: 7ms, proxy.ts: 5ms, application-code: 49ms)
+ PATCH /api/notifications 200 in 88ms (next.js: 4ms, proxy.ts: 47ms, application-code: 37ms)
+ GET /api/notifications?limit=10&offset=0 200 in 108ms (next.js: 8ms, proxy.ts: 17ms, application-code: 83ms)
+ GET /api/notifications 200 in 127ms (next.js: 4ms, proxy.ts: 17ms, application-code: 105ms)
+ GET /app/academics/approvals 200 in 77ms (next.js: 9ms, proxy.ts: 6ms, application-code: 61ms)
+ GET /api/approvals/list 200 in 163ms (next.js: 8ms, proxy.ts: 104ms, application-code: 51ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/approvals/list?id=4 200 in 162ms (next.js: 5ms, proxy.ts: 19ms, application-code: 137ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 87ms (next.js: 19ms, proxy.ts: 44ms, application-code: 24ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 87ms (next.js: 20ms, proxy.ts: 49ms, application-code: 19ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 115ms (next.js: 7ms, proxy.ts: 97ms, application-code: 11ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 64ms (next.js: 10ms, proxy.ts: 24ms, application-code: 30ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 82ms (next.js: 27ms, proxy.ts: 19ms, application-code: 36ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 61ms (next.js: 11ms, proxy.ts: 35ms, application-code: 16ms)
+ POST /api/approvals/action 200 in 291ms (next.js: 6ms, proxy.ts: 20ms, application-code: 266ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 187ms (next.js: 72ms, proxy.ts: 61ms, application-code: 54ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 222ms (next.js: 90ms, proxy.ts: 77ms, application-code: 54ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 208ms (next.js: 110ms, proxy.ts: 69ms, application-code: 29ms)
+ GET /api/approvals/list 200 in 277ms (next.js: 64ms, proxy.ts: 46ms, application-code: 168ms)
+ GET /api/approvals/list?id=4 200 in 341ms (next.js: 65ms, proxy.ts: 56ms, application-code: 220ms)
+[browser] ⨯ unhandledRejection: InvalidStateError: Transition was aborted because of invalid state
+
+ GET /app/academics/approvals 200 in 127ms (next.js: 4ms, proxy.ts: 3ms, application-code: 119ms)
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+ GET /api/auth/me 200 in 180ms (next.js: 19ms, proxy.ts: 99ms, application-code: 62ms)
+ GET /api/approvals/list 200 in 182ms (next.js: 24ms, proxy.ts: 106ms, application-code: 52ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 185ms (next.js: 26ms, proxy.ts: 88ms, application-code: 72ms)
+ GET /api/notifications 200 in 202ms (next.js: 17ms, proxy.ts: 104ms, application-code: 81ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+[browser] ⨯ unhandledRejection: InvalidStateError: Transition was aborted because of invalid state
+
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 239ms (next.js: 50ms, proxy.ts: 131ms, application-code: 58ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 246ms (next.js: 57ms, proxy.ts: 140ms, application-code: 49ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 266ms (next.js: 73ms, proxy.ts: 149ms, application-code: 44ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 45ms (next.js: 6ms, proxy.ts: 19ms, application-code: 20ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 68ms (next.js: 21ms, proxy.ts: 29ms, application-code: 17ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 59ms (next.js: 13ms, proxy.ts: 31ms, application-code: 15ms)
+ POST /api/approvals/action 200 in 206ms (next.js: 6ms, proxy.ts: 20ms, application-code: 180ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=13 403 in 141ms (next.js: 33ms, proxy.ts: 68ms, application-code: 40ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=14 403 in 157ms (next.js: 50ms, proxy.ts: 73ms, application-code: 34ms)
+ GET /api/approvals/proxies/available?date=2026-05-27&slotId=17 403 in 202ms (next.js: 16ms, proxy.ts: 172ms, application-code: 14ms)
+ GET /api/approvals/list 200 in 231ms (next.js: 31ms, proxy.ts: 63ms, application-code: 137ms)
+ GET /api/approvals/list?id=4 200 in 299ms (next.js: 32ms, proxy.ts: 66ms, application-code: 201ms)
+ GET /app/academics/approvals 200 in 98ms (next.js: 6ms, proxy.ts: 3ms, application-code: 89ms)
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+ GET /api/auth/me 200 in 144ms (next.js: 47ms, proxy.ts: 22ms, application-code: 75ms)
+ GET /api/approvals/list 200 in 149ms (next.js: 36ms, proxy.ts: 57ms, application-code: 56ms)
+ GET /api/notifications 200 in 160ms (next.js: 44ms, proxy.ts: 39ms, application-code: 77ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 169ms (next.js: 41ms, proxy.ts: 35ms, application-code: 93ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/notifications 200 in 129ms (next.js: 10ms, proxy.ts: 7ms, application-code: 112ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 160ms (next.js: 12ms, proxy.ts: 77ms, application-code: 70ms)
+ GET /api/notifications 200 in 226ms (next.js: 37ms, proxy.ts: 112ms, application-code: 78ms)
+ GET /api/notifications?limit=10&offset=0 200 in 228ms (next.js: 41ms, proxy.ts: 119ms, application-code: 68ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 246ms (next.js: 38ms, proxy.ts: 105ms, application-code: 103ms)
+ GET /app/notifications 200 in 56ms (next.js: 8ms, proxy.ts: 6ms, application-code: 42ms)
+ GET /app/notifications 200 in 52ms (next.js: 10ms, proxy.ts: 6ms, application-code: 36ms)
+ GET /app/notifications 200 in 21ms (next.js: 6ms, proxy.ts: 4ms, application-code: 11ms)
+ GET /app/notifications 200 in 63ms (next.js: 6ms, proxy.ts: 4ms, application-code: 53ms)
+ GET /app/notifications 200 in 50ms (next.js: 18ms, proxy.ts: 12ms, application-code: 20ms)
+ GET /auth/login 200 in 609ms (next.js: 26ms, proxy.ts: 4ms, application-code: 580ms)
+ GET /auth/login 200 in 1020ms (next.js: 482ms, proxy.ts: 67ms, application-code: 472ms)
+ GET /app/academics/approvals 200 in 318ms (next.js: 62ms, proxy.ts: 25ms, application-code: 232ms)
+ GET /app/academics/approvals 200 in 323ms (next.js: 155ms, proxy.ts: 32ms, application-code: 137ms)
+ POST /api/auth/login 200 in 678ms (next.js: 188ms, proxy.ts: 105ms, application-code: 386ms)
+ GET /app/dashboard 200 in 363ms (next.js: 23ms, proxy.ts: 3ms, application-code: 336ms)
+ GET /api/auth/me 200 in 78ms (next.js: 27ms, proxy.ts: 24ms, application-code: 28ms)
+[Cache REMEMBER] key=erp:dashboard:user:21 tags=
+🔴 [Cache MISS] key=erp:dashboard:user:21 → Fetching from Database
+[Dashboard Cache] MISS for key: erp:dashboard:user:21. Fetching from DB...
+ GET /api/requests/faculty?status=pending&limit=1 200 in 181ms (next.js: 34ms, proxy.ts: 15ms, application-code: 132ms)
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :   215.93 ms  ████████████████████
+  Estimated CPU     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  DB Wait           :   264.34 ms  ████████████████████
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+  [db           ] db:resolveUserInfo              116.38 ms
+  [db           ] db:buildDashboard:faculty       147.96 ms
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 362ms (next.js: 29ms, proxy.ts: 112ms, application-code: 220ms)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 11ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 49ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /api/notifications 200 in 383ms (next.js: 39ms, proxy.ts: 52ms, application-code: 292ms)
+ GET /app/notifications 200 in 97ms (next.js: 32ms, proxy.ts: 4ms, application-code: 62ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 131ms (next.js: 7ms, proxy.ts: 58ms, application-code: 67ms)
+ GET /app/academics/approvals 200 in 65ms (next.js: 6ms, proxy.ts: 3ms, application-code: 56ms)
+ GET /api/approvals/list 200 in 232ms (next.js: 96ms, proxy.ts: 79ms, application-code: 57ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/academics/approvals/new 200 in 116ms (next.js: 31ms, proxy.ts: 3ms, application-code: 83ms)
+ GET /api/approvals/types 200 in 230ms (next.js: 63ms, proxy.ts: 23ms, application-code: 144ms)
+ GET /api/approvals/config 200 in 236ms (next.js: 118ms, proxy.ts: 29ms, application-code: 89ms)
+ GET /api/approvals/timetable?fromDate=2026-05-29&toDate=2026-05-31 200 in 466ms (next.js: 76ms, proxy.ts: 227ms, application-code: 163ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=18 200 in 300ms (next.js: 88ms, proxy.ts: 57ms, application-code: 156ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=14 200 in 309ms (next.js: 111ms, proxy.ts: 53ms, application-code: 145ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=16 200 in 315ms (next.js: 16ms, proxy.ts: 199ms, application-code: 100ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=13 200 in 326ms (next.js: 38ms, proxy.ts: 209ms, application-code: 79ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=14 200 in 335ms (next.js: 22ms, proxy.ts: 206ms, application-code: 108ms)
+ GET /app/academics/approvals 200 in 620ms (next.js: 282ms, proxy.ts: 9ms, application-code: 329ms)
+ GET /app/academics/approvals 200 in 626ms (next.js: 430ms, proxy.ts: 9ms, application-code: 187ms)
+ GET /app/academics/approvals/new 200 in 676ms (next.js: 547ms, proxy.ts: 41ms, application-code: 89ms)
+ GET /app/academics/approvals/new 200 in 237ms (next.js: 98ms, proxy.ts: 15ms, application-code: 123ms)
+ GET /app/academics/approvals 200 in 238ms (next.js: 191ms, proxy.ts: 16ms, application-code: 30ms)
+ GET /app/academics/approvals 200 in 243ms (next.js: 168ms, proxy.ts: 16ms, application-code: 59ms)
+ GET /app/notifications 200 in 82ms (next.js: 34ms, proxy.ts: 3ms, application-code: 45ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/academics/approvals 200 in 51ms (next.js: 5ms, proxy.ts: 3ms, application-code: 43ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/academics/approvals/new 200 in 88ms (next.js: 12ms, proxy.ts: 8ms, application-code: 68ms)
+ GET /app/academics/approvals/new 200 in 688ms (next.js: 324ms, proxy.ts: 46ms, application-code: 317ms)
+ GET /app/academics/approvals 200 in 593ms (next.js: 438ms, proxy.ts: 3ms, application-code: 152ms)
+ GET /app/academics/approvals 200 in 624ms (next.js: 546ms, proxy.ts: 9ms, application-code: 69ms)
+ GET /api/approvals/timetable?fromDate=2026-05-29&toDate=2026-05-30 200 in 497ms (next.js: 217ms, proxy.ts: 102ms, application-code: 179ms)
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+[browser] WARN: A component changed from uncontrolled to controlled.
+ POST /api/approvals/submit 200 in 688ms (next.js: 306ms, proxy.ts: 93ms, application-code: 290ms)
+ GET /app/academics/approvals 200 in 85ms (next.js: 11ms, proxy.ts: 14ms, application-code: 60ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/notifications 200 in 168ms (next.js: 72ms, proxy.ts: 8ms, application-code: 88ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /app/notifications 200 in 859ms (next.js: 13ms, proxy.ts: 10ms, application-code: 836ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 990ms (next.js: 171ms, proxy.ts: 89ms, application-code: 730ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 1055ms (next.js: 308ms, proxy.ts: 307ms, application-code: 440ms)
+ GET /api/notifications?limit=10&offset=0 200 in 1189ms (next.js: 597ms, proxy.ts: 342ms, application-code: 251ms)
+ GET /api/notifications 200 in 1198ms (next.js: 607ms, proxy.ts: 317ms, application-code: 274ms)
+ GET /app/academics/approvals 200 in 205ms (next.js: 12ms, proxy.ts: 9ms, application-code: 184ms)
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+[browser] <Focusable> child must be focusable. Please ensure the tabIndex prop is passed through.
+ GET /api/auth/me 200 in 330ms (next.js: 17ms, proxy.ts: 236ms, application-code: 77ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 462ms (next.js: 15ms, proxy.ts: 188ms, application-code: 259ms)
+ GET /api/notifications 200 in 472ms (next.js: 11ms, proxy.ts: 167ms, application-code: 294ms)
+ GET /api/approvals/list 200 in 484ms (next.js: 127ms, proxy.ts: 288ms, application-code: 69ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/approvals/list?id=5 200 in 153ms (next.js: 12ms, proxy.ts: 23ms, application-code: 118ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=13 200 in 256ms (next.js: 103ms, proxy.ts: 53ms, application-code: 99ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=18 200 in 260ms (next.js: 105ms, proxy.ts: 49ms, application-code: 107ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=14 200 in 264ms (next.js: 108ms, proxy.ts: 42ms, application-code: 114ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=14 200 in 259ms (next.js: 113ms, proxy.ts: 58ms, application-code: 87ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=16 200 in 258ms (next.js: 116ms, proxy.ts: 60ms, application-code: 82ms)
+ POST /api/approvals/action 200 in 669ms (next.js: 215ms, proxy.ts: 31ms, application-code: 424ms)
+ GET /api/approvals/list 200 in 729ms (next.js: 158ms, proxy.ts: 144ms, application-code: 426ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=13 200 in 858ms (next.js: 39ms, proxy.ts: 433ms, application-code: 387ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=18 200 in 867ms (next.js: 8ms, proxy.ts: 402ms, application-code: 456ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=14 200 in 889ms (next.js: 24ms, proxy.ts: 473ms, application-code: 391ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=14 200 in 918ms (next.js: 6ms, proxy.ts: 486ms, application-code: 425ms)
+ GET /api/approvals/list?id=5 200 in 1014ms (next.js: 105ms, proxy.ts: 146ms, application-code: 763ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=16 200 in 478ms (next.js: 7ms, proxy.ts: 55ms, application-code: 416ms)
+[browser] ⨯ unhandledRejection: InvalidStateError: Transition was aborted because of invalid state
+
+ GET /app/academics/approvals 200 in 131ms (next.js: 6ms, proxy.ts: 4ms, application-code: 121ms)
+ GET /api/auth/me 200 in 336ms (next.js: 16ms, proxy.ts: 78ms, application-code: 242ms)
+ GET /api/courses 200 in 325ms (next.js: 163ms, proxy.ts: 106ms, application-code: 56ms)
+ GET /api/approvals/list 200 in 354ms (next.js: 169ms, proxy.ts: 107ms, application-code: 78ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications 200 in 394ms (next.js: 172ms, proxy.ts: 118ms, application-code: 103ms)
+ GET /api/courses 200 in 67ms (next.js: 13ms, proxy.ts: 25ms, application-code: 29ms)     
+ GET /app/notifications 200 in 115ms (next.js: 5ms, proxy.ts: 4ms, application-code: 107ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 234ms (next.js: 37ms, proxy.ts: 100ms, application-code: 97ms)
+ GET /api/notifications 200 in 248ms (next.js: 56ms, proxy.ts: 100ms, application-code: 92ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 256ms (next.js: 52ms, proxy.ts: 96ms, application-code: 109ms)
+ GET /api/notifications?limit=10&offset=0 200 in 267ms (next.js: 74ms, proxy.ts: 107ms, application-code: 85ms)
+ GET /api/approvals/list?id=5 200 in 342ms (next.js: 10ms, proxy.ts: 189ms, application-code: 144ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=18 403 in 76ms (next.js: 27ms, proxy.ts: 23ms, application-code: 26ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=14 403 in 80ms (next.js: 28ms, proxy.ts: 34ms, application-code: 19ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=14 403 in 293ms (next.js: 76ms, proxy.ts: 156ms, application-code: 62ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=16 403 in 339ms (next.js: 79ms, proxy.ts: 177ms, application-code: 84ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=13 403 in 374ms (next.js: 179ms, proxy.ts: 108ms, application-code: 87ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=18 403 in 46ms (next.js: 6ms, proxy.ts: 19ms, application-code: 22ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=14 403 in 75ms (next.js: 20ms, proxy.ts: 33ms, application-code: 22ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=14 403 in 30ms (next.js: 5ms, proxy.ts: 17ms, application-code: 8ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=16 403 in 30ms (next.js: 4ms, proxy.ts: 17ms, application-code: 10ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=13 403 in 32ms (next.js: 5ms, proxy.ts: 18ms, application-code: 9ms)
+ POST /api/approvals/action 200 in 218ms (next.js: 4ms, proxy.ts: 27ms, application-code: 187ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=14 403 in 210ms (next.js: 122ms, proxy.ts: 59ms, application-code: 29ms)
+ GET /api/approvals/proxies/available?date=2026-05-29&slotId=18 403 in 216ms (next.js: 127ms, proxy.ts: 64ms, application-code: 25ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=13 403 in 247ms (next.js: 139ms, proxy.ts: 83ms, application-code: 24ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=14 403 in 247ms (next.js: 107ms, proxy.ts: 124ms, application-code: 16ms)
+ GET /api/approvals/proxies/available?date=2026-05-30&slotId=16 403 in 59ms (next.js: 11ms, proxy.ts: 37ms, application-code: 12ms)
+ GET /api/approvals/list 200 in 325ms (next.js: 105ms, proxy.ts: 51ms, application-code: 169ms)
+ GET /api/approvals/list?id=5 200 in 376ms (next.js: 113ms, proxy.ts: 56ms, application-code: 208ms)
+ GET /app/notifications 200 in 133ms (next.js: 12ms, proxy.ts: 6ms, application-code: 115ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/auth/me 200 in 230ms (next.js: 64ms, proxy.ts: 78ms, application-code: 88ms)
+ GET /api/notifications 200 in 260ms (next.js: 65ms, proxy.ts: 105ms, application-code: 90ms)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 270ms (next.js: 55ms, proxy.ts: 95ms, application-code: 121ms)
+ GET /api/notifications?limit=10&offset=0 200 in 307ms (next.js: 63ms, proxy.ts: 114ms, application-code: 130ms)
+ PATCH /api/notifications 200 in 121ms (next.js: 6ms, proxy.ts: 71ms, application-code: 44ms)
+ GET /api/notifications 200 in 147ms (next.js: 5ms, proxy.ts: 36ms, application-code: 106ms)
+ GET /api/notifications?limit=10&offset=0 200 in 148ms (next.js: 6ms, proxy.ts: 35ms, application-code: 108ms)
+ PATCH /api/notifications 200 in 56ms (next.js: 4ms, proxy.ts: 18ms, application-code: 34ms)
+ GET /api/notifications 200 in 119ms (next.js: 12ms, proxy.ts: 20ms, application-code: 87ms)
+ GET /api/notifications?limit=10&offset=0 200 in 142ms (next.js: 22ms, proxy.ts: 27ms, application-code: 93ms)
+ GET /app/dashboard 200 in 76ms (next.js: 30ms, proxy.ts: 3ms, application-code: 43ms)
+[Cache REMEMBER] key=erp:dashboard:user:21 tags=
+🟢 [Cache HIT] key=erp:dashboard:user:21
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :    23.10 ms  ████████████████████
+  Estimated CPU     :    23.10 ms  ████████████████████
+  DB Wait           :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 106ms (next.js: 57ms, proxy.ts: 20ms, application-code: 28ms)  
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 16ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /auth/login 200 in 247ms (next.js: 37ms, proxy.ts: 4ms, application-code: 207ms)
+ POST /api/auth/login 200 in 458ms (next.js: 82ms, proxy.ts: 73ms, application-code: 303ms)
+ GET /app/dashboard 200 in 145ms (next.js: 6ms, proxy.ts: 6ms, application-code: 133ms)
+ GET /api/auth/me 200 in 113ms (next.js: 42ms, proxy.ts: 19ms, application-code: 51ms)
+[Cache REMEMBER] key=erp:dashboard:user:16 tags=
+🟢 [Cache HIT] key=erp:dashboard:user:16
+
+┌─────────────────────────────────────────────┐
+│              [PROFILE REPORT]               │
+└─────────────────────────────────────────────┘
+  Total Duration    :    23.71 ms  ████████████████████
+  Estimated CPU     :    23.71 ms  ████████████████████
+  DB Wait           :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Redis Wait        :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Network Wait      :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+  Serialization     :     0.00 ms  ░░░░░░░░░░░░░░░░░░░░
+
+  ── Per-Section Breakdown ──────────────────
+─────────────────────────────────────────────
+
+ GET /api/dashboard 200 in 138ms (next.js: 19ms, proxy.ts: 85ms, application-code: 35ms)  
+ │ POST https://prompt-quagga-98105.upstash.io/pipeline 200 in 12ms (cache skip)
+ │ │ Cache skipped reason: (cache: no-store)
+ GET /api/requests/faculty?status=pending&limit=1 200 in 147ms (next.js: 24ms, proxy.ts: 36ms, application-code: 88ms)
+ GET /api/notifications 200 in 178ms (next.js: 15ms, proxy.ts: 81ms, application-code: 82ms)
+ GET /app/notifications 200 in 106ms (next.js: 3ms, proxy.ts: 2ms, application-code: 100ms)
+[browser] A PressResponder was rendered without a pressable child. Either call the usePress hook, or wrap your DOM node with <Pressable> component.
+ GET /api/notifications?limit=10&offset=0 200 in 100ms (next.js: 6ms, proxy.ts: 28ms, application-code: 67ms)
+[browser] ⨯ unhandledRejection: InvalidStateError: Transition was aborted because of invalid state
+
+ GET /app/academics/approvals 200 in 663ms (next.js: 312ms, proxy.ts: 6ms, application-code: 345ms)
+ GET /app/academics/approvals 200 in 680ms (next.js: 480ms, proxy.ts: 6ms, application-code: 193ms)
+ GET /app/notifications 200 in 845ms (next.js: 619ms, proxy.ts: 119ms, application-code: 107ms)
+

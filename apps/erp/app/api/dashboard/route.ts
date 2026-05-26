@@ -12,8 +12,11 @@ import {
   attendanceAnalyticsSummary,
   subjects,
   administrators,
+  timetableSlots,
+  facultyRequestProxies,
 } from "@/app/lib/schema";
 import { eq, and, or, count, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { remember, cacheTags, TTL } from "@/app/lib/cache";
 import { RequestProfiler } from "@/app/lib/profiler";
 
@@ -330,13 +333,121 @@ async function buildFacultyDashboard(facultyId: number) {
 
   const uniqueDivisions = new Set(assignmentsRows.map((a) => a.divisionId));
   const assignmentIds = assignmentsRows.map((a) => a.id);
+  
+  // 1. Get today's regular schedule
   const todayTimetable = await getTodayTimetableForAssignments(assignmentIds);
+
+  // 2. Get today's date formatted as YYYY-MM-DD in local time
+  const now = new Date();
+  const offset = now.getTimezoneOffset();
+  const localDate = new Date(now.getTime() - (offset * 60 * 1000));
+  const todayDateStr = localDate.toISOString().split("T")[0];
+  const today = getTodayDayOfWeek();
+
+  // 3. Get proxies for this faculty today (either outgoing or incoming)
+  const originalFacultyAlias = alias(faculty, "orig_fac");
+  const proxyFacultyAlias = alias(faculty, "prox_fac");
+
+  const todayProxies = await db
+    .select({
+      id: facultyRequestProxies.id,
+      date: facultyRequestProxies.date,
+      slotId: facultyRequestProxies.slotId,
+      originalFacultyId: facultyRequestProxies.originalFacultyId,
+      originalFacultyName: originalFacultyAlias.name,
+      proxyFacultyId: facultyRequestProxies.proxyFacultyId,
+      proxyFacultyName: proxyFacultyAlias.name,
+      divisionId: facultyRequestProxies.divisionId,
+      divisionName: divisions.displayName,
+      subjectId: facultyRequestProxies.subjectId,
+      subjectName: subjects.name,
+      status: facultyRequestProxies.status,
+      startTime: timetableSlots.startTime,
+      endTime: timetableSlots.endTime,
+    })
+    .from(facultyRequestProxies)
+    .innerJoin(originalFacultyAlias, eq(facultyRequestProxies.originalFacultyId, originalFacultyAlias.id))
+    .innerJoin(proxyFacultyAlias, eq(facultyRequestProxies.proxyFacultyId, proxyFacultyAlias.id))
+    .innerJoin(divisions, eq(facultyRequestProxies.divisionId, divisions.id))
+    .innerJoin(subjects, eq(facultyRequestProxies.subjectId, subjects.id))
+    .innerJoin(timetableSlots, eq(facultyRequestProxies.slotId, timetableSlots.id))
+    .where(
+      and(
+        eq(facultyRequestProxies.date, todayDateStr),
+        or(
+          eq(facultyRequestProxies.originalFacultyId, facultyId),
+          eq(facultyRequestProxies.proxyFacultyId, facultyId)
+        )
+      )
+    );
+
+  // 4. Merge regular schedule with proxies
+  const finalSchedule = [];
+  const outgoingProxiesMap = new Map();
+  const incomingProxies = [];
+
+  for (const proxy of todayProxies) {
+    if (proxy.originalFacultyId === facultyId) {
+      outgoingProxiesMap.set(proxy.slotId, proxy);
+    } else if (proxy.proxyFacultyId === facultyId) {
+      incomingProxies.push(proxy);
+    }
+  }
+
+  // Process regular timetable entries
+  for (const entry of todayTimetable) {
+    const matchingProxy = entry.slotId ? outgoingProxiesMap.get(entry.slotId) : null;
+    if (matchingProxy) {
+      finalSchedule.push({
+        id: entry.id,
+        dayOfWeek: entry.dayOfWeek,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        subjectName: entry.subjectName,
+        facultyName: entry.facultyName,
+        divisionName: entry.divisionName,
+        isProxiedOut: true,
+        proxyFacultyName: matchingProxy.proxyFacultyName,
+        proxyStatus: matchingProxy.status,
+      });
+    } else {
+      finalSchedule.push({
+        id: entry.id,
+        dayOfWeek: entry.dayOfWeek,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        subjectName: entry.subjectName,
+        facultyName: entry.facultyName,
+        divisionName: entry.divisionName,
+        isProxiedOut: false,
+      });
+    }
+  }
+
+  // Add incoming proxies
+  for (const proxy of incomingProxies) {
+    finalSchedule.push({
+      id: 100000 + proxy.id,
+      dayOfWeek: today,
+      startTime: proxy.startTime,
+      endTime: proxy.endTime,
+      subjectName: proxy.subjectName,
+      facultyName: proxy.originalFacultyName,
+      divisionName: proxy.divisionName,
+      isProxy: true,
+      originalFacultyName: proxy.originalFacultyName,
+      proxyStatus: proxy.status,
+    });
+  }
+
+  // Sort schedule by startTime
+  finalSchedule.sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return {
     assignedSubjectsCount: assignmentsRows.length,
     assignedDivisionsCount: uniqueDivisions.size,
     pendingRequestsCount: pendingRows.length,
-    todayTimetable,
+    todayTimetable: finalSchedule,
     assignments: assignmentsRows.map((a) => ({
       id: a.id,
       subjectName: a.subjectName,
@@ -538,6 +649,7 @@ async function getTodayTimetableForAssignments(assignmentIds: number[]) {
       subjectName: subjects.name,
       facultyName: faculty.name,
       divisionName: divisions.displayName,
+      slotId: timetableEntries.slotId,
     })
     .from(timetableEntries)
     .innerJoin(

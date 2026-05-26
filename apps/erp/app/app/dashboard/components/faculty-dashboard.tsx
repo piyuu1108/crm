@@ -1,9 +1,10 @@
 "use client";
 
-import { Tabs, Button, toast } from "@heroui/react";
-import { Download } from "lucide-react";
+import { Tabs, Button, toast, Chip, Card } from "@heroui/react";
 import dynamic from "next/dynamic";
 import { StatCard } from "./stat-card";
+import { TimetableToday } from "./timetable-today";
+import { RequestList } from "./request-list";
 import type { FacultyDashboardData } from "@/app/lib/queries/dashboard";
 
 const StudentsChart = dynamic(() => import("./students-chart").then(m => ({ default: m.StudentsChart })), { ssr: false });
@@ -18,6 +19,8 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
     assignedSubjectsCount,
     assignedDivisionsCount,
     pendingRequestsCount,
+    todayTimetable,
+    pendingRequests,
   } = data;
 
   return (
@@ -41,16 +44,49 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
 
       {/* KPI Stat Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Faculty" value={String(assignedDivisionsCount)} trend="3.3%" trendDirection="up" />
-        <StatCard title="Total Available Today" value={String(assignedDivisionsCount)} trend="3.3%" trendDirection="up" />
-        <StatCard title="Total Subjects" value={String(assignedSubjectsCount)} trend="3.3%" trendDirection="up" />
-        <StatCard title="Pending Requests" value={String(pendingRequestsCount)} trend="0%" trendDirection="up" />
+        <StatCard title="Assigned Subjects" value={String(assignedSubjectsCount)} trend="0%" trendDirection="up" />
+        <StatCard title="Assigned Divisions" value={String(assignedDivisionsCount)} trend="0%" trendDirection="up" />
+        <StatCard title="Today's Classes" value={String(todayTimetable?.length ?? 0)} trend="Active" trendDirection="up" />
+        <StatCard title="Pending Requests" value={String(pendingRequestsCount)} trend="Pending" trendDirection="down" />
       </div>
+
+      {/* Today's Schedule & Pending Requests Grid */}
+      
 
       {/* Charts */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <StudentsChart />
         <AttendanceChart />
+      </div>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Left Column (2 cols wide): Today's Schedule */}
+        <div className="lg:col-span-2 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span>Today's Schedule</span>
+              <Chip size="sm" variant="soft" color="accent" className="h-5">
+                <Chip.Label>
+                  {todayTimetable?.length ?? 0} {todayTimetable?.length === 1 ? "Session" : "Sessions"}
+                </Chip.Label>
+              </Chip>
+            </h3>
+          </div>
+          <Card className="rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-divider p-5 min-h-[250px]">
+            <TimetableToday entries={todayTimetable} emptyMessage="No lectures or proxy duties assigned for today" />
+          </Card>
+        </div>
+
+        {/* Right Column (1 col wide): Pending Requests */}
+        <div className="lg:col-span-1 flex flex-col gap-3">
+          <h3 className="text-base font-bold tracking-tight text-foreground">
+            Pending Student Requests
+          </h3>
+          <Card className="rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.06)] border border-divider p-5 min-h-[250px] flex flex-col">
+            <div className="flex-1 overflow-y-auto max-h-[350px] pr-1">
+              <RequestList requests={pendingRequests || []} emptyMessage="All requests resolved! No pending items." />
+            </div>
+          </Card>
+        </div>
       </div>
     </>
   );

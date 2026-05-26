@@ -70,6 +70,11 @@ export interface TimetableEntry {
   subjectName: string;
   facultyName: string;
   divisionName: string;
+  isProxy?: boolean;
+  isProxiedOut?: boolean;
+  proxyFacultyName?: string | null;
+  originalFacultyName?: string | null;
+  proxyStatus?: string;
 }
 
 export interface SubjectAssignment {

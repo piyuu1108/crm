@@ -313,12 +313,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
               <TrashBin className="w-4 h-4" />
             </Button>
           )}
-          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
-            <TriangleExclamation className="w-4 h-4" />
-          </Button>
-          <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
-            <Envelope className="w-4 h-4" />
-          </Button>
+          
           <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
             <DotsVerticalIcon className="w-4 h-4" />
           </Button>

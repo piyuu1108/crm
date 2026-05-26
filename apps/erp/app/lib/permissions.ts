@@ -173,7 +173,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "circulars.create",
     "circulars.delete_any",
     "requests.view_assigned",
-    "requests.view_all",
     "requests.review",
     "timetable.view_own",
     "timetable.manage",

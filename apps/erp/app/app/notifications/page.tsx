@@ -377,7 +377,7 @@ export default function NotificationsPage() {
         </div>
         <div className="flex items-center gap-2">
           {["faculty", "counselor", "hod", "admin"].includes(activeRole || "") && (
-            <Button variant="outline" size="sm" onPress={() => setIsSimulateOpen(true)}>
+            <Button size="sm" onPress={() => setIsSimulateOpen(true)}>
               <Plus className="size-4 mr-1" />
               Simulate Event
             </Button>

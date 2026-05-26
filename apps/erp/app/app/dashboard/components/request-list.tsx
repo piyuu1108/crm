@@ -1,17 +1,6 @@
 "use client";
 
-import React from "react";
-import { Chip } from "@heroui/react";
 import type { StudentRequest } from "@/app/lib/queries/dashboard";
-
-const STATUS_COLOR = {
-  pending: "warning",
-  approved: "success",
-  rejected: "danger",
-  high: "danger",
-  medium: "warning",
-  low: "default",
-} as const satisfies Record<string, "warning" | "success" | "danger" | "default">;
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   leave: "Leave Request",

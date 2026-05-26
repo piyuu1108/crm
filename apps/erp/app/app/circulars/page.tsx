@@ -182,7 +182,7 @@ function CircularSkeleton() {
 
 function DetailEmptyState() {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-default-50/40 rounded-3xl h-full border border-divider/30 shadow-inner select-none">
+    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-default-50/40 rounded-2xl h-full border border-divider/30 shadow-inner select-none">
       <div className="flex flex-col items-center text-center max-w-sm gap-2">
         <div className="rounded-full bg-default-100 p-4 border border-divider/25 shadow-sm">
           <Envelope className="w-8 h-8 text-default-400" />
@@ -220,7 +220,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
 
   if (isLoading) {
     return (
-      <Card className="flex-1 p-8 h-full bg-white rounded-3xl shadow-sm border border-divider/30 flex flex-col gap-6">
+      <Card className="flex-1 p-8 h-full bg-white rounded-2xl shadow-sm border border-divider/30 flex flex-col gap-6">
         <Skeleton className="h-10 w-3/4 rounded-xl" />
         <div className="flex items-center gap-4 bg-default-50 border border-divider/25 rounded-2xl p-4 sm:p-5">
           <Skeleton className="h-10 w-10 rounded-full" />
@@ -239,7 +239,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
 
   if (error || !data) {
     return (
-      <div className="flex-1 flex flex-col gap-4 p-8 bg-white rounded-3xl shadow-sm border border-divider/30 items-center justify-center">
+      <div className="flex-1 flex flex-col gap-4 p-8 bg-white rounded-2xl shadow-sm border border-divider/30 items-center justify-center">
         <p className="text-sm font-semibold text-danger">Notice could not be loaded.</p>
         <Button variant="secondary" size="sm" onPress={onBack}>
           Back to List
@@ -249,9 +249,9 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
   }
 
   return (
-    <Card className="flex flex-col flex-1 bg-white rounded-3xl shadow-sm border border-divider/30 overflow-hidden h-full">
+    <Card className="flex flex-col flex-1 bg-white rounded-2xl shadow-sm border border-divider/30 overflow-hidden h-full">
       {/* Top Toolbar */}
-      <div className="flex h-14 shrink-0 items-center justify-between px-6 border-b border-divider/25 select-none">
+      <div className="flex h-12 shrink-0 items-center justify-between px-5 border-b border-divider/25 select-none">
         {/* Left Side Actions */}
         <div className="flex items-center gap-1.5">
           <Button
@@ -292,14 +292,14 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
       </div>
 
       {/* Main Detail Canvas Content */}
-      <ScrollShadow className="flex-1 overflow-y-auto px-8 py-6" hideScrollBar>
+      <ScrollShadow className="flex-1 overflow-y-auto px-6 py-4" hideScrollBar>
         {/* Title */}
-        <h1 className="text-2xl font-bold text-foreground leading-tight mb-6">
+        <h1 className="text-2xl font-bold text-foreground leading-tight mb-4">
           {data.title}
         </h1>
 
         {/* Sender details row */}
-        <div className="flex items-center justify-between gap-4 mb-8 shrink-0">
+        <div className="flex items-center justify-between gap-4 mb-5 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {/* Avatar circle matching template styling */}
             <Avatar className="w-10 h-10 rounded-full overflow-hidden shrink-0">
@@ -311,7 +311,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
               <span className="text-sm font-semibold text-foreground truncate leading-none">
                 {data.facultyName}
               </span>
-              <span className="text-xs text-default-400 flex items-center gap-1.5 mt-1 select-none">
+              <span className="text-xs text-default-400 flex items-center gap-1.5 mt-0.5 select-none">
                 <span>{data.facultyName.toLowerCase().replace(/\s+/g, "")}@heroui.dev</span>
                 <span className="text-default-300">to me</span>
                 <ChevronDownIcon className="w-3 h-3 text-default-400 -ml-0.5" />
@@ -399,23 +399,23 @@ export default function CircularsPage() {
   };
 
   return (
-    <div className="w-full h-[calc(100vh-6.5rem)] flex bg-transparent overflow-hidden">
+    <div className="w-full h-[calc(100vh-6.5rem)] flex bg-transparent overflow-hidden -mt-3">
       {/* ── Left Sidebar Master List Pane ── */}
       <div
         className={cn(
-          "w-full lg:w-[320px] shrink-0 flex flex-col border-r border-divider/30 h-full bg-transparent pr-6 py-1",
+          "w-full lg:w-[320px] shrink-0 flex flex-col h-full bg-transparent pr-2 pt-0.5 pb-1",
           selectedSlug ? "hidden lg:flex" : "flex"
         )}
       >
         {/* Dynamic Search Box matching inspiration */}
-        <div className="w-full mb-4 shrink-0">
+        <div className="w-full mb-3 shrink-0 px-1">
           <TextField
             aria-label="Search"
             value={searchQuery}
             onChange={setSearchQuery}
             className="w-full"
           >
-            <InputGroup className="rounded-full bg-white border border-divider/30 shadow-sm">
+            <InputGroup className="rounded-lg bg-white border border-divider/30 shadow-sm">
               <InputGroup.Prefix>
                 <SearchIcon className="text-default-400 w-4 h-4 ml-2" />
               </InputGroup.Prefix>
@@ -453,7 +453,7 @@ export default function CircularsPage() {
                     key={circular.id}
                     onClick={() => handleSelectCircular(circular.slug)}
                     className={cn(
-                      "relative flex items-start gap-3 rounded-2xl p-3.5 transition-all duration-200 cursor-pointer select-none border border-transparent",
+                      "relative flex items-start gap-3 rounded-lg p-3 transition-all duration-200 cursor-pointer select-none border border-transparent",
                       isActive
                         ? "bg-white shadow-sm text-foreground border-divider/10"
                         : "bg-transparent hover:bg-default-100/60 text-default-600"
@@ -469,17 +469,17 @@ export default function CircularsPage() {
                     {/* Three-Line Clean Metadata Content */}
                     <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-xs text-foreground truncate leading-none">
+                        <span className="font-semibold text-[13px] text-foreground truncate leading-none">
                           {circular.facultyName}
                         </span>
                         <span className="text-[10px] text-default-400 shrink-0 select-none">
                           {formatShortDate(circular.createdAt)}
                         </span>
                       </div>
-                      <span className="font-semibold text-xs text-foreground truncate mt-0.5 leading-tight">
+                      <span className="font-medium text-xs text-default-800 truncate mt-0.5 leading-tight">
                         {circular.title}
                       </span>
-                      <span className="text-[11px] text-default-500 line-clamp-1">
+                      <span className="text-[11px] text-default-400 font-normal mt-0.5 line-clamp-1">
                         For: {getAudienceLabel(circular)}
                       </span>
                     </div>
@@ -527,7 +527,7 @@ export default function CircularsPage() {
       {/* ── Right Canvas Detail Reader Pane ── */}
       <div
         className={cn(
-          "flex-1 min-w-0 h-full flex flex-col pl-6 bg-transparent",
+          "flex-1 min-w-0 h-full flex flex-col pl-2 bg-transparent",
           selectedSlug ? "flex animate-fade-in" : "hidden lg:flex"
         )}
       >

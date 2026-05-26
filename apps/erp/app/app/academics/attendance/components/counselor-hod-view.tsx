@@ -108,17 +108,17 @@ export function CounselorHodView({ role }: CounselorHodViewProps) {
             selectedKey={selectedDivisionId ? selectedDivisionId.toString() : "0"}
             onSelectionChange={(key) => handleDivisionChange(parseInt(key as string, 10) || 0)}
           >
-            <Select.Trigger className="bg-white border border-divider hover:border-accent/40 rounded-lg py-2 px-3 text-sm text-foreground flex items-center justify-between shadow-sm min-h-[38px] w-full">
-              <Select.Value className="text-sm font-medium text-foreground" />
+            <Select.Trigger className="bg-[var(--field-background)] border border-[var(--border)] hover:border-accent/40 rounded-lg py-2 px-3 text-sm text-[var(--foreground)] flex items-center justify-between shadow-sm min-h-[38px] w-full">
+              <Select.Value className="text-sm font-medium text-[var(--foreground)]" />
               <Select.Indicator className="size-4 text-default-500" />
             </Select.Trigger>
             <Select.Popover>
-              <ListBox className="bg-white border border-divider/60 rounded-xl shadow-lg p-1 min-w-[200px] outline-none">
-                <ListBox.Item id="0" textValue="Select Division" className="text-sm rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
+              <ListBox className="bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg p-1 min-w-[200px] outline-none">
+                <ListBox.Item id="0" textValue="Select Division" className="text-sm text-[var(--foreground)] rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
                   Select Division
                 </ListBox.Item>
                 {divisions.map((d) => (
-                  <ListBox.Item key={d.id.toString()} id={d.id.toString()} textValue={d.displayName} className="text-sm rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
+                  <ListBox.Item key={d.id.toString()} id={d.id.toString()} textValue={d.displayName} className="text-sm text-[var(--foreground)] rounded-lg px-3 py-2 hover:bg-default-100 hover:text-foreground cursor-pointer flex items-center outline-none">
                     {d.displayName}
                   </ListBox.Item>
                 ))}

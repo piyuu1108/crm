@@ -12,7 +12,7 @@ export const create = mutation({
     relatedEntityId: v.optional(v.number()),
     createdBy: v.optional(v.number()),
     receiverUserId: v.number(),
-    receiverRole: v.string(),
+    receiverRole: v.optional(v.string()),
     priority: v.union(
       v.literal("low"),
       v.literal("medium"),
@@ -42,7 +42,6 @@ export const markAsRead = mutation({
 export const markAllAsRead = mutation({
   args: {
     receiverUserId: v.number(),
-    receiverRole: v.string(),
   },
   handler: async (ctx, args) => {
     const unread = await ctx.db
@@ -50,7 +49,6 @@ export const markAllAsRead = mutation({
       .withIndex("by_receiver_unread", (q) =>
         q
           .eq("receiverUserId", args.receiverUserId)
-          .eq("receiverRole", args.receiverRole)
           .eq("isRead", false)
       )
       .collect();
@@ -66,7 +64,6 @@ export const markAllAsRead = mutation({
 export const listForUser = query({
   args: {
     receiverUserId: v.number(),
-    receiverRole: v.string(),
   },
   handler: async (ctx, args) => {
     const notifications = await ctx.db
@@ -74,7 +71,6 @@ export const listForUser = query({
       .withIndex("by_receiver", (q) =>
         q
           .eq("receiverUserId", args.receiverUserId)
-          .eq("receiverRole", args.receiverRole)
       )
       .order("desc")
       .collect();
@@ -102,7 +98,6 @@ export const listForUser = query({
 export const getUnreadCount = query({
   args: {
     receiverUserId: v.number(),
-    receiverRole: v.string(),
   },
   handler: async (ctx, args) => {
     const unread = await ctx.db
@@ -110,7 +105,6 @@ export const getUnreadCount = query({
       .withIndex("by_receiver_unread", (q) =>
         q
           .eq("receiverUserId", args.receiverUserId)
-          .eq("receiverRole", args.receiverRole)
           .eq("isRead", false)
       )
       .collect();
@@ -122,7 +116,6 @@ export const getUnreadCount = query({
 export const getRecentUnread = query({
   args: {
     receiverUserId: v.number(),
-    receiverRole: v.string(),
   },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -130,10 +123,22 @@ export const getRecentUnread = query({
       .withIndex("by_receiver_unread", (q) =>
         q
           .eq("receiverUserId", args.receiverUserId)
-          .eq("receiverRole", args.receiverRole)
           .eq("isRead", false)
       )
       .order("desc")
       .take(5);
+  },
+});
+
+export const clearAll = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("notifications").collect();
+    let deletedCount = 0;
+    for (const doc of all) {
+      await ctx.db.delete(doc._id);
+      deletedCount++;
+    }
+    return { success: true, deletedCount };
   },
 });

@@ -55,9 +55,7 @@ export function Navbar() {
   // Real-time unread count from Convex — updates instantly via WebSocket
   const unreadCount = useQuery(
     api.notifications.getUnreadCount,
-    user && activeRole
-      ? { receiverUserId: user.id, receiverRole: activeRole }
-      : "skip"
+    user ? { receiverUserId: user.id } : "skip"
   ) ?? 0;
 
   const handleToggle = () => {

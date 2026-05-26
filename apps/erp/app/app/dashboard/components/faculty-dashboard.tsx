@@ -29,16 +29,12 @@ export function FacultyDashboard({ data }: FacultyDashboardProps) {
   // Real-time unread notifications from Convex
   const recentUnread = useQuery(
     api.notifications.getRecentUnread,
-    user && activeRole
-      ? { receiverUserId: user.id, receiverRole: activeRole }
-      : "skip"
+    user ? { receiverUserId: user.id } : "skip"
   );
 
   const unreadCount = useQuery(
     api.notifications.getUnreadCount,
-    user && activeRole
-      ? { receiverUserId: user.id, receiverRole: activeRole }
-      : "skip"
+    user ? { receiverUserId: user.id } : "skip"
   ) ?? 0;
 
   // Map Convex notifications to the format RequestList expects

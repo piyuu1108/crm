@@ -42,7 +42,7 @@ interface Notification {
   relatedEntityId?: number;
   createdBy?: number;
   receiverUserId: number;
-  receiverRole: string;
+  receiverRole?: string;
   priority: "low" | "medium" | "high";
   isRead: boolean;
   metadata?: any;
@@ -118,9 +118,7 @@ export default function NotificationsPage() {
   const { user } = useAuthStore();
   const convexData = useQuery(
     api.notifications.listForUser,
-    user && activeRole
-      ? { receiverUserId: user.id, receiverRole: activeRole }
-      : "skip"
+    user ? { receiverUserId: user.id } : "skip"
   );
 
   const isLoading = convexData === undefined;
@@ -196,16 +194,16 @@ export default function NotificationsPage() {
   );
 
   const handleMarkAllAsRead = useCallback(async () => {
-    if (!user || !activeRole) return;
+    if (!user) return;
     try {
-      await convexMarkAllAsRead({ receiverUserId: user.id, receiverRole: activeRole });
+      await convexMarkAllAsRead({ receiverUserId: user.id });
       toast.success("All notifications marked as read");
     } catch (err: any) {
       toast.danger("Failed to update notifications", {
         description: err.message || "Please try again.",
       });
     }
-  }, [convexMarkAllAsRead, user, activeRole]);
+  }, [convexMarkAllAsRead, user]);
 
   const handleSimulateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

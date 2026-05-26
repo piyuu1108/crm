@@ -10,7 +10,7 @@ export default defineSchema({
     relatedEntityId: v.optional(v.number()),
     createdBy: v.optional(v.number()),
     receiverUserId: v.number(),
-    receiverRole: v.string(),
+    receiverRole: v.optional(v.string()),
     priority: v.union(
       v.literal("low"),
       v.literal("medium"),
@@ -19,6 +19,6 @@ export default defineSchema({
     isRead: v.boolean(),
     metadata: v.optional(v.any()),
   })
-    .index("by_receiver", ["receiverUserId", "receiverRole"])
-    .index("by_receiver_unread", ["receiverUserId", "receiverRole", "isRead"]),
+    .index("by_receiver", ["receiverUserId"])
+    .index("by_receiver_unread", ["receiverUserId", "isRead"]),
 });

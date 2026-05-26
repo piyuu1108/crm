@@ -24,6 +24,7 @@ import {
   TrashBin,
   TriangleExclamation,
   Xmark,
+  Plus,
 } from "@gravity-ui/icons";
 import { cn } from "@/lib/utils";
 
@@ -368,15 +369,8 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
             <span className="text-xs text-default-400 select-none mr-1">
               {formatFullDate(data.createdAt)}
             </span>
-            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
-              <ReplyIcon className="w-4 h-4" />
-            </Button>
-            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
-              <StarIcon className="w-4 h-4" />
-            </Button>
-            <Button isIconOnly variant="ghost" className="text-default-400 hover:text-foreground w-8 h-8 border-none shadow-none">
-              <DotsVerticalIcon className="w-4 h-4" />
-            </Button>
+            
+            
           </div>
         </div>
 
@@ -422,6 +416,7 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
 export default function CircularsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const canCreate = usePermission("circulars.create");
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const limit = 10;
@@ -612,6 +607,18 @@ export default function CircularsPage() {
           <DetailEmptyState />
         )}
       </div>
+
+      {/* Floating Create Circular Button */}
+      {canCreate && (
+        <Button
+          onPress={() => router.push("/app/circulars/create")}
+          className="fixed bottom-12 right-8 z-50 rounded-full px-5 py-2.5 bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-1.5 border-none font-semibold text-sm"
+          aria-label="Create Circular"
+        >
+          <span>Create</span>
+          <Plus className="w-4 h-4 text-white" />
+        </Button>
+      )}
     </div>
   );
 }

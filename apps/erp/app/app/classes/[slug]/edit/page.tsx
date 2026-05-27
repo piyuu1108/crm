@@ -309,18 +309,7 @@ export default function ClassEditPage() {
 
   // Capacity color mapping
   const getCapacityColor = (cap: number) => {
-    switch (cap) {
-      case 1:
-        return "bg-accent/10 border-accent/30 text-accent";
-      case 2:
-        return "bg-success/10 border-success/30 text-success";
-      case 3:
-        return "bg-warning/10 border-warning/30 text-warning";
-      case 4:
-        return "bg-danger/10 border-danger/30 text-danger";
-      default:
-        return "bg-default-100 border-default-200 text-default-500";
-    }
+    return "bg-default-100 border border-default-200 text-default-700 hover:border-default-300";
   };
 
   return (
@@ -520,118 +509,115 @@ export default function ClassEditPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto pb-2">
-            {/* Column headers */}
-            <div className="flex gap-2 mb-1 pl-8">
-              {Array.from({ length: gridMaxX + 1 }).map((_, x) => (
-                <div
-                  key={x}
-                  className="min-w-[72px] text-center text-[10px] font-medium text-default-400 uppercase"
-                >
-                  Col {x + 1}
-                </div>
-              ))}
-            </div>
-
-            {/* Grid rows */}
-            <div className="flex flex-col gap-2">
-              {Array.from({ length: gridMaxY + 1 }).map((_, y) => (
-                <div key={y} className="flex items-center gap-2">
-                  {/* Row label */}
-                  <div className="w-6 text-right text-[10px] font-medium text-default-400 shrink-0">
-                    {String.fromCharCode(65 + y)}
+          <div className="overflow-x-auto pb-2 flex flex-col items-center justify-center">
+            <div className="inline-block">
+              {/* Column headers */}
+              <div className="flex gap-2 mb-1 pl-8">
+                {Array.from({ length: gridMaxX + 1 }).map((_, x) => (
+                  <div
+                    key={x}
+                    className="w-[288px] text-center text-[10px] font-medium text-default-400 uppercase shrink-0"
+                  >
+                    Col {x + 1}
                   </div>
-                  {Array.from({ length: gridMaxX + 1 }).map((_, x) => {
-                    const bench = benchMap.get(`${x},${y}`);
-                    if (bench) {
+                ))}
+              </div>
+
+              {/* Grid rows */}
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: gridMaxY + 1 }).map((_, y) => (
+                  <div key={y} className="flex items-center gap-2">
+                    {/* Row label */}
+                    <div className="w-6 text-right text-[10px] font-medium text-default-400 shrink-0">
+                      {String.fromCharCode(65 + y)}
+                    </div>
+                    {Array.from({ length: gridMaxX + 1 }).map((_, x) => {
+                      const bench = benchMap.get(`${x},${y}`);
                       return (
                         <div
                           key={`${x}-${y}`}
-                          className={`flex flex-col items-center justify-center rounded-xl border-2 p-2 min-w-[72px] min-h-[64px] relative group transition-all duration-200 ${getCapacityColor(
-                            bench.maxStudents
-                          )}`}
+                          className="w-[288px] flex items-center justify-center shrink-0"
                         >
-                          {/* Delete button */}
-                          <button
-                            onClick={() => removeBench(x, y)}
-                            className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:scale-110 cursor-pointer z-10"
-                            aria-label={`Remove bench ${bench.label}`}
-                          >
-                            <X className="size-3" />
-                          </button>
-
-                          {/* Label */}
-                          <span className="text-xs font-bold leading-none">
-                            {bench.label}
-                          </span>
-
-                          {/* Capacity controls */}
-                          <div className="flex items-center gap-0.5 mt-1.5">
-                            <button
-                              onClick={() =>
-                                updateCapacity(x, y, bench.maxStudents - 1)
-                              }
-                              disabled={bench.maxStudents <= 1}
-                              className="size-4 rounded bg-white/50 text-[10px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
+                          {bench ? (
+                            <div
+                              className={`flex flex-col items-center justify-center rounded-xl border p-2 min-h-[64px] relative group transition-all duration-200 ${getCapacityColor(
+                                bench.maxStudents
+                              )}`}
+                              style={{ width: `${bench.maxStudents * 72}px` }}
                             >
-                              −
-                            </button>
-                            <span className="text-[10px] font-semibold w-3 text-center">
-                              {bench.maxStudents}
-                            </span>
+                              {/* Delete button */}
+                              <button
+                                onClick={() => removeBench(x, y)}
+                                className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:scale-110 cursor-pointer z-10"
+                                aria-label={`Remove bench ${bench.label}`}
+                              >
+                                <X className="size-3" />
+                              </button>
+
+                              {/* Label */}
+                              <span className="text-xs font-bold leading-none">
+                                {bench.label}
+                              </span>
+
+                              {/* Capacity controls */}
+                              <div className="flex items-center gap-0.5 mt-1.5">
+                                <button
+                                  onClick={() =>
+                                    updateCapacity(x, y, bench.maxStudents - 1)
+                                  }
+                                  disabled={bench.maxStudents <= 1}
+                                  className="size-4 rounded bg-white/50 text-[10px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
+                                >
+                                  −
+                                </button>
+                                <span className="text-[10px] font-semibold w-3 text-center">
+                                  {bench.maxStudents}
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    updateCapacity(x, y, bench.maxStudents + 1)
+                                  }
+                                  disabled={bench.maxStudents >= 4}
+                                  className="size-4 rounded bg-white/50 text-[10px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            // Empty slot — show add button
                             <button
-                              onClick={() =>
-                                updateCapacity(x, y, bench.maxStudents + 1)
-                              }
-                              disabled={bench.maxStudents >= 4}
-                              className="size-4 rounded bg-white/50 text-[10px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
+                              onClick={() => addBench(x, y)}
+                              className="flex items-center justify-center rounded-xl border-2 border-dashed border-default-200 min-w-[72px] min-h-[64px] text-default-300 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-200 cursor-pointer group/add"
+                              aria-label={`Add bench at row ${String.fromCharCode(65 + y)}, column ${x + 1}`}
                             >
-                              +
+                              <Plus className="size-5 transition-transform duration-200 group-hover/add:scale-110" />
                             </button>
-                          </div>
+                          )}
                         </div>
                       );
-                    }
-
-                    // Empty slot — show add button
-                    return (
-                      <button
-                        key={`${x}-${y}`}
-                        onClick={() => addBench(x, y)}
-                        className="flex items-center justify-center rounded-xl border-2 border-dashed border-default-200 min-w-[72px] min-h-[64px] text-default-300 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-200 cursor-pointer group/add"
-                        aria-label={`Add bench at row ${String.fromCharCode(65 + y)}, column ${x + 1}`}
-                      >
-                        <Plus className="size-5 transition-transform duration-200 group-hover/add:scale-110" />
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+                    })}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+
+
 
           {/* Legend */}
           <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-divider">
             <span className="text-[11px] font-medium text-default-400 uppercase tracking-wider">
               Legend:
             </span>
-            {[
-              { n: 1, color: "bg-accent/10 border-accent/30" },
-              { n: 2, color: "bg-success/10 border-success/30" },
-              { n: 3, color: "bg-warning/10 border-warning/30" },
-              { n: 4, color: "bg-danger/10 border-danger/30" },
-            ].map(({ n, color }) => (
-              <div key={n} className="flex items-center gap-1.5">
-                <div className={`size-4 rounded border-2 ${color}`} />
-                <span className="text-[11px] text-default-500">
-                  {n} seat{n > 1 ? "s" : ""}
-                </span>
-              </div>
-            ))}
+            <div className="flex items-center gap-1.5">
+              <div className="size-4 rounded border-2 bg-default-100 border-default-300" />
+              <span className="text-[11px] text-default-500">Configured Bench</span>
+            </div>
             <div className="flex items-center gap-1.5">
               <div className="size-4 rounded border-2 border-dashed border-default-200" />
               <span className="text-[11px] text-default-500">
-                Empty (click + to add)
+                Empty Slot (click + to add)
               </span>
             </div>
           </div>

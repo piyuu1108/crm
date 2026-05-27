@@ -12,24 +12,18 @@ import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 // ─── Bench cell (read-only) ──────────────────────────────────────────────────
 function BenchCell({ bench }: { bench: BenchItem }) {
-  const capacityColor =
-    bench.maxStudents === 1
-      ? "bg-accent/10 border-accent/30 text-accent"
-      : bench.maxStudents === 2
-        ? "bg-success/10 border-success/30 text-success"
-        : bench.maxStudents === 3
-          ? "bg-warning/10 border-warning/30 text-warning"
-          : "bg-danger/10 border-danger/30 text-danger";
+  const capacityColor = "bg-default-100 border border-default-200 text-default-700";
 
   return (
     <Tooltip>
       <Tooltip.Trigger>
         <div
-          className={`flex flex-col items-center justify-center rounded-xl border-2 p-2 min-w-[60px] min-h-[52px] transition-all duration-200 cursor-default select-none ${
+          className={`flex flex-col items-center justify-center rounded-xl border p-2 min-h-[52px] transition-all duration-200 cursor-default select-none ${
             bench.isActive
               ? capacityColor
-              : "bg-default-100 border-default-200 text-default-400 opacity-50"
+              : "bg-default-100/30 border border-dashed border-default-200 text-default-400 opacity-50"
           }`}
+          style={{ width: `${bench.maxStudents * 60}px` }}
         >
           <span className="text-xs font-bold leading-none">{bench.label}</span>
           <span className="text-[10px] font-medium leading-none mt-1 opacity-70">
@@ -248,59 +242,63 @@ export default function ClassViewPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto pb-2">
-              {/* Column headers */}
-              <div className="flex gap-2 mb-1 pl-8">
-                {grid[0]?.map((_, x) => (
-                  <div
-                    key={x}
-                    className="min-w-[60px] text-center text-[10px] font-medium text-default-400 uppercase"
-                  >
-                    Col {x + 1}
-                  </div>
-                ))}
-              </div>
-
-              {/* Grid rows */}
-              <div className="flex flex-col gap-2">
-                {grid.map((row, y) => (
-                  <div key={y} className="flex items-center gap-2">
-                    {/* Row label */}
-                    <div className="w-6 text-right text-[10px] font-medium text-default-400 shrink-0">
-                      {String.fromCharCode(65 + y)}
+            <div className="overflow-x-auto pb-2 flex flex-col items-center justify-center">
+              <div className="inline-block">
+                {/* Column headers */}
+                <div className="flex gap-2 mb-1 pl-8">
+                  {grid[0]?.map((_, x) => (
+                    <div
+                      key={x}
+                      className="w-[240px] text-center text-[10px] font-medium text-default-400 uppercase shrink-0"
+                    >
+                      Col {x + 1}
                     </div>
-                    {row.map((cell, x) => (
-                      <div key={`${x}-${y}`}>
-                        {cell ? <BenchCell bench={cell} /> : <EmptyCell />}
+                  ))}
+                </div>
+
+                {/* Grid rows */}
+                <div className="flex flex-col gap-2">
+                  {grid.map((row, y) => (
+                    <div key={y} className="flex items-center gap-2">
+                      {/* Row label */}
+                      <div className="w-6 text-right text-[10px] font-medium text-default-400 shrink-0">
+                        {String.fromCharCode(65 + y)}
                       </div>
-                    ))}
-                  </div>
-                ))}
+                      {row.map((cell, x) => (
+                        <div
+                          key={`${x}-${y}`}
+                          className="w-[240px] flex items-center justify-center shrink-0"
+                        >
+                          {cell ? <BenchCell bench={cell} /> : <EmptyCell />}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+
+
           )}
 
           {/* Legend */}
           {benches.length > 0 && (
             <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-divider">
               <span className="text-[11px] font-medium text-default-400 uppercase tracking-wider">
-                Capacity Legend:
+                Legend:
               </span>
-              {[
-                { n: 1, color: "bg-accent/10 border-accent/30 text-accent" },
-                { n: 2, color: "bg-success/10 border-success/30 text-success" },
-                { n: 3, color: "bg-warning/10 border-warning/30 text-warning" },
-                { n: 4, color: "bg-danger/10 border-danger/30 text-danger" },
-              ].map(({ n, color }) => (
-                <div key={n} className="flex items-center gap-1.5">
-                  <div
-                    className={`size-4 rounded border-2 ${color}`}
-                  />
-                  <span className="text-[11px] text-default-500">
-                    {n} student{n > 1 ? "s" : ""}
-                  </span>
-                </div>
-              ))}
+              <div className="flex items-center gap-1.5">
+                <div className="size-4 rounded border-2 bg-default-100 border-default-300" />
+                <span className="text-[11px] text-default-500">Active Bench</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-4 rounded border-2 bg-default-100/50 border-default-200 opacity-50" />
+                <span className="text-[11px] text-default-500">Inactive Bench</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="size-4 rounded border-2 border-dashed border-default-200" />
+                <span className="text-[11px] text-default-500">Empty Slot</span>
+              </div>
             </div>
           )}
         </Card.Content>

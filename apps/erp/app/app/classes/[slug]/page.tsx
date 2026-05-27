@@ -244,6 +244,19 @@ export default function ClassViewPage() {
           ) : (
             <div className="overflow-x-auto pb-2 flex flex-col items-center justify-center">
               <div className="inline-block">
+                {/* Classroom Board Indicator (BookMyShow Screen-style) */}
+                <div className="w-full flex flex-col items-center mb-12 mt-2">
+                  <div className="relative w-64 h-8 flex flex-col items-center justify-center">
+                    <svg className="absolute inset-0 w-full h-full text-default-300 dark:text-default-200/30" viewBox="0 0 256 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 24C64 8 192 8 248 24" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
+                    <div className="absolute top-1 w-48 h-4 bg-default-200/50 dark:bg-default-100/10 blur-sm rounded-full" />
+                    <span className="relative z-10 text-[9px] font-bold tracking-[0.2em] text-default-400 uppercase mt-2">
+                      Board / Stage
+                    </span>
+                  </div>
+                </div>
+
                 {/* Column headers */}
                 <div className="flex gap-2 mb-1 pl-8">
                   {grid[0]?.map((_, x) => (

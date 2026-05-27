@@ -601,5 +601,35 @@ export const facultyRequestProxies = pgTable("faculty_request_proxies", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// -- CLASSROOMS & BENCH LAYOUTS --
+
+export const classrooms = pgTable("classrooms", {
+  id: serial("id").primaryKey(),
+  roomCode: varchar("room_code", { length: 50 }).notNull().unique(), // e.g. "G1", "F2", "S1"
+  buildingName: varchar("building_name", { length: 150 }), // Optional building/block name
+  floor: varchar("floor", { length: 50 }).notNull(), // "Ground", "First", "Second"
+  lectureCapacity: integer("lecture_capacity").notNull(), // Normal day-to-day capacity
+  description: text("description"), // Optional notes
+  isActive: boolean("is_active").notNull().default(true),
+  courseId: integer("course_id").notNull().references(() => courses.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [
+  index("classrooms_course_idx").on(t.courseId),
+  index("classrooms_active_idx").on(t.isActive),
+]);
+
+export const classroomBenches = pgTable("classroom_benches", {
+  id: serial("id").primaryKey(),
+  classroomId: integer("classroom_id").notNull().references(() => classrooms.id, { onDelete: "cascade" }),
+  label: varchar("label", { length: 10 }).notNull(), // "A1", "B3"
+  gridX: integer("grid_x").notNull(), // Horizontal grid position (column)
+  gridY: integer("grid_y").notNull(), // Vertical grid position (row)
+  maxStudents: integer("max_students").notNull().default(2), // 1–4 students per bench
+  isActive: boolean("is_active").notNull().default(true),
+  notes: text("notes"), // Optional maintenance/admin notes
+}, (t) => [
+  index("cb_classroom_idx").on(t.classroomId),
+  uniqueIndex("cb_classroom_grid_idx").on(t.classroomId, t.gridX, t.gridY),
+]);
 
 

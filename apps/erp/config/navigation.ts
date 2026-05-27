@@ -14,6 +14,7 @@ import {
   Gift,
   Share2,
   Bell,
+  School,
   
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -105,6 +106,19 @@ export const navigationConfig: NavSection[] = [
         href: "/app/academics/reports",
         icon: BarChart3,
         roles: ["counselor", "hod"],
+      },
+    ],
+  },
+
+  // ─── Arrangement ──────────────────────────────────────────────────────────────
+  {
+    section: "Arrangement",
+    items: [
+      {
+        title: "Classes",
+        href: "/app/classes",
+        icon: School,
+        roles: ["faculty", "counselor", "hod"],
       },
     ],
   },

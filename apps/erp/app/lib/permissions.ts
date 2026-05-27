@@ -107,6 +107,10 @@ export const PERMISSIONS = [
   "approvals.approve",
   "approvals.override_proxy",
   "approvals.manage_types",
+
+  // Classrooms / Arrangement
+  "classes.view",
+  "classes.manage",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -142,6 +146,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "exams.evaluate",
     "approvals.view",
     "approvals.create",
+    "classes.view",
   ],
   counselor: [
     "dashboard.view",
@@ -166,6 +171,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "exams.reports",
     "approvals.view",
     "approvals.create",
+    "classes.view",
   ],
   hod: [
     "dashboard.view",
@@ -203,6 +209,8 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "approvals.create",
     "approvals.approve",
     "approvals.override_proxy",
+    "classes.view",
+    "classes.manage",
   ],
   principal: [
     "dashboard.view",

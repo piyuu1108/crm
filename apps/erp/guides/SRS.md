@@ -16,10 +16,14 @@
 8. [Student Dashboard](#8-student-dashboard)
 9. [Student Request Module](#9-student-request-module)
 10. [Timetable Module](#10-timetable-module)
-11. [Semester Management](#11-semester-management)
-12. [Reports & Analytics](#12-reports--analytics)
-13. [System Rules (Critical Summary)](#13-system-rules-critical-summary)
-14. [Audit Logs Module](#14-audit-logs-module)
+11. [Leave & Proxy Management Module](#11-leave--proxy-management-module)
+12. [Semester Management](#12-semester-management)
+13. [Examination Seating & Eligibility Management](#13-examination-seating--eligibility-management)
+14. [Secure Internal Examination Paper Generation](#14-secure-internal-examination-paper-generation)
+15. [Internal Evaluation Calculation System](#15-internal-evaluation-calculation-system)
+16. [Reports & Analytics](#16-reports--analytics)
+17. [System Rules (Critical Summary)](#17-system-rules-critical-summary)
+18. [Audit Logs Module](#18-audit-logs-module)
 
 ---
 
@@ -32,6 +36,10 @@ The College ERP system manages the complete student lifecycle, academics, attend
 - Marks, attendance, reports, and administrative requests
 - **Both fresh admissions and lateral/direct entry students** joining at Semester 3 or Semester 5
 - **ERP first-time setup** for colleges onboarding all existing students at once
+- Leave and proxy management for faculty
+- Examination seating, eligibility, and supervision
+- Secure internal question paper generation and randomized selection
+- Internal evaluation engine with immutable audit layer
 
 ---
 
@@ -78,6 +86,8 @@ The College ERP system manages the complete student lifecycle, academics, attend
 - Mark attendance.
 - Enter and update marks.
 - View timetable and assigned classes.
+- Submit leave requests with proxy assignments.
+- Receive proxy lecture notifications and view proxy duties in timetable.
 
 #### Counselor
 
@@ -86,6 +96,8 @@ The College ERP system manages the complete student lifecycle, academics, attend
 - Approve or reject student requests.
 - Perform all Subject Faculty actions, limited to their assigned class.
 - Generate reports and perform final evaluations.
+- Create and manage division timetables.
+- Review examination eligibility appeals from students.
 
 #### HOD (Admin)
 
@@ -95,6 +107,10 @@ The College ERP system manages the complete student lifecycle, academics, attend
 - Assign divisions, counselors, and faculty.
 - Promote students semester-wise.
 - Generate comprehensive reports and timetables.
+- Approve or override faculty leave requests and proxy assignments.
+- Schedule examinations and manage seating arrangements.
+- Trigger secure final paper generation with verification.
+- Configure internal evaluation weightage.
 - Perform all Faculty and Counselor actions.
 - Teach subjects and act as a counselor if needed.
 
@@ -208,24 +224,18 @@ On first login, the student must complete their full profile before accessing an
 
 This flow applies when the ERP system is introduced for the first time and students are **already enrolled in different semesters** within the college (e.g., some students are in Sem 3, some in Sem 5, etc.).
 
----
-
 #### System Behavior
 
 - The **same HOD-driven CSV upload flow** (Section 3.1) is used for all existing students.
 - HOD creates the appropriate divisions first (with correct semester, specialization, and batch year reflecting the students' actual current position).
-- HOD uploads CSV for each division — the system handles Sem 1 students, Sem 3 students, Sem 5 students, and all others identically.
+- HOD uploads CSV for each division — the system handles Sem 1, Sem 3, Sem 5, and all others identically.
 - Students receive email invites, set passwords, and complete their profiles exactly as in Section 3.1.
-
----
 
 #### Rules & Constraints
 
 - Division metadata (semester, specialization, batch year) must accurately reflect the student's **current academic position** at the time of ERP setup.
 - This is a **one-time setup process only**.
-- After initial onboarding, semester progression is handled **only by the system (promotion module)** — students cannot change their semester manually.
-
----
+- After initial onboarding, semester progression is handled **only by the system (promotion module)**.
 
 #### Data Handling
 
@@ -276,8 +286,6 @@ Faculty members are not restricted to a single department. They can teach:
 | --- | --- |
 | **Student** | Student ID + Password |
 | **Faculty** | Email + Password |
-
-> **Student login note:** The Student ID (e.g., `26BCAAI001`) is the permanent username. Password is self-set via the email invite during onboarding.
 
 ---
 
@@ -395,16 +403,12 @@ Student IDs are pre-created by the HOD/Admission Office and included in the CSV 
 
 **Format:** `YY` + `COURSE_CODE` + `SPECIALIZATION_CODE` + `SEQUENCE_NUMBER`
 
-**Example:** `26BCAAI001`, `26BCADS086`, `26BCAREG146`
-
 **Rules:**
 
 - The sequence number is **global per batch year** — it does not reset when moving from one specialization to the next.
-- Example: If AI batch ends at `085`, DS batch starts from `086`, and REGULAR starts from where DS ends.
-- Specialization code is embedded in the ID for readability but the number is shared across all specializations in that year.
-- The system displays the **next available number** before each CSV upload so the HOD knows the correct starting point.
-- Lateral and direct entry students receive IDs in the same format and sequence as fresh admission students — they are **not** given a separate ID series.
+- Lateral and direct entry students receive IDs in the same format and sequence as fresh admission students.
 - HODs can manually adjust IDs for edge cases after constraint verification.
+- The system displays the **next available number** before each CSV upload.
 
 ### 5.3 Division Creation
 
@@ -419,13 +423,11 @@ Divisions are created by the HOD before uploading students. Divisions are course
 
 - Numbering is **global per batch year** — it does not reset per specialization.
 - The system auto-assigns the next available division number for that year.
-- Example for batch 2026: AI → `DIV1`, DS → `DIV2`, REGULAR → `DIV3`. If AI has two divisions: AI → `DIV1`, AI → `DIV2`, DS → `DIV3`.
 
 **Division Name Permanence:**
 
 - Division names are **permanent after creation** — they never change.
 - Only `semester_no` is updated internally when students are promoted.
-- Historical records, timetables, and marksheets always reference the original division name.
 
 **UI Display Prefix (for readability only — not stored in DB):**
 
@@ -434,8 +436,6 @@ Divisions are created by the HOD before uploading students. Divisions are course
 | First Year | Sem 1 or Sem 2 | FY |
 | Second Year | Sem 3 or Sem 4 | SY |
 | Third Year | Sem 5 or Sem 6 | TY |
-
-> **Note:** Database storage uses `division_no`, `semester_no`, `specialization`, and `batch_year` rather than a stored string name.
 
 **Lateral / Direct Entry and Divisions:**
 
@@ -446,94 +446,51 @@ Divisions are created by the HOD before uploading students. Divisions are course
 
 ### 5.4 Subject Allocation
 
-### OLD
+#### Layer 1: Subject Master (Global with Marking Scheme)
 
-#### Layer 1: Subject Master (Global)
+The Subject Master includes both subject identity and its marking scheme. Each subject is defined once and reused across divisions.
 
 | Field | Description |
 | --- | --- |
 | `subject_id` | Unique identifier |
+| `subject_code` | Unique subject code (e.g., 101, BCA101) |
 | `subject_name` | Name of the subject (e.g., Java) |
 | `subject_type` | Theory / Practical / Both |
+| `internal_theory_max` | Maximum internal theory marks |
+| `external_theory_max` | Maximum external theory marks |
+| `theory_passing_marks` | Minimum passing marks for theory |
+| `internal_practical_max` | Maximum internal practical marks |
+| `external_practical_max` | Maximum external practical marks |
+| `practical_passing_marks` | Minimum passing marks for practical |
+
+**Subject Rules:**
+
+- A subject must be created in the Subject Master before assignment.
+- Subject code must be **unique** across the system.
+- Marking scheme is **globally defined per subject** and reused across all divisions.
+- Fields required depend on subject type:
+  - **Theory** → Only theory fields required
+  - **Practical** → Only practical fields required
+  - **Both** → All fields required
 
 #### Layer 2: Division Subject & Faculty Assignment
 
 | Field | Description |
 | --- | --- |
 | `id` | Unique identifier |
-| `division_id` | Division (e.g., `26BCADSDIV2`) |
+| `division_id` | Division reference |
 | `subject_id` | Reference to Subject Master |
 | `faculty_id` | Assigned faculty |
+| `semester_id` | Semester reference |
 
-**Subject Rules:**
+**Assignment Rules:**
 
-- A subject must exist in the Subject Master before assignment.
 - A subject can be assigned to multiple divisions.
 - Each subject in a division must have one assigned faculty.
 - Duplicate assignment of the same subject to the same division is restricted.
+- **Marking scheme is NOT stored here**; it is inherited from Subject Master.
 
-# New Changed:
-### 5.4 Subject Allocation (Updated)
-
-#### Layer 1: Subject Master (Global with Marking Scheme)
-
-The Subject Master now includes both subject identity and its marking scheme. Each subject is defined once and reused across divisions.
-
-| Field                     | Description                             |
-| ------------------------- | --------------------------------------- |
-| `subject_id`              | Unique identifier                       |
-| `subject_code`            | Unique subject code (e.g., 101, BCA101) |
-| `subject_name`            | Name of the subject (e.g., Java)        |
-| `subject_type`            | Theory / Practical / Both               |
-| `internal_theory_max`     | Maximum internal theory marks           |
-| `external_theory_max`     | Maximum external theory marks           |
-| `theory_passing_marks`    | Minimum passing marks for theory        |
-| `internal_practical_max`  | Maximum internal practical marks        |
-| `external_practical_max`  | Maximum external practical marks        |
-| `practical_passing_marks` | Minimum passing marks for practical     |
-
----
-
-#### Subject Rules
-
-* A subject must be created in the Subject Master before assignment.
-* Subject code must be **unique** across the system.
-* Marking scheme is **globally defined per subject** and reused across all divisions.
-* Fields required depend on subject type:
-
-  * **Theory** → Only theory fields required
-  * **Practical** → Only practical fields required
-  * **Both** → All fields required
-
----
-
-#### Layer 2: Division Subject & Faculty Assignment
-
-Subjects are assigned to divisions along with faculty.
-
-| Field         | Description                 |
-| ------------- | --------------------------- |
-| `id`          | Unique identifier           |
-| `division_id` | Division reference          |
-| `subject_id`  | Reference to Subject Master |
-| `faculty_id`  | Assigned faculty            |
-| `semester_id` | Semester reference          |
-
----
-
-#### Assignment Rules
-
-* A subject can be assigned to multiple divisions.
-* Each subject in a division must have one assigned faculty.
-* Duplicate assignment of the same subject to the same division is restricted.
-* **Marking scheme is NOT stored here**; it is inherited from Subject Master.
-
----
-
-#### Design Note
-
-This design simplifies configuration by centralizing the marking scheme within the Subject Master. It assumes a consistent evaluation structure across all divisions and semesters for a given subject.
-
+> **Design Note:** This design centralizes the marking scheme within the Subject Master, assuming a consistent evaluation structure across all divisions and semesters for a given subject.
 
 ---
 
@@ -563,23 +520,9 @@ Manages subject-wise attendance per division based dynamically on the timetable.
 
 - Attendance records are created **only from the student's entry semester onwards**.
 - No attendance records are generated for semesters prior to the entry point.
-- Attendance percentage calculations for lateral/direct entry students are based entirely on lectures conducted **after** their enrollment date in the ERP.
+- Attendance percentage calculations are based entirely on lectures conducted **after** their enrollment date in the ERP.
 
-### 6.5 Data Model
-
-**Attendance Session (Lecture-Level)**
-
-```
-attendance_session (id, timetable_id, date, semester_id, is_cancelled)
-```
-
-**Student Attendance**
-
-```
-attendance (student_id, attendance_session_id, status)
-```
-
-### 6.6 Design Notes
+### 6.5 Design Notes
 
 - Do **NOT** store raw time in attendance (use `timetable_id`).
 - `date` is mandatory.
@@ -650,6 +593,8 @@ The student interface includes the following elements:
 - Real-time Attendance %
 - Timetable
 - Requests Management
+- Examination eligibility status and notifications
+- Internal evaluation scores (V2 layer)
 - Exam Seating *(Optional feature)*
 
 > **For lateral/direct entry students:** The dashboard displays data only from the entry semester onwards. Semesters prior to the entry point are not shown in the attendance or marks views.
@@ -660,7 +605,7 @@ The student interface includes the following elements:
 
 ### 9.1 Overview & Types
 
-Allows students to submit formal requests (Leave, Late Entry, Bonafide Certificates, ID Issues) to assigned faculty or administration.
+Allows students to submit formal requests (Leave, Late Entry, Bonafide Certificates, ID Issues, Examination Eligibility Appeals) to assigned faculty or administration.
 
 ### 9.2 Request Structure
 
@@ -668,8 +613,9 @@ Allows students to submit formal requests (Leave, Late Entry, Bonafide Certifica
 | --- | --- |
 | `subject` | Short title of the request |
 | `description` | Detailed explanation |
-| `request_type` | Leave, bonafide, etc. |
+| `request_type` | Leave, bonafide, eligibility appeal, etc. |
 | `target_faculty_id` | Assigned faculty/counselor |
+| `supporting_documents` | Attachments (for eligibility appeals) |
 
 ### 9.3 Flow & Status
 
@@ -704,7 +650,7 @@ Counselors create the timetable for their assigned divisions per semester.
 
 ### 10.2 Faculty Timetable (Auto-Generated)
 
-Faculty schedules are generated automatically by filtering division timetables.
+Faculty schedules are generated automatically by filtering division timetables and include proxy lecture indicators.
 
 **Example: Priya Patel's Schedule**
 
@@ -718,11 +664,86 @@ Faculty schedules are generated automatically by filtering division timetables.
 - Faculty schedule clashes are technically allowed but trigger a warning pop-up (dual card) during creation.
 - Counselors manage their division's timetable; HODs have full control; Faculty and Students have view-only access.
 
+### 10.4 Proxy Lecture Display
+
+- Approved proxy lectures appear in the assigned proxy faculty's timetable with a **special highlight**.
+- The highlight clearly displays:
+  - Label: **Proxy Lecture**
+  - Class name (e.g., `24BCAAI1`)
+  - Original faculty name (e.g., *for Priya Mam*)
+- This applies to both the daily dashboard view and the full timetable view.
+
 ---
 
-## 11. Semester Management
+## 11. Leave & Proxy Management Module
 
-### 11.1 Promotion (Bulk Action)
+### 11.1 Overview
+
+This module enables faculty members to apply for leave and mandates proxy assignment for every lecture that would be missed. It ensures no class is left unattended and maintains continuity of academic delivery.
+
+---
+
+### 11.2 Leave Request Flow
+
+#### Step 1: Faculty Initiates Leave Request
+
+- Faculty opens the Leave page and selects a leave date (e.g., 13 July — Monday).
+- The system automatically fetches **all lectures assigned to that faculty on that day** based on the timetable.
+
+#### Step 2: Proxy Assignment (Mandatory per Lecture)
+
+- For each lecture slot, the faculty must assign a proxy faculty member.
+- The system displays a **dropdown of only free faculty members** for that specific time slot — i.e., faculty who have no existing lecture, proxy duty, or supervision assignment during that slot.
+- This step is repeated for all lectures on the leave day.
+- The leave request **cannot be submitted** until all lectures have an assigned proxy.
+
+#### Step 3: Submission
+
+- Faculty submits the leave request along with:
+  - Leave reason
+  - Leave type (e.g., medical, personal, official)
+  - Proxy assignments for all impacted lectures
+
+#### Step 4: HOD Approval
+
+- The submitted request goes to the HOD for review.
+- HOD can:
+  - **Approve** the request as-is with all selected proxies.
+  - **Override** any proxy assignment and select a different faculty before approving.
+  - **Reject** the request with remarks.
+
+#### Step 5: Notification on Approval
+
+- Once the HOD approves the request, all faculty members assigned proxy lectures receive **in-app and email notifications**.
+- On the day of the leave, proxy lectures appear in the assigned faculty's dashboard and timetable with the proxy highlight as described in Section 10.4.
+
+---
+
+### 11.3 Rules & Constraints
+
+- A proxy assignment is **mandatory** for every affected lecture — partial submission is not allowed.
+- Only faculty who are **free during the specific slot** appear in the proxy dropdown.
+- HOD override of proxy is tracked separately.
+- Proxy lectures are **not counted as actual scheduled lectures** for attendance purposes — they inherit the original timetable entry.
+- Cancelled classes during leave (if the HOD rejects and no proxy is found) follow the standard **"Drop Today's Class"** flow.
+- Leave requests are **immutable** after HOD action.
+
+---
+
+### 11.4 Access Control
+
+| Role | Permission |
+| --- | --- |
+| **Faculty** | Submit leave requests; view own leave history. |
+| **HOD** | Approve, reject, or override proxy assignments for all requests. |
+| **Counselor** | View leave status of faculty within their division (read-only). |
+| **Student** | No access. |
+
+---
+
+## 12. Semester Management
+
+### 12.1 Promotion (Bulk Action)
 
 The HOD promotes students via a single bulk action. This updates:
 
@@ -731,7 +752,7 @@ The HOD promotes students via a single bulk action. This updates:
 - Subjects mapped
 - Faculty & counselor reassignment (generating new semester-based mappings)
 
-### 11.2 Handling Lateral / Direct Entry in Semester Management
+### 12.2 Handling Lateral / Direct Entry in Semester Management
 
 - Lateral and direct entry students are **not promoted backwards** — they enter the promotion cycle from their entry semester.
 - When a bulk promotion occurs, lateral entry students (who joined at Sem 3) will be promoted to Sem 4, then Sem 5, and so on — exactly like regular students from that point forward.
@@ -740,7 +761,258 @@ The HOD promotes students via a single bulk action. This updates:
 
 ---
 
-## 12. Reports & Analytics
+## 13. Examination Seating & Eligibility Management
+
+### 13.1 Overview
+
+This is a highly sensitive module that manages mid-semester and end-semester examination scheduling, student eligibility determination, seating arrangement generation, and faculty supervision assignment. All processes are automated with configurable rules.
+
+---
+
+### 13.2 Examination Scheduling
+
+The HOD configures examinations by selecting:
+
+- Academic year
+- Classes / Divisions included
+- Examination dates
+- Minimum attendance eligibility percentage (e.g., 70%)
+
+---
+
+### 13.3 Eligibility Determination
+
+- The system automatically calculates each student's attendance percentage up to the exam date.
+- Students meeting the minimum attendance threshold are marked **Eligible**.
+- Students below the threshold are marked **Ineligible**.
+- Ineligible students receive **automatic notifications** informing them of their status and the reason (low attendance).
+
+**HOD Dashboard Report:**
+
+- Class A → 74 eligible students
+- Class B → 79 eligible students
+- Total eligible students for the year
+- Overall grand total
+
+---
+
+### 13.4 Eligibility Appeal Process
+
+- The HOD defines an **appeal submission deadline** (typically 2–3 days after eligibility notification).
+- During this period, ineligible students may submit an appeal with:
+  - Written explanation
+  - Supporting documents (medical certificates, official letters, etc.)
+- Appeals are reviewed by the **HOD or the class counselor**.
+- If approved → student's eligibility status is updated to **Eligible**.
+- If rejected → student remains **Ineligible**.
+- Post-deadline, no further appeals are accepted.
+
+---
+
+### 13.5 Seating Arrangement Generation
+
+After the appeal deadline closes, the system automatically generates the complete seating arrangement.
+
+#### Classroom & Bench Structure
+
+- Classrooms are identified by college-standard codes: `G1`, `G2` (Ground Floor), `F1`, `F2` (First Floor), `S1`, `S2`, etc.
+- Each classroom contains individually managed benches in a **visual layout (BookMyShow-style)**.
+- The bench layout is pre-configured in the system by the HOD.
+
+#### Seating Allocation Rules
+
+- Students are allocated seats in **sequential student ID order**.
+- Ineligible students are **skipped** — the next eligible student fills the seat.
+
+  *Example: Students 1, 2, 3 are placed. Student 4 is ineligible → Student 5 is placed next.*
+
+#### Anti-Cheating Seating Rules
+
+- Each bench can contain only **one student from the same semester**.
+- If only one semester has exams, one student may occupy a bench.
+- If **multiple semesters** have exams simultaneously, benches may contain combinations such as:
+  - 1st semester + 3rd semester ✅
+  - 1st semester + 1st semester ❌ (not allowed)
+- The system enforces these rules automatically during arrangement generation.
+
+---
+
+### 13.6 Faculty Supervision Assignment
+
+After seating is generated, the system automatically assigns faculty as examination supervisors.
+
+#### Assignment Rules
+
+- Faculty must be **free during the exam slot** (normal lectures are considered cancelled during examinations).
+- Supervision **workload must be distributed fairly** across all available faculty.
+- Faculty should **not repeatedly supervise the same class or room**.
+- Supervision duties must **rotate across examination days**.
+
+#### Balance Enforcement
+
+The system targets balanced distribution:
+
+- ✅ Faculty A → 3 duties, Faculty B → 3 duties
+- ❌ Faculty A → 5 duties, Faculty B → 1 duty
+
+---
+
+### 13.7 Access Control
+
+| Role | Permission |
+| --- | --- |
+| **HOD** | Full access — schedule exams, configure appeals, view all reports. |
+| **Counselor** | Review and resolve eligibility appeals for their division. |
+| **Faculty** | View supervision assignments. |
+| **Student** | View own eligibility status, submit appeals, view seating (post-generation). |
+
+---
+
+## 14. Secure Internal Examination Paper Generation
+
+### 14.1 Overview
+
+This is a **highly sensitive** module managing the creation, secure storage, and randomized selection of internal examination question papers. The design eliminates human bias and prevents advance knowledge of which paper will be used.
+
+---
+
+### 14.2 Paper Upload Process
+
+- When an internal examination is scheduled for a subject (e.g., *Deep Learning*), the ERP identifies **all unique faculty members teaching that subject**, regardless of how many divisions they handle.
+- Each identified faculty member must **upload exactly two (2) question papers** for that subject.
+
+  *Example: If Deep Learning is taught by 2 faculty → 4 papers total are uploaded.*
+
+- Uploaded papers are **completely hidden** from everyone immediately upon upload — including other faculty members, counselors, and the HOD.
+- No one can access or preview uploaded papers before the finalization step.
+
+---
+
+### 14.3 Final Paper Generation
+
+- Just before the examination, the HOD triggers **"Generate Final Paper"**.
+- This action requires **multi-factor secure verification**:
+  - Admin password
+  - OTP verification (via registered mobile/email)
+  - Or both, as configured
+- Upon successful verification, the ERP **randomly selects one paper** from all submitted papers for that subject.
+- Randomization is system-generated and opaque to all users — no one knows in advance which paper will be selected.
+- The selected paper is **immediately locked** and becomes the official examination paper.
+- The system automatically calculates the **required print count** based on the number of eligible students appearing for that subject.
+
+---
+
+### 14.4 Rules & Constraints
+
+- Faculty must upload exactly **2 papers** each. Submission is incomplete until both are uploaded.
+- Papers are **encrypted at rest** and accessible only during the final generation step.
+- The random selection algorithm must be **auditable** — the generation log records which paper was selected and when.
+- Print count is auto-calculated and presented to the HOD immediately after selection.
+- After selection, the paper is locked and **cannot be changed** by anyone, including the HOD.
+
+---
+
+### 14.5 Access Control
+
+| Role | Permission |
+| --- | --- |
+| **Faculty** | Upload own papers for assigned subjects only; confirm upload status. |
+| **HOD** | Trigger final paper generation with secure verification; view print count. |
+| **Counselor** | No access. |
+| **Student** | No access. |
+
+---
+
+## 15. Internal Evaluation Calculation System
+
+### 15.1 Overview
+
+This module provides a configurable internal evaluation engine. The HOD defines evaluation weightage ratios, and the system automatically calculates each student's final internal evaluation score. Two immutable result layers ensure data integrity and operational flexibility.
+
+---
+
+### 15.2 Weightage Configuration
+
+The HOD configures evaluation components and their percentage weightages per subject or semester.
+
+**Example configuration:**
+
+| Component | Weightage |
+| --- | --- |
+| Mid-Semester Examination | 70% |
+| Attendance | 15% |
+| Assignments | 15% |
+| **Total** | **100%** |
+
+- Different subjects or semesters can use **different evaluation patterns**.
+- Weightage configurations are stored per subject + semester combination.
+- The system validates that all component percentages sum to **100%** before saving.
+
+---
+
+### 15.3 Evaluation Components
+
+| Component | Source |
+| --- | --- |
+| Mid-Semester Examination | Marks entered via Marks Management Module |
+| Attendance | Calculated dynamically from Attendance Module |
+| Assignments | Entered separately by faculty |
+
+---
+
+### 15.4 Calculation Logic
+
+```
+Internal Score = (Mid-Sem Marks / Mid-Sem Max) × 70
+              + (Attendance % / 100) × 15
+              + (Assignment Marks / Assignment Max) × 15
+```
+
+*(Using the example weightage above. Actual formula adjusts to configured weights.)*
+
+---
+
+### 15.5 Two-Layer Result System
+
+#### V1 — Immutable Evaluation Layer
+
+- The **original weighted evaluation** generated directly from configured rules and actual student data.
+- **Permanently locked** immediately upon generation.
+- **Cannot be modified** by anyone — faculty, counselor, or HOD.
+- Acts as the **official source of truth** for audits, verification, and historical accuracy.
+
+#### V2 — Operational / Published Result Layer
+
+- Any **grace marks, moderation, rounding adjustments, or manual corrections** are applied exclusively in V2.
+- V1 remains completely **untouched** regardless of V2 changes.
+- **Students see V2** — this is the published result layer.
+- Final grade sheets and reports use V2.
+- V1 is preserved for **integrity and audit purposes only**.
+
+---
+
+### 15.6 Rules & Constraints
+
+- V1 generation is a **one-time, irreversible action** per student per subject per semester.
+- V2 always references a V1 record — V2 cannot exist without V1.
+- If no manual adjustments are made, V2 defaults to V1 values.
+- All V2 modifications are tracked with `modified_by` and `modified_at`.
+- **Design Principle:** Do NOT overwrite V1 under any circumstances.
+
+---
+
+### 15.7 Access Control
+
+| Role | Permission |
+| --- | --- |
+| **HOD** | Configure weightage; trigger V1 generation; apply V2 adjustments. |
+| **Counselor** | View V1 and V2 for their division; apply V2 adjustments (if permitted by HOD). |
+| **Faculty** | View own subject results for assigned divisions. |
+| **Student** | View V2 (published result) only. |
+
+---
+
+## 16. Reports & Analytics
 
 The system can generate:
 
@@ -748,13 +1020,17 @@ The system can generate:
 - Division performance metrics
 - Overall attendance reports
 - Category / Gender analytics
-- Final evaluation reports
+- Final evaluation reports (V2 layer)
+- Internal evaluation summary (V1 vs V2 delta reports for auditors)
+- Examination eligibility and appeal summary reports
+- Faculty supervision duty reports
+- Leave and proxy activity reports
 
 > **Note for Lateral / Direct Entry Students:** All generated reports reflect only the semesters processed by this system. Reports clearly indicate the student's entry type and entry semester so reviewers are aware that prior-semester data originates from an external institution.
 
 ---
 
-## 13. System Rules (Critical Summary)
+## 17. System Rules (Critical Summary)
 
 - Role-based access is strictly enforced across all modules.
 - Data changes must be tracked (audit logs required).
@@ -770,24 +1046,30 @@ The system can generate:
 - No academic data (attendance, marks, timetable) is generated for semesters prior to a student's entry semester.
 - The `entry_type` and `entry_semester_no` fields are mandatory for all non-fresh-admission students and must be stored on the student profile.
 - ERP first-time setup for existing students uses the same HOD CSV upload flow — no special registration path exists.
+- Leave requests require proxy assignment for **every** impacted lecture before submission.
+- Only faculty free during a specific slot appear in the proxy assignment dropdown.
+- Examination question papers are encrypted at rest; no one can view uploaded papers until final generation.
+- V1 evaluation results are permanently immutable. All adjustments (grace marks, moderation) are applied in V2 only.
+- Examination seating enforces anti-cheating rules — no two students from the same semester may share a bench.
+- Faculty supervision duty must be distributed equitably and rotated across examination days.
 
 ---
 
-## 14. Audit Logs Module
+## 18. Audit Logs Module
 
-### 14.1 Overview
+### 18.1 Overview
 
 The Audit Logs Module records important system actions to ensure **traceability and accountability**.
 
-### 14.2 Purpose
+### 18.2 Purpose
 
 - Track user activities.
 - Maintain history of critical changes.
 - Support monitoring and debugging.
 
-### 14.3 Logged Actions
+### 18.3 Logged Actions
 
-The system logs actions such as:
+The system logs actions including:
 
 - Student CSV upload (division, count, uploaded by)
 - Password invite sent / resent
@@ -798,28 +1080,19 @@ The system logs actions such as:
 - User and role updates
 - Lateral/direct entry student registration
 - Division creation and semester promotion
+- Faculty leave request submitted, approved, rejected, or proxy overridden
+- Examination scheduled, eligibility computed, appeal resolved
+- Examination seating arrangement generated
+- Examination paper uploaded, final paper generated and locked
+- Internal evaluation V1 generated (immutable event)
+- Internal evaluation V2 modified (with reason)
 
-### 14.4 Data Structure
-
-```
-audit_log (
-  id,
-  user_id,
-  action,
-  module,
-  entity_type,
-  entity_id,
-  description,
-  created_at
-)
-```
-
-### 14.5 Rules
+### 18.4 Rules
 
 - Logs are created for **CREATE, UPDATE, DELETE, APPROVE** actions.
 - Logs are **immutable** (cannot be edited or deleted).
 - Logging must be **lightweight**.
-- Do not store sensitive data (e.g., passwords).
+- Do not store sensitive data (e.g., passwords, paper file contents).
 
 #### Attendance Logging Rule (Important)
 
@@ -834,7 +1107,7 @@ audit_log (
 "Attendance marked for 26BCADSDIV2 - Java on 2026-04-13"
 ```
 
-### 14.6 Access Control
+### 18.5 Access Control
 
 | Role | Permission |
 | --- | --- |
@@ -842,7 +1115,7 @@ audit_log (
 | **Counselor** | Limited access *(optional)* |
 | **Faculty** | No access |
 
-### 14.7 Design Notes
+### 18.6 Design Notes
 
 - Logs are stored in a **separate table**.
 - Logging should not affect main operations.

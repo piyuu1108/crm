@@ -1,0 +1,170 @@
+# ERP Progress Audit Report
+
+This progress audit report provides an objective, evidence-based analysis of the College ERP system's codebase compared against the Software Requirements Specification (SRS). It evaluates database schemas, API routes, and page implementations to estimate completion, identify gaps, and outline future development priorities.
+
+---
+
+## 1. Overall Completion Estimate
+
+- **Estimated Completion Percentage**: **~60%**
+  - **Core Foundation & Identity**: ~90% complete.
+  - **Onboarding & Assignments**: ~90% complete.
+  - **Timetable & Leaves/Proxy**: ~85% complete.
+  - **Marks & Evaluations**: ~40% complete (schema exists, but write paths and V1/V2 engine logic are missing).
+  - **Missing Core Modules** (Exam Seating, Secure Paper Gen, Audit Logging): ~5% complete (schema only, zero logic).
+- **Current Project Maturity Level**: **Core Foundation Ready**
+  - The architectural foundation is extremely robust, using a state-of-the-art tech stack (Next.js 16, React 19, Tailwind CSS v4, HeroUI v3, Drizzle ORM, Neon Postgres, Upstash, Brevo for email, and Convex for notifications).
+  - All basic workflows (authentication, multi-role RBAC, profile onboarding, dynamic assignments, and leave requests) are highly functional.
+
+---
+
+## 2. Fully Implemented Modules
+
+These modules exist in the codebase, align closely with SRS requirements, and exhibit stable and mature implementation.
+
+### 2.1 Student & Faculty Onboarding
+- **Summary**: Implements a complete HOD-driven CSV upload flow for students at `/api/admin/divisions/[id]/students/route.ts` with email/ID duplicate checking, automatic format validation, and transactional bulk imports. Integrated with Brevo email invites via a queue-less background system (`/app/lib/email/service.ts`). Profile completion is handled via multi-step React wizard components (`StudentProfileStepper` and `FacultyProfileStepper`) with support for local state persistence, GSEB/CBSE board specifications, address JSONB shapes, and document uploads.
+- **Confidence Level**: **Complete**
+
+### 2.2 Faculty & Academic Assignment Management
+- **Summary**: Implements the core global role principle while scoping academic assignments per semester. The tables `faculty_subject_assignments` and `counselor_division_assignments` act as joint tables mapped to `semesterId`, `divisionId`, and `facultyId` (as defined in `app/lib/schema.ts`). This cleanly isolates responsibilities from identities and prevents overwriting historical data during bulk promotions.
+- **Confidence Level**: **Complete**
+
+### 2.3 Leave & Proxy Management Module
+- **Summary**: Implements the mandated leave flow (Section 11). When faculty applies for leave, the system queries the timetable to find affected classes, queries `/api/approvals/proxies/available` to fetch a list of only free faculty members for that specific time slot, forces complete proxy assignments, and supports HOD overrides. Approved proxies receive notifications, and proxy slots are dynamically merged with highlights into timetables and dashboards.
+- **Confidence Level**: **Complete**
+
+### 2.4 Timetable Module
+- **Summary**: Includes division schedule creators, slot modals, color-coded visual grids, and clash warnings under `app/app/admin/timetable`. It auto-generates faculty schedules by filtering division timetables and renders proxy duty highlights on the active dashboard.
+- **Confidence Level**: **Mostly Complete** (clash alerts are active in the UI, but database/API constraints are basic).
+
+### 2.5 Semester Management (Promotion)
+- **Summary**: Employs a bulk promotion action in `/api/admin/promotion` which updates the `semesterNo` on the division, updates student current records, and logs historical transactions in `studentEnrollmentHistory`.
+- **Confidence Level**: **Mostly Complete**
+
+---
+
+## 3. Partially Implemented Modules
+
+These modules exist in the codebase but have major gaps, incomplete features, or design mismatches.
+
+### 3.1 Marks Management System (Section 7)
+- **What's Implemented**: The `marks` table in `app/lib/schema.ts` is fully defined with columns for theory and practical marks (`internalTheory`, `externalTheory`, etc.) and their maximum thresholds. The GET `/api/subjects/[code]` endpoint is wired to read and display these marks on student dashboards.
+- **What's Missing**: There are no write routes (`POST`, `PUT`), queries, or UI forms for faculty to input or update general marks. The database has no records or logic populated in this table.
+- **Major Gaps**: Marks data entry is completely non-functional. The codebase currently relies on a separate `internal_exam_marks` table for exam scoring, but the primary `marks` system for final semester grade cards has no operational write pathway.
+
+### 3.2 Internal Evaluation Calculation System (Section 15)
+- **What's Implemented**: GET and POST endpoints exist at `/api/internal-evaluation/route.ts` which fetch student internal exam marks, compute simple totals, and batch upsert them in the `internal_evaluations` table.
+- **What's Missing**: The **V1 (immutable raw evaluation)** vs **V2 (operational, grace/moderation published evaluation)** dual-layer result engine is missing.
+- **Major Gaps**: The current system employs a single table (`internal_evaluations`) where `is_finalized` simply acts as a lock. The POST endpoint utilizes an in-place `DO UPDATE SET` upsert query, enabling direct overwrites of finalized marks. This directly violates the SRS requirement that V1 records must be permanently immutable and locked for historical audit purposes.
+
+---
+
+## 4. Missing Modules
+
+These modules defined in the SRS are entirely absent from the codebase.
+
+### 4.1 Examination Seating & Eligibility Management (Section 13)
+- **Status**: **0% Implemented**
+- **Gaps**: There are no database tables or APIs for exam schedules, appeal deadlines, or eligibility statuses. The visual BookMyShow-style classroom bench layout configuration does not exist. There is no automated anti-cheating sequential seating generator that skips ineligible students or prevents students of the same semester from sharing a bench.
+
+### 4.2 Secure Internal Examination Paper Generation (Section 14)
+- **Status**: **0% Implemented**
+- **Gaps**: No secure S3 upload pathways for exam papers. There is no encryption at rest mechanism. The multi-factor secure verification flow (OTP/Admin Password) to trigger final paper selection is completely missing. No randomized selection algorithm or auditable generation logs exist.
+
+### 4.3 Audit Logs Module (Section 18)
+- **Status**: **10% Implemented (Schema only)**
+- **Gaps**: The `audit_logs` table is correctly defined in `schema.ts`, but no routes, middle-ware, hooks, or backend files actually write log rows. Critical system events (student imports, password invite triggers, marks changes, leave requests, proxy overrides) happen completely off the record.
+
+---
+
+## 5. SRS vs Codebase Differences
+
+- **`entryType` Value Hardcoding**: During CSV onboarding (`app/api/admin/divisions/[id]/students/route.ts`), the system assigns the student's `entryType` as:
+  ```typescript
+  entryType: division.semesterNo === 1 ? "fresh" : "old"
+  ```
+  The SRS explicitly outlines that lateral entry (Sem 3) and direct entry (Sem 5) students must carry descriptive `entry_type` and `entry_semester_no` values (e.g., `"lateral"` / `"direct"`). Hardcoding `"old"` creates a data consistency mismatch.
+- **Evaluation Immutability**: The SRS mandates a V1/V2 separated result structure to prevent grade tampering. The database schema has no V1/V2 tracking columns, and the API overwrites data directly in the database.
+- **General Marks vs Exam Marks**: The system tracks internal exam marks separately in `internal_exam_marks` but leaves the general `marks` table vacant, indicating a structural gap in how final semester outcomes are evaluated.
+- **Audit Logs Inactivity**: The system is designed to be highly auditable (especially for exam actions), yet there is a complete absence of active logging triggers.
+
+---
+
+## 6. Architecture & Design Observations
+
+- **Folder Structure**: Uses a nested App Router layout `/app/app/admin` and `/app/app/counselor`, which represents the `/app` route group. While functional, it is slightly complex and could benefit from Next.js route grouping structures (e.g., `(dashboard)`).
+- **Scalability & Modularity**: The database schema is extremely clean. The use of PostgreSQL mapping tables ensures high relational integrity. Complex structures like multi-step addresses and approval hierarchies are modeled as structured JSONB columns, saving database overhead.
+- **Separation of Concerns**: Excellent. Permission checks are abstracted into an elegant `requirePermission` utility. Database operations are decoupled from UI components.
+- **Maintainability**: High. Strong TypeScript typing, a unified database schema, and standard state management (Zustand + Tanstack Query) make the codebase extremely clean and readable.
+
+---
+
+## 7. Potential Risk Areas
+
+> [!WARNING]
+> ### 1. Lack of Audit Trail (Security & Compliance)
+> With no active logging inside the `audit_logs` table, administrative and faculty activities—including marks editing, HOD overrides, role promotions, and invite resends—occur without a system log. This is a severe compliance risk in an educational ERP.
+
+> [!CRITICAL]
+> ### 2. Evaluation Mutability
+> The in-place upsert of internal evaluations exposes finalized grades to potential manipulation, as there is no immutable V1 layer to verify V2 modifications against.
+
+> [!CAUTION]
+> ### 3. Seating Generator Race Conditions
+> Generating a classroom seating plan requires complex sequential algorithms. If multiple admins trigger seating plans simultaneously or during division changes, it could cause database deadlocks or duplicate seat assignments if not wrapped in serializable database transactions.
+
+> [!IMPORTANT]
+> ### 4. S3 Document Encryption at Rest
+> The SRS mandates that examination papers are strictly encrypted at rest and invisible even to HODs. Standard file uploads in AWS S3 or MinIO will require backend envelope encryption to prevent direct reads by infrastructure administrators.
+
+---
+
+## 8. Suggested Priority Order
+
+To guide the remaining development work, it is recommended to implement missing modules and bridge functional gaps in the following order:
+
+```mermaid
+graph TD
+    A["1. Critical Missing Foundation (Audit & Immutability)"] --> B["2. Important Business Modules (Marks & Eligibility)"]
+    B --> C["3. Complex Seating & Secure Paper Gen"]
+    C --> D["4. Production Readiness & Security Hardening"]
+    
+    style A fill:#f3f4f6,stroke:#ef4444,stroke-width:2px
+    style B fill:#f3f4f6,stroke:#f59e0b,stroke-width:2px
+    style C fill:#f3f4f6,stroke:#3b82f6,stroke-width:2px
+    style D fill:#f3f4f6,stroke:#10b981,stroke-width:2px
+```
+
+### 1. Critical Missing Foundation (Immutability & Audits)
+- **Evaluation Dual Layer**: Refactor `/api/internal-evaluation` to separate raw data calculation (V1 - write once, lock permanently) from moderated results (V2 - edited with reasons).
+- **Audit Logs Middleware**: Create a central utility or database trigger to automatically write logs to the `audit_logs` table on every `POST`/`PUT`/`DELETE` request across admin, marks, and workflow APIs.
+
+### 2. Important Business Modules (Marks & Eligibility)
+- **General Marks Write Paths**: Build API endpoints and faculty interfaces for entering general semester marks (external theory, external practical).
+- **Eligibility & Appeals**: Implement mid/end-sem examination scheduling, automatic attendance percentage calculations, appeal forms, and counselor appeal resolution dashboards.
+
+### 3. Complex Seating & Secure Paper Gen
+- **BookMyShow-Style Bench Layout**: Implement visual room grid builders in the admin panel.
+- **Anti-Cheating Seating Generator**: Write a robust transactional seating algorithm implementing sequential placement with student ID sorting and single-semester bench exclusion rules.
+- **Secure Question Paper Upload & Selection**: Build encrypted-at-rest file uploads, mobile/email OTP verification triggers, and randomized selection algorithms.
+
+### 4. Production Readiness & Security Hardening
+- **Correct `entryType` values**: Clean up student onboarding to use `"lateral"` and `"direct"` entry typings.
+- **Load Testing**: Benchmark the seating generator and timetable slot verification engines.
+
+---
+
+## 9. Final Summary
+
+- **Overall Health Assessment**: **Excellent (Green)**
+  The core of the ERP system is built on exceptional engineering practices. The foundation is highly responsive, utilizing modern components and standard security wrappers. The leave-proxy flow, timetable, and registration systems are premium-grade implementations.
+- **Biggest Strengths**:
+  1. High-fidelity UI styling built with HeroUI v3 and Tailwind CSS v4.
+  2. Impeccable role-based routing and permissions middleware (`requirePermission`).
+  3. Feature-complete Leave & Proxy management with automatic free-slot lookups.
+- **Biggest Missing Areas**:
+  1. Complete absence of Examination Seating and Eligibility appeals.
+  2. Complete absence of Secure Examination Paper Generation (OTP and S3 encryption).
+  3. Inactive Audit Logs system (schema exists but no logic writes to it).
+- **Estimated Remaining Workload**: **~4 to 6 Weeks** of dedicated development to reach full Production Candidate status.

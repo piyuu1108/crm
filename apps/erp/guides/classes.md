@@ -265,7 +265,6 @@ Bench 6 → FY006                    ← FY continues solo
 ```
 
 
-
 ## 6.4 Classroom Sequence and Bench Filling
 
 ### HOD-Defined Room Order

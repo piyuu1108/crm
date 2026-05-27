@@ -336,30 +336,25 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
       {/* Main Detail Canvas Content */}
       <ScrollShadow className="flex-1 overflow-y-auto px-6 py-4" hideScrollBar>
         {/* Title */}
-        <h1 className="text-2xl font-bold text-foreground leading-tight mb-4">
-          {data.title}
-        </h1>
+        
 
         {/* Sender details row */}
         <div className="flex items-center justify-between gap-4 mb-5 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {/* Avatar circle matching template styling */}
-            <Avatar className="w-10 h-10 rounded-full overflow-hidden shrink-0">
-              <Avatar.Fallback className="w-full h-full flex items-center justify-center text-default-400 font-semibold text-sm">
-                {getInitials(data.facultyName)}
-              </Avatar.Fallback>
-            </Avatar>
+            
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-semibold text-foreground truncate leading-none">
                 {data.facultyName}
               </span>
               <span className="text-xs text-default-400 flex items-center gap-1.5 mt-0.5 select-none">
-                <span>{data.facultyName.toLowerCase().replace(/\s+/g, "")}@heroui.dev</span>
-                <span className="text-default-300">to me</span>
+                <span>{data.facultyName.toLowerCase().replace(/\s+/g, "")}@vtcbcsr.edu.in</span>
+                <span className="text-default-300">to you</span>
                 <ChevronDownIcon className="w-3 h-3 text-default-400 -ml-0.5" />
               </span>
             </div>
           </div>
+          
           <div className="flex items-center gap-2 shrink-0">
             <span className="text-xs text-default-400 select-none mr-1">
               {formatFullDate(data.createdAt)}
@@ -368,7 +363,9 @@ function CircularDetailReader({ slug, onBack }: CircularDetailReaderProps) {
             
           </div>
         </div>
-
+<h1 className="text-2xl font-bold text-foreground leading-tight mb-4">
+          {data.title}
+        </h1>
         {/* Pure description canvas */}
         {data.description && (
           <div className="text-default-700 leading-relaxed text-base whitespace-pre-line">

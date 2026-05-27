@@ -279,7 +279,7 @@ export default function ClassEditPage() {
         }
       })
       .catch(() => {
-        toast.error("Failed to copy layout");
+        toast.danger("Failed to copy layout");
       });
   };
 
@@ -296,7 +296,7 @@ export default function ClassEditPage() {
       });
       toast.success("Layout saved successfully!");
     } catch (err) {
-      toast.error(
+      toast.danger(
         err instanceof Error ? err.message : "Failed to save layout"
       );
     }
@@ -349,7 +349,7 @@ export default function ClassEditPage() {
           </div>
         </div>
         <Button
-          color="accent"
+          variant="primary"
           onPress={handleSave}
           isDisabled={saveMutation.isPending}
           className="gap-1.5"
@@ -507,7 +507,7 @@ export default function ClassEditPage() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  color="danger"
+                  className="text-danger hover:bg-danger/10 hover:text-danger"
                   onPress={() => {
                     setBenches([]);
                     toast.info("Layout cleared");

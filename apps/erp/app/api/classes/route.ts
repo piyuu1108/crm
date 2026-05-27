@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/app/lib/db";
 import { classrooms, classroomBenches, courses } from "@/app/lib/schema";
-import { requirePermission } from "@/app/lib/api-auth";
-import { eq, sql, count } from "drizzle-orm";
+import { requirePermission, requireCourseId } from "@/app/lib/api-auth";
+import { eq, sql } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
   const result = await requirePermission(req, "classes.view");
@@ -63,6 +63,67 @@ export async function GET(req: NextRequest) {
     console.error("[GET /api/classes] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch classrooms" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const auth = await requirePermission(req, "classes.manage");
+  if (auth instanceof NextResponse) return auth;
+
+  try {
+    const courseId = requireCourseId(auth);
+    const body = await req.json();
+    const { roomCode, buildingName, floor, lectureCapacity, description } = body;
+
+    if (!roomCode || !floor || !lectureCapacity) {
+      return NextResponse.json(
+        { success: false, error: "Missing required fields (roomCode, floor, lectureCapacity)" },
+        { status: 400 }
+      );
+    }
+
+    // Check if room code already exists
+    const [existing] = await db
+      .select()
+      .from(classrooms)
+      .where(eq(classrooms.roomCode, roomCode.trim().toUpperCase()))
+      .limit(1);
+
+    if (existing) {
+      return NextResponse.json(
+        { success: false, error: `Classroom with room code "${roomCode}" already exists` },
+        { status: 400 }
+      );
+    }
+
+    const [newClass] = await db
+      .insert(classrooms)
+      .values({
+        roomCode: roomCode.trim().toUpperCase(),
+        buildingName: buildingName ? buildingName.trim() : null,
+        floor: floor.trim(),
+        lectureCapacity: Number(lectureCapacity),
+        description: description ? description.trim() : null,
+        courseId,
+      })
+      .returning();
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        ...newClass,
+        totalBenches: 0,
+        activeBenches: 0,
+        physicalCapacity: 0,
+        hasLayout: false,
+      },
+    });
+  } catch (error) {
+    console.error("[POST /api/classes] Error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to create classroom" },
       { status: 500 }
     );
   }

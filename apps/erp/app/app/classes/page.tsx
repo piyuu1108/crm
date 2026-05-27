@@ -2,11 +2,12 @@
 
 import React, { useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Chip, Card, Spinner } from "@heroui/react";
-import { Eye, Pencil, School, Armchair, LayoutGrid, CheckCircle2, XCircle } from "lucide-react";
+import { Button, Chip, Card, Spinner, useOverlayState } from "@heroui/react";
+import { Eye, Pencil, School, Armchair, LayoutGrid, CheckCircle2, XCircle, Plus } from "lucide-react";
 import { useClassroomListQuery, type ClassroomListItem } from "@/app/lib/queries/classrooms";
 import { DataTable, type TableColumnDef } from "@/components/data-table";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { CreateClassroomDrawer } from "./create-classroom-drawer";
 
 // ─── KPI Card component ──────────────────────────────────────────────────────
 function KpiCard({
@@ -73,6 +74,7 @@ const FLOOR_COLOR: Record<string, "accent" | "success" | "warning" | "danger"> =
 
 export default function ClassesPage() {
   const router = useRouter();
+  const drawerState = useOverlayState();
   const { activeRole } = useAuthStore();
   const isHod = activeRole === "hod";
 
@@ -177,6 +179,12 @@ export default function ClassesPage() {
             Manage classroom infrastructure and bench layouts
           </p>
         </div>
+        {isHod && (
+          <Button onPress={drawerState.open} variant="primary">
+            <Plus className="size-4 mr-1.5" />
+            Create Classroom
+          </Button>
+        )}
       </div>
 
       {/* ── KPI Cards ───────────────────────────────────────────── */}
@@ -213,8 +221,11 @@ export default function ClassesPage() {
         isError={isError}
         error={error}
         refetch={refetch}
-        emptyStateMessage="No classrooms found. Create classrooms in the database to get started."
+        emptyStateMessage="No classrooms found."
       />
+
+      {/* ── Create Classroom Drawer ─────────────────────────────── */}
+      {isHod && <CreateClassroomDrawer state={drawerState} />}
     </div>
   );
 }

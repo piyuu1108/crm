@@ -62,6 +62,14 @@ export interface ClassroomDetail {
   };
 }
 
+export interface CreateClassroomPayload {
+  roomCode: string;
+  buildingName?: string;
+  floor: string;
+  lectureCapacity: number;
+  description?: string;
+}
+
 export interface SaveLayoutPayload {
   benches: {
     label: string;
@@ -93,6 +101,27 @@ export async function fetchClassroomList(): Promise<ClassroomListResponse> {
   }
 
   return json.data as ClassroomListResponse;
+}
+
+export async function createClassroom(
+  payload: CreateClassroomPayload
+): Promise<ClassroomListItem> {
+  const res = await fetchWithTimeout("/api/classes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(payload),
+    timeoutMs: 8000,
+    timeoutMessage: "Classroom creation timed out. Please retry.",
+  });
+
+  const json = await res.json();
+
+  if (!res.ok || !json.success) {
+    throw new Error(json.error ?? `Request failed: ${res.status}`);
+  }
+
+  return json.data as ClassroomListItem;
 }
 
 export async function fetchClassroomDetail(slug: string): Promise<ClassroomDetail> {
@@ -175,6 +204,17 @@ export function useSaveLayoutMutation(slug: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: classroomListKey() });
       queryClient.invalidateQueries({ queryKey: classroomDetailKey(slug) });
+    },
+  });
+}
+
+export function useCreateClassroomMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createClassroom,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: classroomListKey() });
     },
   });
 }

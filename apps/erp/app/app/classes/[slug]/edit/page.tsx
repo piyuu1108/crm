@@ -309,7 +309,7 @@ export default function ClassEditPage() {
 
   // Capacity color mapping
   const getCapacityColor = (cap: number) => {
-    return "bg-default-100 border border-default-200 text-default-700 hover:border-default-300";
+    return "bg-default/40 border border-default-200 text-default-700 hover:bg-default/50";
   };
 
   return (
@@ -516,7 +516,7 @@ export default function ClassEditPage() {
                 {Array.from({ length: gridMaxX + 1 }).map((_, x) => (
                   <div
                     key={x}
-                    className="w-[288px] text-center text-[10px] font-medium text-default-400 uppercase shrink-0"
+                    className="w-[105px] text-center text-[10px] font-medium text-default-400 uppercase shrink-0"
                   >
                     Col {x + 1}
                   </div>
@@ -536,41 +536,41 @@ export default function ClassEditPage() {
                       return (
                         <div
                           key={`${x}-${y}`}
-                          className="w-[288px] flex items-center justify-center shrink-0"
+                          className="w-[105px] flex items-center justify-center shrink-0"
                         >
                           {bench ? (
                             <div
-                              className={`flex flex-col items-center justify-center rounded-xl border p-2 min-h-[64px] relative group transition-all duration-200 ${getCapacityColor(
+                              className={`flex flex-col items-center justify-center rounded-lg border p-1 min-h-[36px] relative group transition-all duration-200 ${getCapacityColor(
                                 bench.maxStudents
                               )}`}
-                              style={{ width: `${bench.maxStudents * 72}px` }}
+                              style={{ width: `${42 + (bench.maxStudents - 1) * 21}px` }}
                             >
                               {/* Delete button */}
                               <button
                                 onClick={() => removeBench(x, y)}
-                                className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:scale-110 cursor-pointer z-10"
+                                className="absolute -top-1 -right-1 size-4 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:scale-110 cursor-pointer z-10"
                                 aria-label={`Remove bench ${bench.label}`}
                               >
-                                <X className="size-3" />
+                                <X className="size-2.5" />
                               </button>
 
                               {/* Label */}
-                              <span className="text-xs font-bold leading-none">
+                              <span className="text-[10px] font-bold leading-none">
                                 {bench.label}
                               </span>
 
                               {/* Capacity controls */}
-                              <div className="flex items-center gap-0.5 mt-1.5">
+                              <div className="flex items-center gap-0.5 mt-0.5">
                                 <button
                                   onClick={() =>
                                     updateCapacity(x, y, bench.maxStudents - 1)
                                   }
                                   disabled={bench.maxStudents <= 1}
-                                  className="size-4 rounded bg-white/50 text-[10px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
+                                  className="size-3.5 rounded bg-white/50 text-[8px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
                                 >
                                   −
                                 </button>
-                                <span className="text-[10px] font-semibold w-3 text-center">
+                                <span className="text-[9px] font-semibold w-2.5 text-center">
                                   {bench.maxStudents}
                                 </span>
                                 <button
@@ -578,7 +578,7 @@ export default function ClassEditPage() {
                                     updateCapacity(x, y, bench.maxStudents + 1)
                                   }
                                   disabled={bench.maxStudents >= 4}
-                                  className="size-4 rounded bg-white/50 text-[10px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
+                                  className="size-3.5 rounded bg-white/50 text-[8px] font-bold flex items-center justify-center hover:bg-white/80 disabled:opacity-30 cursor-pointer transition-colors"
                                 >
                                   +
                                 </button>
@@ -588,10 +588,10 @@ export default function ClassEditPage() {
                             // Empty slot — show add button
                             <button
                               onClick={() => addBench(x, y)}
-                              className="flex items-center justify-center rounded-xl border-2 border-dashed border-default-200 min-w-[72px] min-h-[64px] text-default-300 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-200 cursor-pointer group/add"
+                              className="flex items-center justify-center rounded-lg border-2 border-dashed border-default-200 w-[42px] h-[36px] text-default-300 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all duration-200 cursor-pointer group/add"
                               aria-label={`Add bench at row ${String.fromCharCode(65 + y)}, column ${x + 1}`}
                             >
-                              <Plus className="size-5 transition-transform duration-200 group-hover/add:scale-110" />
+                              <Plus className="size-3 transition-transform duration-200 group-hover/add:scale-110" />
                             </button>
                           )}
                         </div>
@@ -611,7 +611,7 @@ export default function ClassEditPage() {
               Legend:
             </span>
             <div className="flex items-center gap-1.5">
-              <div className="size-4 rounded border-2 bg-default-100 border-default-300" />
+              <div className="size-4 rounded border bg-default/40 border-default-200" />
               <span className="text-[11px] text-default-500">Configured Bench</span>
             </div>
             <div className="flex items-center gap-1.5">

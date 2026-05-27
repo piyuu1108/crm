@@ -12,21 +12,21 @@ import { useAuthStore } from "@/app/lib/store/use-auth-store";
 
 // ─── Bench cell (read-only) ──────────────────────────────────────────────────
 function BenchCell({ bench }: { bench: BenchItem }) {
-  const capacityColor = "bg-default-100 border border-default-200 text-default-700";
+  const capacityColor = "bg-default/40 border border-default-200 text-default-700";
 
   return (
     <Tooltip>
       <Tooltip.Trigger>
         <div
-          className={`flex flex-col items-center justify-center rounded-xl border p-2 min-h-[52px] transition-all duration-200 cursor-default select-none ${
+          className={`flex flex-col items-center justify-center rounded-lg border p-1 min-h-[36px] transition-all duration-200 cursor-default select-none ${
             bench.isActive
               ? capacityColor
               : "bg-default-100/30 border border-dashed border-default-200 text-default-400 opacity-50"
           }`}
-          style={{ width: `${bench.maxStudents * 60}px` }}
+          style={{ width: `${42 + (bench.maxStudents - 1) * 21}px` }}
         >
-          <span className="text-xs font-bold leading-none">{bench.label}</span>
-          <span className="text-[10px] font-medium leading-none mt-1 opacity-70">
+          <span className="text-[10px] font-bold leading-none">{bench.label}</span>
+          <span className="text-[8px] font-medium leading-none mt-0.5 opacity-70">
             {bench.maxStudents}×
           </span>
         </div>
@@ -55,7 +55,7 @@ function BenchCell({ bench }: { bench: BenchItem }) {
 // ─── Empty cell placeholder ──────────────────────────────────────────────────
 function EmptyCell() {
   return (
-    <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-default-200 min-w-[60px] min-h-[52px] opacity-30" />
+    <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-default-200 w-[42px] h-[36px] opacity-30" />
   );
 }
 
@@ -249,7 +249,7 @@ export default function ClassViewPage() {
                   {grid[0]?.map((_, x) => (
                     <div
                       key={x}
-                      className="w-[240px] text-center text-[10px] font-medium text-default-400 uppercase shrink-0"
+                      className="w-[105px] text-center text-[10px] font-medium text-default-400 uppercase shrink-0"
                     >
                       Col {x + 1}
                     </div>
@@ -267,7 +267,7 @@ export default function ClassViewPage() {
                       {row.map((cell, x) => (
                         <div
                           key={`${x}-${y}`}
-                          className="w-[240px] flex items-center justify-center shrink-0"
+                          className="w-[105px] flex items-center justify-center shrink-0"
                         >
                           {cell ? <BenchCell bench={cell} /> : <EmptyCell />}
                         </div>
@@ -288,11 +288,11 @@ export default function ClassViewPage() {
                 Legend:
               </span>
               <div className="flex items-center gap-1.5">
-                <div className="size-4 rounded border-2 bg-default-100 border-default-300" />
+                <div className="size-4 rounded border bg-default/40 border-default-200" />
                 <span className="text-[11px] text-default-500">Active Bench</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="size-4 rounded border-2 bg-default-100/50 border-default-200 opacity-50" />
+                <div className="size-4 rounded border bg-default-100/30 border-dashed border-default-200 opacity-50" />
                 <span className="text-[11px] text-default-500">Inactive Bench</span>
               </div>
               <div className="flex items-center gap-1.5">

@@ -10,6 +10,8 @@ import {
 import { eq, and, ne } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SubjectSchema } from "@/app/lib/validations/schemas/subject";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 
@@ -44,44 +46,15 @@ export async function PUT(
     if (isNaN(subjectId)) return audit.error("Invalid subject ID", undefined, 400);
 
     const body = await req.json();
-    const {
-      code,
-      name,
-      shortCode,
-      subjectType,
-      credit,
-      semester,
-      internalTheoryMax,
-      externalTheoryMax,
-      theoryPassingMarks,
-      internalPracticalMax,
-      externalPracticalMax,
-      practicalPassingMarks,
-    } = body;
+    const parsed = validateBody(body, SubjectSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    // ── Validation ────────────────────────────────────────────────────
-    const errors: Record<string, string> = {};
-
-    if (!code || typeof code !== "string" || code.trim().length === 0) {
-      errors.code = "Subject code is required";
-    } else if (code.trim().length > 20) {
-      errors.code = "Subject code must be 20 characters or less";
-    }
-
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      errors.name = "Subject name is required";
-    } else if (name.trim().length > 100) {
-      errors.name = "Name must be 100 characters or less";
-    }
-
-    const VALID_TYPES = ["theory", "practical", "both", "project_minor", "project_major"];
-    if (!subjectType || !VALID_TYPES.includes(subjectType)) {
-      errors.subjectType = "Invalid subject type";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return audit.error("Validation failed", err("Validation failed", 400, errors));
-    }
+    const formData = parsed.data;
+    const { code, name, subjectType, internalTheoryMax, externalTheoryMax, theoryPassingMarks, internalPracticalMax, externalPracticalMax, practicalPassingMarks } = formData;
+    
+    const shortCode = typeof body.shortCode === "string" ? body.shortCode.trim() : null;
+    const semester = typeof body.semester === "number" || typeof body.semester === "string" ? Number(body.semester) || null : null;
+    const credit = typeof body.credit === "number" || typeof body.credit === "string" ? Number(body.credit) || null : null;
 
     // ── Check code uniqueness (excluding self) ────────────────────────
     const [existingCode] = await db

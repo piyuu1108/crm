@@ -1,322 +1,148 @@
-/**
- * Student Profile step-wise validation (no external deps).
- *
- * Each step has a validate function that returns { valid, errors }.
- * Used on both client and server for consistency.
- */
+import { z } from "zod";
+import { GenderSchema, BloodGroupSchema, CategorySchema, BoardSchema, AadhaarSchema, PhoneSchema, OptionalPhoneSchema, PincodeSchema } from "./schemas/common";
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+export const GENDERS = GenderSchema.options as readonly string[];
+export const BLOOD_GROUPS = BloodGroupSchema.options as readonly string[];
+export const CATEGORIES = CategorySchema.options as readonly string[];
+export const BOARDS = BoardSchema.options as readonly string[];
+export const ADDRESS_KINDS = ["home", "hostel", "pg", "relative"] as const;
+export type AddressKind = typeof ADDRESS_KINDS[number];
+const HOSTEL_KINDS = ["hostel", "pg"] as const;
+
+// ─── Step 1: Personal Info ──────────────────────────────────────────────────
+export const PersonalInfoSchema = z.object({
+  fullName: z.string().trim().min(1, "Full Name is required").max(150, "Full Name must be at most 150 characters"),
+  dob: z.string().refine((v) => !isNaN(new Date(v).getTime()), { message: "Date of Birth is invalid" }),
+  gender: GenderSchema,
+  bloodGroup: BloodGroupSchema.optional(),
+});
+export type PersonalInfoData = z.infer<typeof PersonalInfoSchema>;
+
+// ─── Step 2: Contact Info ───────────────────────────────────────────────────
+export const AddressKindSchema = z.enum(ADDRESS_KINDS);
+
+export const CurrentAddressSchema = z.object({
+  line1: z.string().trim().min(1, "Address Line 1 is required").max(200, "Address Line 1 must be at most 200 characters"),
+  city: z.string().trim().min(1, "City is required").max(100, "City must be at most 100 characters"),
+  pincode: PincodeSchema.or(z.string().regex(/^\d{6}$/, "Pincode must be exactly 6 digits")),
+  kind: AddressKindSchema,
+});
+export type CurrentAddressData = z.infer<typeof CurrentAddressSchema>;
+
+export const HomeAddressSchema = z.object({
+  line1: z.string().trim().min(1, "Home Address Line 1 is required").max(200, "Home Address Line 1 must be at most 200 characters"),
+  city: z.string().trim().min(1, "Home City is required"),
+  pincode: z.string().regex(/^\d{6}$/, "Home Pincode must be exactly 6 digits"),
+});
+export type HomeAddressData = z.infer<typeof HomeAddressSchema>;
+
+export const StudentAddressSchema = z.object({
+  current: CurrentAddressSchema,
+  home: HomeAddressSchema.optional(),
+});
+export type StudentAddressData = z.infer<typeof StudentAddressSchema>;
+
+export const ContactInfoSchema = z.object({
+  mobile: PhoneSchema.or(z.string().regex(/^\d{10}$/, "Mobile must be a 10-digit number")),
+  parentMobile: z.string().regex(/^\d{10}$/, "Parent Mobile must be a 10-digit number").optional(),
+  optionalMobile: z.string().regex(/^\d{10}$/, "Optional Mobile must be a 10-digit number").optional(),
+  address: StudentAddressSchema,
+  aadhaarStudent: z.string().regex(/^\d{12}$/, "Student Aadhaar must be 12 digits").optional(),
+  aadhaarParent: z.string().regex(/^\d{12}$/, "Parent Aadhaar must be 12 digits").optional(),
+}).superRefine((data, ctx) => {
+  const current = data.address?.current;
+  if (!current) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Current address is required", path: ["address", "current", "line1"] });
+    return;
+  }
+  if (HOSTEL_KINDS.includes(current.kind as any)) {
+    const home = data.address.home;
+    if (!home) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Home address is required for hostel/PG residents", path: ["address", "home", "line1"] });
+    }
+  }
+});
+export type ContactInfoData = z.infer<typeof ContactInfoSchema>;
+
+// ─── Step 3: Academic Info ──────────────────────────────────────────────────
+export const AcademicInfoSchema = z.object({
+  category: CategorySchema,
+  board: BoardSchema,
+  twelfthPercent: z.union([z.string(), z.number()]).refine((v) => {
+    const n = Number(v);
+    return !isNaN(n) && n >= 0 && n <= 100;
+  }, { message: "12th Percentage must be between 0 and 100" }),
+  twelfthStream: z.string().trim().min(1, "12th Stream is required"),
+  schoolName: z.string().trim().min(1, "School Name is required"),
+  udiseCode: z.string().optional(),
+});
+export type AcademicInfoData = z.infer<typeof AcademicInfoSchema>;
+
+// ─── Step 4: Documents Info ─────────────────────────────────────────────────
+export const DocumentsSchema = z.object({
+  profilePhoto: z.string().min(1, "Profile Photo is required").optional(), // We allow optional in schema, superRefine checks based on rules
+  lcCertificate: z.string().min(1, "LC (Leaving Certificate) is required").optional(),
+  marksheet10th: z.string().min(1, "10th Marksheet is required").optional(),
+  marksheet12th: z.string().min(1, "12th Marksheet is required").optional(),
+  casteCertificate: z.string().optional(),
+  migrationCertificate: z.string().optional(),
+});
+export type DocumentsData = z.infer<typeof DocumentsSchema>;
+
+export const DocumentsValidationSchema = DocumentsSchema.superRefine((data, ctx) => {
+  if (!data.profilePhoto) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Profile Photo is required", path: ["profilePhoto"] });
+  if (!data.lcCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "LC (Leaving Certificate) is required", path: ["lcCertificate"] });
+  if (!data.marksheet10th) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "10th Marksheet is required", path: ["marksheet10th"] });
+  if (!data.marksheet12th) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "12th Marksheet is required", path: ["marksheet12th"] });
+});
+
+export const StudentProfileSchema = z.object({
+  step1: PersonalInfoSchema,
+  step2: ContactInfoSchema,
+  step3: AcademicInfoSchema,
+  step4: DocumentsSchema,
+}).superRefine((data, ctx) => {
+  if (!data.step4.profilePhoto) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Profile Photo is required", path: ["step4", "profilePhoto"] });
+  if (!data.step4.lcCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "LC (Leaving Certificate) is required", path: ["step4", "lcCertificate"] });
+  if (!data.step4.marksheet10th) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "10th Marksheet is required", path: ["step4", "marksheet10th"] });
+  if (!data.step4.marksheet12th) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "12th Marksheet is required", path: ["step4", "marksheet12th"] });
+  if (data.step3.category !== "Open" && !data.step4.casteCertificate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Caste Certificate is required for your category", path: ["step4", "casteCertificate"] });
+  }
+  if (data.step3.board !== "GSEB" && !data.step4.migrationCertificate) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Migration Certificate is required for non-GSEB board", path: ["step4", "migrationCertificate"] });
+  }
+});
+
+// Legacy wrapper functions for frontend compatibility
 export interface ValidationError {
   field: string;
   message: string;
 }
-
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
 }
-
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function required(value: unknown, field: string, label: string): ValidationError | null {
-  if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) {
-    return { field, message: `${label} is required` };
-  }
-  return null;
+function toValidationResult(result: any): ValidationResult {
+  if (result.success) return { valid: true, errors: [] };
+  return {
+    valid: false,
+    errors: result.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
+  };
 }
 
-function maxLen(value: string | undefined | null, field: string, label: string, max: number): ValidationError | null {
-  if (value && value.length > max) {
-    return { field, message: `${label} must be at most ${max} characters` };
-  }
-  return null;
+export function validateStep1(data: PersonalInfoData) { return toValidationResult(PersonalInfoSchema.safeParse(data)); }
+export function validateStep2(data: ContactInfoData) { return toValidationResult(ContactInfoSchema.safeParse(data)); }
+export function validateStep3(data: AcademicInfoData) { return toValidationResult(AcademicInfoSchema.safeParse(data)); }
+export function validateStep4(data: DocumentsData, category?: string, board?: string) {
+  const result = DocumentsValidationSchema.superRefine((d, ctx) => {
+    if (category && category !== "Open" && !d.casteCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Caste Certificate is required for your category", path: ["casteCertificate"] });
+    if (board && board !== "GSEB" && !d.migrationCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Migration Certificate is required for non-GSEB board", path: ["migrationCertificate"] });
+  }).safeParse(data);
+  return toValidationResult(result);
 }
 
-function isValidDate(value: string | undefined | null): boolean {
-  if (!value) return false;
-  const d = new Date(value);
-  return !isNaN(d.getTime());
+export function validateAllSteps(step1: PersonalInfoData, step2: ContactInfoData, step3: AcademicInfoData, step4: DocumentsData): ValidationResult {
+  return toValidationResult(StudentProfileSchema.safeParse({ step1, step2, step3, step4 }));
 }
-
-function isValidPhone(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return /^\d{10}$/.test(value.replace(/\s+/g, ""));
-}
-
-function isValidAadhaar(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return /^\d{12}$/.test(value.replace(/\s+/g, ""));
-}
-
-function isValidPincode(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return /^\d{6}$/.test(value.trim());
-}
-
-function isValidPercent(value: unknown): boolean {
-  const n = Number(value);
-  return !isNaN(n) && n >= 0 && n <= 100;
-}
-
-// ─── Step Types ─────────────────────────────────────────────────────────────
-
-export interface PersonalInfoData {
-  fullName: string;
-  dob: string;
-  gender: string;
-  bloodGroup?: string;
-}
-
-export type AddressKind = "home" | "hostel" | "pg" | "relative";
-
-export interface CurrentAddressData {
-  line1: string;
-  city: string;
-  pincode: string; // 6 digits exactly
-  kind: AddressKind;
-}
-
-export interface HomeAddressData {
-  line1: string;
-  city: string;
-  pincode: string; // 6 digits exactly
-}
-
-export interface StudentAddressData {
-  current: CurrentAddressData;
-  /** Required when current.kind is "hostel" or "pg" */
-  home?: HomeAddressData;
-}
-
-export interface ContactInfoData {
-  mobile: string;
-  parentMobile?: string;
-  optionalMobile?: string;
-  address: StudentAddressData;
-  aadhaarStudent?: string;
-  aadhaarParent?: string;
-}
-
-export interface AcademicInfoData {
-  category: string;
-  board: string;
-  twelfthPercent: string | number;
-  twelfthStream: string;
-  schoolName: string;
-  udiseCode?: string;
-}
-
-export interface DocumentsData {
-  profilePhoto?: string;
-  lcCertificate?: string;
-  marksheet10th?: string;
-  marksheet12th?: string;
-  casteCertificate?: string;
-  migrationCertificate?: string;
-}
-
-export type StepData = PersonalInfoData | ContactInfoData | AcademicInfoData | DocumentsData;
-
-// ─── Step Validators ────────────────────────────────────────────────────────
-
-const GENDERS = ["male", "female", "other"] as const;
-const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
-const CATEGORIES = ["SC", "ST", "OBC", "Open"] as const;
-const BOARDS = ["GSEB", "CBSE", "ICSE", "IB", "STATE", "OTHER"] as const;
-export const ADDRESS_KINDS: AddressKind[] = ["home", "hostel", "pg", "relative"];
-const HOSTEL_KINDS: AddressKind[] = ["hostel", "pg"];
-
-export function validateStep1(data: PersonalInfoData): ValidationResult {
-  const errors: ValidationError[] = [];
-
-  const rFullName = required(data.fullName, "fullName", "Full Name");
-  if (rFullName) errors.push(rFullName);
-  const mFullName = maxLen(data.fullName, "fullName", "Full Name", 150);
-  if (mFullName) errors.push(mFullName);
-
-  const rDob = required(data.dob, "dob", "Date of Birth");
-  if (rDob) errors.push(rDob);
-  else if (!isValidDate(data.dob)) {
-    errors.push({ field: "dob", message: "Date of Birth is invalid" });
-  }
-
-  const rGender = required(data.gender, "gender", "Gender");
-  if (rGender) errors.push(rGender);
-  else if (!GENDERS.includes(data.gender as typeof GENDERS[number])) {
-    errors.push({ field: "gender", message: "Gender must be male, female, or other" });
-  }
-
-  if (data.bloodGroup && !BLOOD_GROUPS.includes(data.bloodGroup as typeof BLOOD_GROUPS[number])) {
-    errors.push({ field: "bloodGroup", message: "Invalid blood group" });
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateStep2(data: ContactInfoData): ValidationResult {
-  const errors: ValidationError[] = [];
-
-  // Mobile
-  const rMobile = required(data.mobile, "mobile", "Mobile Number");
-  if (rMobile) errors.push(rMobile);
-  else if (!isValidPhone(data.mobile)) {
-    errors.push({ field: "mobile", message: "Mobile must be a 10-digit number" });
-  }
-
-  if (data.parentMobile && !isValidPhone(data.parentMobile)) {
-    errors.push({ field: "parentMobile", message: "Parent Mobile must be a 10-digit number" });
-  }
-
-  if (data.optionalMobile && !isValidPhone(data.optionalMobile)) {
-    errors.push({ field: "optionalMobile", message: "Optional Mobile must be a 10-digit number" });
-  }
-
-  // Current address
-  const addr = data.address;
-  if (!addr || !addr.current) {
-    errors.push({ field: "address.current.line1", message: "Current address is required" });
-  } else {
-    const cur = addr.current;
-
-    const rLine1 = required(cur.line1, "address.current.line1", "Address Line 1");
-    if (rLine1) errors.push(rLine1);
-    else {
-      const mLine1 = maxLen(cur.line1, "address.current.line1", "Address Line 1", 200);
-      if (mLine1) errors.push(mLine1);
-    }
-
-    const rCity = required(cur.city, "address.current.city", "City");
-    if (rCity) errors.push(rCity);
-    else {
-      const mCity = maxLen(cur.city, "address.current.city", "City", 100);
-      if (mCity) errors.push(mCity);
-    }
-
-    const rPincode = required(cur.pincode, "address.current.pincode", "Pincode");
-    if (rPincode) errors.push(rPincode);
-    else if (!isValidPincode(cur.pincode)) {
-      errors.push({ field: "address.current.pincode", message: "Pincode must be exactly 6 digits" });
-    }
-
-    if (!cur.kind || !ADDRESS_KINDS.includes(cur.kind)) {
-      errors.push({ field: "address.current.kind", message: "Address type is required" });
-    }
-
-    // Home address required when kind is hostel or pg
-    if (cur.kind && HOSTEL_KINDS.includes(cur.kind)) {
-      const home = addr.home;
-      if (!home) {
-        errors.push({ field: "address.home.line1", message: "Home address is required for hostel/PG residents" });
-      } else {
-        const rHLine1 = required(home.line1, "address.home.line1", "Home Address Line 1");
-        if (rHLine1) errors.push(rHLine1);
-        else {
-          const mHLine1 = maxLen(home.line1, "address.home.line1", "Home Address Line 1", 200);
-          if (mHLine1) errors.push(mHLine1);
-        }
-
-        const rHCity = required(home.city, "address.home.city", "Home City");
-        if (rHCity) errors.push(rHCity);
-
-        const rHPincode = required(home.pincode, "address.home.pincode", "Home Pincode");
-        if (rHPincode) errors.push(rHPincode);
-        else if (!isValidPincode(home.pincode)) {
-          errors.push({ field: "address.home.pincode", message: "Home Pincode must be exactly 6 digits" });
-        }
-      }
-    }
-  }
-
-  if (data.aadhaarStudent && !isValidAadhaar(data.aadhaarStudent)) {
-    errors.push({ field: "aadhaarStudent", message: "Student Aadhaar must be 12 digits" });
-  }
-
-  if (data.aadhaarParent && !isValidAadhaar(data.aadhaarParent)) {
-    errors.push({ field: "aadhaarParent", message: "Parent Aadhaar must be 12 digits" });
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateStep3(data: AcademicInfoData): ValidationResult {
-  const errors: ValidationError[] = [];
-
-  const rCategory = required(data.category, "category", "Category");
-  if (rCategory) errors.push(rCategory);
-  else if (!CATEGORIES.includes(data.category as typeof CATEGORIES[number])) {
-    errors.push({ field: "category", message: "Invalid category" });
-  }
-
-  const rBoard = required(data.board, "board", "Board");
-  if (rBoard) errors.push(rBoard);
-  else if (!BOARDS.includes(data.board as typeof BOARDS[number])) {
-    errors.push({ field: "board", message: "Invalid board" });
-  }
-
-  const rPercent = required(data.twelfthPercent, "twelfthPercent", "12th Percentage");
-  if (rPercent) errors.push(rPercent);
-  else if (!isValidPercent(data.twelfthPercent)) {
-    errors.push({ field: "twelfthPercent", message: "12th Percentage must be between 0 and 100" });
-  }
-
-  const rStream = required(data.twelfthStream, "twelfthStream", "12th Stream");
-  if (rStream) errors.push(rStream);
-
-  const rSchool = required(data.schoolName, "schoolName", "School Name");
-  if (rSchool) errors.push(rSchool);
-
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateStep4(data: DocumentsData, category?: string, board?: string): ValidationResult {
-  const errors: ValidationError[] = [];
-
-  if (!data.profilePhoto) {
-    errors.push({ field: "profilePhoto", message: "Profile Photo is required" });
-  }
-
-  if (!data.lcCertificate) {
-    errors.push({ field: "lcCertificate", message: "LC (Leaving Certificate) is required" });
-  }
-
-  if (!data.marksheet10th) {
-    errors.push({ field: "marksheet10th", message: "10th Marksheet is required" });
-  }
-
-  if (!data.marksheet12th) {
-    errors.push({ field: "marksheet12th", message: "12th Marksheet is required" });
-  }
-
-  if (category && category !== "Open" && !data.casteCertificate) {
-    errors.push({ field: "casteCertificate", message: "Caste Certificate is required for your category" });
-  }
-
-  if (board && board !== "GSEB" && !data.migrationCertificate) {
-    errors.push({ field: "migrationCertificate", message: "Migration Certificate is required for non-GSEB board" });
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-/**
- * Run full validation across all steps — used before final submit.
- */
-export function validateAllSteps(
-  step1: PersonalInfoData,
-  step2: ContactInfoData,
-  step3: AcademicInfoData,
-  step4: DocumentsData
-): ValidationResult {
-  const results = [
-    validateStep1(step1),
-    validateStep2(step2),
-    validateStep3(step3),
-    validateStep4(step4, step3.category, step3.board),
-  ];
-
-  const allErrors = results.flatMap((r) => r.errors);
-  return { valid: allErrors.length === 0, errors: allErrors };
-}
-
-// ─── Export constants for form selects ───────────────────────────────────────
-
-export { GENDERS, BLOOD_GROUPS, CATEGORIES, BOARDS };

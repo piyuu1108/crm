@@ -20,11 +20,17 @@ import type { UseOverlayStateReturn, Key } from "@heroui/react";
 import { useCreateSubjectMutation } from "@/app/lib/queries/subjects";
 import {
   INITIAL_SUBJECT_FORM,
-  SUBJECT_TYPES,
-  validateSubjectForm,
-  type SubjectFormData,
-  type ValidationError,
-} from "@/app/lib/validations/subject";
+  SubjectSchema,
+  type SubjectInput as SubjectFormData,
+} from "@/app/lib/validations/schemas/subject";
+import { SubjectTypeSchema } from "@/app/lib/validations/schemas/common";
+
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+const SUBJECT_TYPES = SubjectTypeSchema.options;
 import { useQueryClient } from "@tanstack/react-query";
 import { adminSubjectsListKey } from "@/app/lib/queries/subjects";
 
@@ -77,9 +83,12 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
       e.preventDefault();
       setServerError(null);
 
-      const validation = validateSubjectForm(form);
-      setErrors(validation.errors);
-      if (!validation.valid) return;
+      const validation = SubjectSchema.safeParse(form);
+      if (!validation.success) {
+        setErrors(validation.error.issues.map(i => ({ field: i.path.join("."), message: i.message })));
+        return;
+      }
+      setErrors([]);
 
       try {
         const created = await mutation.mutateAsync(form);
@@ -178,7 +187,7 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
                     selectedKey={form.subjectType || null}
                     placeholder="Type"
                     onSelectionChange={(key: Key | null) => {
-                      const newType = String(key ?? "");
+                      const newType = String(key ?? "") as SubjectFormData["subjectType"];
                       updateField("subjectType", newType);
                       if (newType === "theory") {
                         setForm((prev) => ({

@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     const step1Data: FacultyPersonalInfoData = {
       fullName: row.name,
       dob: row.dob ?? "",
-      gender: row.gender ?? "",
+      gender: (row.gender ?? "") as FacultyPersonalInfoData["gender"],
     };
 
     const step2Data: FacultyContactInfoData = {

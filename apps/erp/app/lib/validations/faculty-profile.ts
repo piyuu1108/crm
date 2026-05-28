@@ -1,157 +1,71 @@
+import { z } from "zod";
+import { GenderSchema, PhoneSchema, PincodeSchema } from "./schemas/common";
+
+export const GENDERS = GenderSchema.options as readonly string[];
+export const FACULTY_ADDRESS_KINDS = ["home", "other"] as const;
+
+export const FacultyPersonalInfoSchema = z.object({
+  fullName: z.string().trim().min(1, "Full Name is required"),
+  dob: z.string().refine((v) => !isNaN(new Date(v).getTime()), { message: "Invalid date" }),
+  gender: GenderSchema,
+});
+export type FacultyPersonalInfoData = z.infer<typeof FacultyPersonalInfoSchema>;
+
+export const FacultyAddressSchema = z.object({
+  line1: z.string().trim().min(1, "Address Line 1 is required"),
+  city: z.string().trim().min(1, "City is required"),
+  pincode: PincodeSchema,
+  kind: z.enum(["home", "other"]),
+});
+export type FacultyAddressData = z.infer<typeof FacultyAddressSchema>;
+
+export const FacultyContactInfoSchema = z.object({
+  mobile: PhoneSchema,
+  alternateMobile: z.string().regex(/^\d{10}$/, "Alternate mobile must be 10 digits").optional(),
+  address: FacultyAddressSchema.optional(),
+});
+export type FacultyContactInfoData = z.infer<typeof FacultyContactInfoSchema>;
+
+export const FacultyProfessionalInfoSchema = z.object({
+  qualification: z.string().trim().min(1, "Qualification is required"),
+  experienceYears: z.union([z.string(), z.number()]).refine((v) => {
+    const years = Number(v);
+    return !Number.isNaN(years) && years >= 0 && years <= 60;
+  }, { message: "Experience must be between 0 and 60 years" }),
+  specialization: z.string().trim().min(1, "Specialization is required"),
+  designation: z.string().trim().min(1, "Designation is required"),
+});
+export type FacultyProfessionalInfoData = z.infer<typeof FacultyProfessionalInfoSchema>;
+
+export const FacultyDocumentsSchema = z.object({
+  profilePhotoUrl: z.string().min(1, "Profile photo is required").optional(), // Kept optional in type but superRefined below
+});
+export type FacultyDocumentsData = z.infer<typeof FacultyDocumentsSchema>;
+
+const FacultyDocumentsValidationSchema = FacultyDocumentsSchema.superRefine((data, ctx) => {
+  if (!data.profilePhotoUrl) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Profile photo is required", path: ["profilePhotoUrl"] });
+  }
+});
+
+// Legacy wrapper functions for frontend compatibility
 export interface ValidationError {
   field: string;
   message: string;
 }
-
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
 }
-
-export interface FacultyPersonalInfoData {
-  fullName: string;
-  dob: string;
-  gender: string;
+function toValidationResult(result: any): ValidationResult {
+  if (result.success) return { valid: true, errors: [] };
+  return {
+    valid: false,
+    errors: result.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
+  };
 }
 
-export interface FacultyAddressData {
-  line1: string;
-  city: string;
-  pincode: string; // 6 digits exactly
-  kind: "home" | "other";
-}
-
-export interface FacultyContactInfoData {
-  mobile: string;
-  alternateMobile?: string;
-  address?: FacultyAddressData;
-}
-
-export interface FacultyProfessionalInfoData {
-  qualification: string;
-  experienceYears: string | number;
-  specialization: string;
-  designation: string;
-}
-
-export interface FacultyDocumentsData {
-  profilePhotoUrl?: string;
-}
-
-export const GENDERS = ["male", "female", "other"] as const;
-export const FACULTY_ADDRESS_KINDS = ["home", "other"] as const;
-
-function required(value: unknown, field: string, label: string): ValidationError | null {
-  if (
-    value === undefined ||
-    value === null ||
-    (typeof value === "string" && value.trim() === "")
-  ) {
-    return { field, message: `${label} is required` };
-  }
-  return null;
-}
-
-function isValidPhone(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return /^\d{10}$/.test(value.replace(/\s+/g, ""));
-}
-
-function isValidDate(value: string | undefined | null): boolean {
-  if (!value) return false;
-  const d = new Date(value);
-  return !isNaN(d.getTime());
-}
-
-function isValidPincode(value: string | undefined | null): boolean {
-  if (!value) return false;
-  return /^\d{6}$/.test(value.trim());
-}
-
-export function validateFacultyStep1(data: FacultyPersonalInfoData): ValidationResult {
-  const errors: ValidationError[] = [];
-  const full = required(data.fullName, "fullName", "Full Name");
-  if (full) errors.push(full);
-
-  const dob = required(data.dob, "dob", "Date of Birth");
-  if (dob) errors.push(dob);
-  else if (!isValidDate(data.dob)) errors.push({ field: "dob", message: "Invalid date" });
-
-  const gender = required(data.gender, "gender", "Gender");
-  if (gender) errors.push(gender);
-  else if (!GENDERS.includes(data.gender as (typeof GENDERS)[number])) {
-    errors.push({ field: "gender", message: "Invalid gender" });
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateFacultyStep2(data: FacultyContactInfoData): ValidationResult {
-  const errors: ValidationError[] = [];
-
-  const mobile = required(data.mobile, "mobile", "Mobile");
-  if (mobile) errors.push(mobile);
-  else if (!isValidPhone(data.mobile)) {
-    errors.push({ field: "mobile", message: "Mobile must be 10 digits" });
-  }
-
-  if (data.alternateMobile && !isValidPhone(data.alternateMobile)) {
-    errors.push({
-      field: "alternateMobile",
-      message: "Alternate mobile must be 10 digits",
-    });
-  }
-
-  // Address is optional for faculty, but if provided all sub-fields must be valid
-  if (data.address) {
-    const addr = data.address;
-
-    if (!addr.line1 || addr.line1.trim() === "") {
-      errors.push({ field: "address.line1", message: "Address Line 1 is required" });
-    }
-    if (!addr.city || addr.city.trim() === "") {
-      errors.push({ field: "address.city", message: "City is required" });
-    }
-    if (!addr.pincode || addr.pincode.trim() === "") {
-      errors.push({ field: "address.pincode", message: "Pincode is required" });
-    } else if (!isValidPincode(addr.pincode)) {
-      errors.push({ field: "address.pincode", message: "Pincode must be exactly 6 digits" });
-    }
-    if (!addr.kind || !FACULTY_ADDRESS_KINDS.includes(addr.kind)) {
-      errors.push({ field: "address.kind", message: "Address type is required" });
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateFacultyStep3(data: FacultyProfessionalInfoData): ValidationResult {
-  const errors: ValidationError[] = [];
-  const qualification = required(data.qualification, "qualification", "Qualification");
-  if (qualification) errors.push(qualification);
-  const specialization = required(data.specialization, "specialization", "Specialization");
-  if (specialization) errors.push(specialization);
-  const designation = required(data.designation, "designation", "Designation");
-  if (designation) errors.push(designation);
-  const exp = required(data.experienceYears, "experienceYears", "Experience");
-  if (exp) {
-    errors.push(exp);
-  } else {
-    const years = Number(data.experienceYears);
-    if (Number.isNaN(years) || years < 0 || years > 60) {
-      errors.push({
-        field: "experienceYears",
-        message: "Experience must be between 0 and 60 years",
-      });
-    }
-  }
-  return { valid: errors.length === 0, errors };
-}
-
-export function validateFacultyStep4(data: FacultyDocumentsData): ValidationResult {
-  const errors: ValidationError[] = [];
-  if (!data.profilePhotoUrl) {
-    errors.push({ field: "profilePhotoUrl", message: "Profile photo is required" });
-  }
-  return { valid: errors.length === 0, errors };
-}
+export function validateFacultyStep1(data: FacultyPersonalInfoData) { return toValidationResult(FacultyPersonalInfoSchema.safeParse(data)); }
+export function validateFacultyStep2(data: FacultyContactInfoData) { return toValidationResult(FacultyContactInfoSchema.safeParse(data)); }
+export function validateFacultyStep3(data: FacultyProfessionalInfoData) { return toValidationResult(FacultyProfessionalInfoSchema.safeParse(data)); }
+export function validateFacultyStep4(data: FacultyDocumentsData) { return toValidationResult(FacultyDocumentsValidationSchema.safeParse(data)); }

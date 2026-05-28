@@ -20,11 +20,17 @@ import { useRouter } from "next/navigation";
 import { useCreateSubjectMutation } from "@/app/lib/queries/subjects";
 import {
   INITIAL_SUBJECT_FORM,
-  SUBJECT_TYPES,
-  validateSubjectForm,
-  type SubjectFormData,
-  type ValidationError,
-} from "@/app/lib/validations/subject";
+  SubjectSchema,
+  type SubjectInput as SubjectFormData,
+} from "@/app/lib/validations/schemas/subject";
+import { SubjectTypeSchema } from "@/app/lib/validations/schemas/common";
+
+interface ValidationError {
+  field: string;
+  message: string;
+}
+
+const SUBJECT_TYPES = SubjectTypeSchema.options;
 import type { Key } from "@heroui/react";
 
 function getFieldError(errors: ValidationError[], field: string): string | undefined {
@@ -76,9 +82,12 @@ export default function AddSubjectPage() {
       e.preventDefault();
       setServerError(null);
 
-      const validation = validateSubjectForm(form);
-      setErrors(validation.errors);
-      if (!validation.valid) return;
+      const validation = SubjectSchema.safeParse(form);
+      if (!validation.success) {
+        setErrors(validation.error.issues.map(i => ({ field: i.path.join("."), message: i.message })));
+        return;
+      }
+      setErrors([]);
 
       try {
         await mutation.mutateAsync(form);
@@ -128,16 +137,16 @@ export default function AddSubjectPage() {
               <SummaryField label="Subject Type" value={TYPE_LABELS[form.subjectType] ?? form.subjectType} />
               {hasTheory && (
                 <>
-                  <SummaryField label="Internal Theory" value={form.internalTheoryMax} />
-                  <SummaryField label="External Theory" value={form.externalTheoryMax} />
-                  <SummaryField label="Theory Passing" value={form.theoryPassingMarks} />
+                  <SummaryField label="Internal Theory" value={String(form.internalTheoryMax)} />
+                  <SummaryField label="External Theory" value={String(form.externalTheoryMax)} />
+                  <SummaryField label="Theory Passing" value={String(form.theoryPassingMarks)} />
                 </>
               )}
               {hasPractical && (
                 <>
-                  <SummaryField label="Internal Practical" value={form.internalPracticalMax} />
-                  <SummaryField label="External Practical" value={form.externalPracticalMax} />
-                  <SummaryField label="Practical Passing" value={form.practicalPassingMarks} />
+                  <SummaryField label="Internal Practical" value={String(form.internalPracticalMax)} />
+                  <SummaryField label="External Practical" value={String(form.externalPracticalMax)} />
+                  <SummaryField label="Practical Passing" value={String(form.practicalPassingMarks)} />
                 </>
               )}
               <SummaryField label="Total Marks" value={String(totals.total)} />
@@ -223,7 +232,7 @@ export default function AddSubjectPage() {
               selectedKey={form.subjectType || null}
               placeholder="Select subject type"
               onSelectionChange={(key: Key | null) => {
-                const newType = String(key ?? "");
+                const newType = String(key ?? "") as SubjectFormData["subjectType"];
                 updateField("subjectType", newType);
                 // Clear marks for fields that are no longer relevant
                 if (newType === "theory") {

@@ -34,8 +34,8 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
   const saveMutation = useSaveStepMutation();
 
   const [form, setForm] = useState<AcademicInfoData>({
-    category: profile.category || "",
-    board: profile.board || "",
+    category: (profile.category || "") as AcademicInfoData["category"],
+    board: (profile.board || "") as AcademicInfoData["board"],
     twelfthPercent: profile.twelfthPercent || "",
     twelfthStream: profile.twelfthStream || "",
     schoolName: profile.schoolName || "",
@@ -47,8 +47,8 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
 
   useEffect(() => {
     setForm({
-      category: profile.category || "",
-      board: profile.board || "",
+      category: (profile.category || "") as AcademicInfoData["category"],
+      board: (profile.board || "") as AcademicInfoData["board"],
       twelfthPercent: profile.twelfthPercent || "",
       twelfthStream: profile.twelfthStream || "",
       schoolName: profile.schoolName || "",
@@ -132,7 +132,7 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
           placeholder="Select category"
           value={form.category || null}
           onChange={(key: Key | null) =>
-            setForm((p) => ({ ...p, category: String(key ?? "") }))
+            setForm((p) => ({ ...p, category: String(key ?? "") as AcademicInfoData["category"] }))
           }
         >
           <Label>Category</Label>
@@ -142,7 +142,7 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
           </Select.Trigger>
           <Select.Popover>
             <ListBox>
-              {CATEGORIES.map((c) => (
+              {CATEGORIES.map((c: string) => (
                 <ListBox.Item key={c} id={c} textValue={c}>
                   {c}
                   <ListBox.ItemIndicator />
@@ -161,7 +161,7 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
           placeholder="Select board"
           value={form.board || null}
           onChange={(key: Key | null) =>
-            setForm((p) => ({ ...p, board: String(key ?? "") }))
+            setForm((p) => ({ ...p, board: String(key ?? "") as AcademicInfoData["board"] }))
           }
         >
           <Label>Board</Label>
@@ -171,7 +171,7 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
           </Select.Trigger>
           <Select.Popover>
             <ListBox>
-              {BOARDS.map((b) => (
+              {BOARDS.map((b: string) => (
                 <ListBox.Item key={b} id={b} textValue={b}>
                   {b}
                   <ListBox.ItemIndicator />

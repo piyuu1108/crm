@@ -68,8 +68,8 @@ export function StepReview({ profile }: StepReviewProps) {
   const step1: PersonalInfoData = {
     fullName: profile.fullName,
     dob: profile.dob ?? "",
-    gender: profile.gender ?? "",
-    bloodGroup: profile.bloodGroup ?? undefined,
+    gender: (profile.gender ?? "") as PersonalInfoData["gender"],
+    bloodGroup: (profile.bloodGroup ?? undefined) as PersonalInfoData["bloodGroup"],
   };
 
   const step2: ContactInfoData = {
@@ -84,8 +84,8 @@ export function StepReview({ profile }: StepReviewProps) {
   };
 
   const step3: AcademicInfoData = {
-    category: profile.category ?? "",
-    board: profile.board ?? "",
+    category: (profile.category ?? "") as AcademicInfoData["category"],
+    board: (profile.board ?? "") as AcademicInfoData["board"],
     twelfthPercent: profile.twelfthPercent ?? "",
     twelfthStream: profile.twelfthStream ?? "",
     schoolName: profile.schoolName ?? "",

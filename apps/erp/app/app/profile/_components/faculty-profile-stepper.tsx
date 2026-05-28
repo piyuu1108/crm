@@ -71,7 +71,7 @@ export function FacultyProfileStepper() {
   const [personal, setPersonal] = useState<FacultyPersonalInfoData>({
     fullName: "",
     dob: "",
-    gender: "",
+    gender: "" as FacultyPersonalInfoData["gender"],
   });
   const [contact, setContact] = useState<FacultyContactInfoData>({
     mobile: "",
@@ -108,7 +108,7 @@ export function FacultyProfileStepper() {
     setPersonal({
       fullName: profile.fullName ?? "",
       dob: profile.dob ?? "",
-      gender: profile.gender ?? "",
+      gender: (profile.gender ?? "") as FacultyPersonalInfoData["gender"],
     });
     setContact({
       mobile: profile.mobile ?? "",
@@ -368,7 +368,7 @@ export function FacultyProfileStepper() {
                   isInvalid={!!getFieldError(errors, "gender")}
                   value={personal.gender || null}
                   onChange={(key: Key | null) =>
-                    setPersonal((p) => ({ ...p, gender: String(key ?? "") }))
+                    setPersonal((p) => ({ ...p, gender: String(key ?? "") as FacultyPersonalInfoData["gender"] }))
                   }
                 >
                   <Label>Gender</Label>

@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
     const step1: PersonalInfoData = {
       fullName: student.fullName,
       dob: student.dob ?? "",
-      gender: student.gender ?? "",
-      bloodGroup: student.bloodGroup ?? undefined,
+      gender: (student.gender ?? "") as PersonalInfoData["gender"],
+      bloodGroup: (student.bloodGroup ?? undefined) as PersonalInfoData["bloodGroup"],
     };
 
     const step2: ContactInfoData = {
@@ -66,8 +66,8 @@ export async function POST(req: NextRequest) {
     };
 
     const step3: AcademicInfoData = {
-      category: student.category ?? "",
-      board: student.board ?? "",
+      category: (student.category ?? "") as AcademicInfoData["category"],
+      board: (student.board ?? "") as AcademicInfoData["board"],
       twelfthPercent: student.twelfthPercent ?? "",
       twelfthStream: student.twelfthStream ?? "",
       schoolName: student.schoolName ?? "",

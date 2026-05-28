@@ -37,8 +37,8 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
   const [form, setForm] = useState<PersonalInfoData>({
     fullName: profile.fullName || "",
     dob: profile.dob || "",
-    gender: profile.gender || "",
-    bloodGroup: profile.bloodGroup || "",
+    gender: (profile.gender || "") as PersonalInfoData["gender"],
+    bloodGroup: (profile.bloodGroup || undefined) as PersonalInfoData["bloodGroup"],
   });
 
   const [errors, setErrors] = useState<ValidationError[]>([]);
@@ -49,8 +49,8 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
     setForm({
       fullName: profile.fullName || "",
       dob: profile.dob || "",
-      gender: profile.gender || "",
-      bloodGroup: profile.bloodGroup || "",
+      gender: (profile.gender || "") as PersonalInfoData["gender"],
+      bloodGroup: (profile.bloodGroup || undefined) as PersonalInfoData["bloodGroup"],
     });
   }, [profile.fullName, profile.dob, profile.gender, profile.bloodGroup]);
 
@@ -126,7 +126,7 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
           placeholder="Select gender"
           value={form.gender || null}
           onChange={(key: Key | null) =>
-            setForm((p) => ({ ...p, gender: String(key ?? "") }))
+            setForm((p) => ({ ...p, gender: String(key ?? "") as PersonalInfoData["gender"] }))
           }
         >
           <Label>Gender</Label>
@@ -136,7 +136,7 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
           </Select.Trigger>
           <Select.Popover>
             <ListBox>
-              {GENDERS.map((g) => (
+              {GENDERS.map((g: string) => (
                 <ListBox.Item key={g} id={g} textValue={g}>
                   <span className="capitalize">{g}</span>
                   <ListBox.ItemIndicator />
@@ -154,7 +154,7 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
           placeholder="Select blood group"
           value={form.bloodGroup || null}
           onChange={(key: Key | null) =>
-            setForm((p) => ({ ...p, bloodGroup: String(key ?? "") }))
+            setForm((p) => ({ ...p, bloodGroup: String(key ?? "") as PersonalInfoData["bloodGroup"] }))
           }
         >
           <Label>Blood Group</Label>
@@ -164,7 +164,7 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
           </Select.Trigger>
           <Select.Popover>
             <ListBox>
-              {BLOOD_GROUPS.map((bg) => (
+              {BLOOD_GROUPS.map((bg: string) => (
                 <ListBox.Item key={bg} id={bg} textValue={bg}>
                   {bg}
                   <ListBox.ItemIndicator />

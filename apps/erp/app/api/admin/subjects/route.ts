@@ -3,7 +3,8 @@ import { getAuthContext, requireCourseId, requirePermission } from "@/app/lib/ap
 import { db } from "@/app/lib/db";
 import { subjects, facultySubjectAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, count, inArray, and } from "drizzle-orm";
-import { validateSubjectForm, type SubjectFormData } from "@/app/lib/validations/subject";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SubjectSchema } from "@/app/lib/validations/schemas/subject";
 import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -112,30 +113,13 @@ export async function POST(req: NextRequest) {
     const courseId = requireCourseId(authResult);
 
     const body = await req.json();
-    const formData: SubjectFormData = {
-      code: String(body.code ?? ""),
-      name: String(body.name ?? ""),
-      subjectType: String(body.subjectType ?? ""),
-      internalTheoryMax: String(body.internalTheoryMax ?? ""),
-      externalTheoryMax: String(body.externalTheoryMax ?? ""),
-      theoryPassingMarks: String(body.theoryPassingMarks ?? ""),
-      internalPracticalMax: String(body.internalPracticalMax ?? ""),
-      externalPracticalMax: String(body.externalPracticalMax ?? ""),
-      practicalPassingMarks: String(body.practicalPassingMarks ?? ""),
-    };
+    const parsed = validateBody(body, SubjectSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    console.log("[POST /api/admin/subjects] payload:", formData);
-
-    // ── Validation ──
-    const validation = validateSubjectForm(formData);
-    if (!validation.valid) {
-      const errorMap: Record<string, string> = {};
-      for (const e of validation.errors) {
-        if (!errorMap[e.field]) errorMap[e.field] = e.message;
-      }
-      console.warn("[POST /api/admin/subjects] Validation failed:", errorMap);
-      return audit.error("Validation failed", err("Validation failed", 400, errorMap));
-    }
+    const formData = parsed.data;
+    const shortCode = typeof body.shortCode === "string" ? body.shortCode.trim() : null;
+    const semester = typeof body.semester === "number" || typeof body.semester === "string" ? Number(body.semester) || null : null;
+    const credit = typeof body.credit === "number" || typeof body.credit === "string" ? Number(body.credit) || null : null;
 
     // ── Check uniqueness of subject code ──
     const trimmedCode = formData.code.trim();

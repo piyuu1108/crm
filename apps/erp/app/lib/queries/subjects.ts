@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { SubjectFormData } from "@/app/lib/validations/subject";
+import type { SubjectInput as SubjectFormData } from "@/app/lib/validations/schemas/subject";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 

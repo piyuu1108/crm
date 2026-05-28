@@ -5,6 +5,8 @@ import { faculty, facultyRoles, roles, facultySubjectAssignments, divisions, sub
 import { eq, and, like, count, asc, desc, or, sql, inArray } from "drizzle-orm";
 import { remember, cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { AdminUpdateFacultySchema } from "@/app/lib/validations/schemas/admin-faculty";
 import * as bcrypt from "bcryptjs";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
@@ -184,47 +186,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, email, mobile, facultyCode, designation } = body;
-
-    // ── Input validation ──────────────────────────────────────────────
-    const errors: Record<string, string> = {};
-
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      errors.name = "Full name is required";
-    } else if (name.trim().length > 100) {
-      errors.name = "Name must be 100 characters or less";
-    }
-
-    if (!email || typeof email !== "string") {
-      errors.email = "Email is required";
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email.trim())) {
-      errors.email = "Invalid email format";
-    } else if (email.trim().length > 150) {
-      errors.email = "Email must be 150 characters or less";
-    }
-
-    if (!mobile || typeof mobile !== "string" || mobile.trim().length === 0) {
-      errors.mobile = "Mobile number is required";
-    } else if (!/^\d{10,15}$/.test(mobile.trim())) {
-      errors.mobile = "Mobile must be 10–15 digits";
-    }
-
-    if (!facultyCode || typeof facultyCode !== "string" || facultyCode.trim().length === 0) {
-      errors.facultyCode = "Faculty code is required";
-    } else if (facultyCode.trim().length > 20) {
-      errors.facultyCode = "Faculty code must be 20 characters or less";
-    }
-
-    if (designation && typeof designation === "string" && designation.trim().length > 100) {
-      errors.designation = "Designation must be 100 characters or less";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return audit.error(
-        "Validation failed",
-        NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 })
-      );
-    }
+    const parsed = validateBody(body, AdminUpdateFacultySchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
+    const { name, email, mobile, facultyCode, designation } = parsed.data;
 
     // ── Check uniqueness (email + facultyCode) ────────────────────────
     const [existingEmail] = await db

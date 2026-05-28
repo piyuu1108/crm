@@ -5,6 +5,8 @@ import { divisions, courses, semesters, students, counselorDivisionAssignments, 
 import { eq, and, count, asc, desc, sql, max, inArray } from "drizzle-orm";
 import { remember, cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { CreateDivisionSchema } from "@/app/lib/validations/schemas/admin-divisions";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown, source: "db" | "cache" = "db") {
@@ -177,30 +179,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { batchYear, semesterNo, specialization } = body;
-
-    // ── Input validation ──────────────────────────────────────────────
-    const errors: Record<string, string> = {};
-
-    if (!batchYear || typeof batchYear !== "number" || batchYear < 2020 || batchYear > 2099) {
-      errors.batchYear = "Batch year must be between 2020 and 2099";
-    }
-
-    if (!semesterNo || typeof semesterNo !== "number" || semesterNo < 1 || semesterNo > 6) {
-      errors.semesterNo = "Semester must be between 1 and 6";
-    }
-
-    const validSpecializations = ["AI", "DS", "REGULAR"];
-    if (!specialization || !validSpecializations.includes(specialization)) {
-      errors.specialization = "Specialization must be AI, DS, or REGULAR";
-    }
-
-    if (Object.keys(errors).length > 0) {
-      return audit.error(
-        "Validation failed",
-        NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 })
-      );
-    }
+    const parsed = validateBody(body, CreateDivisionSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
+    const { batchYear, semesterNo, specialization } = parsed.data;
 
     // ── Fetch course info from session courseId (never trust LIMIT 1) ─────
     const authPayload = auth.payload!;

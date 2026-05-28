@@ -3,7 +3,9 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { Card, Button, Spinner, Dropdown, ComboBox, Input, Label, ListBox, Table } from "@heroui/react";
 import { Funnel, Flask } from "@gravity-ui/icons";
-import { useReadonlyTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
+import { useReadonlyTimetableQuery, useAdminTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
+import { useDivisionListQuery } from "@/app/lib/queries/divisions";
+import { useFacultyListQuery } from "@/app/lib/queries/faculty";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useQuery } from "@tanstack/react-query";
@@ -104,43 +106,21 @@ export default function AcademicsTimetablePage() {
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
 
   // Fetch list of divisions
-  const { data: divisionsData, isLoading: isDivisionsLoading } = useQuery({
-    queryKey: ["admin-divisions-list"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/divisions?limit=1000", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch divisions");
-      return res.json();
-    },
-    enabled: isAdmin,
-  });
-
-  const divisions = divisionsData?.data?.divisions ?? [];
+  const { data: divisionsData, isLoading: isDivisionsLoading } = useDivisionListQuery({ limit: 1000, page: 1 });
+  const divisions = divisionsData?.divisions ?? [];
 
   // Fetch list of faculty
-  const { data: facultyData, isLoading: isFacultyLoading } = useQuery({
-    queryKey: ["admin-faculty-list"],
-    queryFn: async () => {
-      const res = await fetch("/api/admin/faculty?limit=1000", { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch faculty");
-      return res.json();
-    },
-    enabled: isAdmin,
-  });
-
-  const facultyList = facultyData?.data?.faculty ?? [];
+  const { data: facultyData, isLoading: isFacultyLoading } = useFacultyListQuery({ limit: 1000, page: 1 });
+  const facultyList = facultyData?.faculty ?? [];
 
   // Fetch dynamic admin timetable
-  const { data: adminTimetableData, isLoading: isAdminTimetableLoading, isError: isAdminTimetableError, error: adminTimetableError, refetch: refetchAdminTimetable } = useQuery({
-    queryKey: ["admin-timetable", forWhom, selectedTargetId],
-    queryFn: async () => {
-      if (!selectedTargetId) return { entries: [] };
-      const res = await fetch(`/api/academics/timetable?type=${forWhom}&id=${selectedTargetId}`, { credentials: "include" });
-      if (!res.ok) throw new Error("Failed to fetch timetable");
-      const json = await res.json();
-      return json.data;
-    },
-    enabled: isAdmin && !!selectedTargetId,
-  });
+  const { 
+    data: adminTimetableData, 
+    isLoading: isAdminTimetableLoading, 
+    isError: isAdminTimetableError, 
+    error: adminTimetableError, 
+    refetch: refetchAdminTimetable 
+  } = useAdminTimetableQuery(forWhom, selectedTargetId || 0, isAdmin);
 
   // Non-admin query
   const { data: nonAdminData, isLoading: isNonAdminLoading, isError: isNonAdminError, error: nonAdminError, refetch: refetchNonAdmin } = useReadonlyTimetableQuery(

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { use } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { useRequestDetailQuery, useUpdateRequestStatusMutation } from "@/app/lib/queries/workflows";
 import { usePermission } from "@/app/lib/hooks/use-permission";
 import {
   Spinner,
@@ -60,66 +60,42 @@ export default function RequestDetailPage({
   const { id: rawId } = use(params);
   const id = parseInt(rawId, 10);
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { activeRole, user } = useAuthStore();
 
   const isStudent = activeRole === "student";
   const isFaculty = usePermission("requests.review");
 
   // ── Fetch request detail ──────────────────────────────────────────────
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["request-detail", id],
-    queryFn: async () => {
-      const res = await fetch(`/api/requests/${id}`);
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to fetch request");
-      }
-      return res.json();
-    },
-    enabled: !isNaN(id),
-  });
+  const { data, isLoading, isError, error } = useRequestDetailQuery(id);
 
   const request = data?.data;
 
   // ── Status update mutation ────────────────────────────────────────────
-  const statusMutation = useMutation({
-    mutationFn: async (newStatus: "approved" | "rejected") => {
-      const res = await fetch(`/api/requests/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to update status");
-      }
-      return res.json();
-    },
-    onSuccess: (data) => {
-      const newStatus = data.data.status;
-      toast.success(`Request ${newStatus}`, {
-        description: `The request has been ${newStatus}.`,
-      });
-      queryClient.invalidateQueries({ queryKey: ["request-detail", id] });
-      queryClient.invalidateQueries({ queryKey: ["requests"] });
-    },
-    onError: (err: Error) => {
-      toast.danger("Update failed", {
-        description: err.message,
-      });
-    },
-  });
+  const statusMutation = useUpdateRequestStatusMutation();
 
-  // ── Determine approval state for toggle ───────────────────────────────
+  const handleToggleChange = (checked: boolean) => {
+    const newStatus = checked ? "approved" : "rejected";
+    statusMutation.mutate(
+      { id, status: newStatus },
+      {
+        onSuccess: () => {
+          toast.success(`Request ${newStatus}`, {
+            description: `The request has been ${newStatus}.`,
+          });
+        },
+        onError: (err: Error) => {
+          toast.danger("Update failed", {
+            description: err.message,
+          });
+        },
+      }
+    );
+  };
+
   const isApproved = request?.status === "approved";
   const isRejected = request?.status === "rejected";
   const isPending = request?.status === "pending";
   const isTargetFaculty = isFaculty && request?.targetFacultyId === user?.id;
-
-  const handleToggleChange = (checked: boolean) => {
-    statusMutation.mutate(checked ? "approved" : "rejected");
-  };
 
   // ── Loading ───────────────────────────────────────────────────────────
   if (isLoading) {

@@ -18,6 +18,7 @@ import {
   useEvaluationQuery,
   useSaveEvaluationMutation,
   useFinalizeMutation,
+  useFacultyAssignmentsQuery,
   type InternalExamMark,
 } from "@/app/lib/queries/internal-exams";
 
@@ -37,15 +38,7 @@ export default function EvaluationPage() {
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(0);
 
   // Fetch assignments — role-aware endpoint returns flat array
-  const { data: assignments = [] } = useQuery({
-    queryKey: ["internal-exams-assignments"],
-    queryFn: async () => {
-      const res = await fetch(`/api/internal-exams/assignments`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json.data) ? json.data : [];
-    },
-  });
+  const { data: assignments = [] } = useFacultyAssignmentsQuery();
 
   const { data: evalData, isLoading } = useEvaluationQuery(selectedAssignmentId);
   const saveMutation = useSaveEvaluationMutation(selectedAssignmentId);

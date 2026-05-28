@@ -16,7 +16,6 @@ import {
 } from "@heroui/react";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission, useIsAdminTable } from "@/app/lib/hooks/use-permission";
-import { RichTextEditor } from "../components/rich-text-editor";
 import { ArrowLeft, ArrowUpToLine, File } from "@gravity-ui/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -262,10 +261,11 @@ export default function CreateCircularPage() {
               <label className="text-sm font-medium text-foreground">
                 Description
               </label>
-              <RichTextEditor
+              <textarea
                 value={description}
-                onChange={setDescription}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Write the details of the circular here..."
+                className="w-full min-h-[150px] p-3 rounded-lg border border-divider bg-default-50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent transition-shadow resize-y"
               />
             </div>
 

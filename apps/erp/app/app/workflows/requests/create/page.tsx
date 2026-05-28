@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
+import { useFacultySearchQuery, useCreateRequestMutation } from "@/app/lib/queries/workflows";
 import {
   Button,
   Card,
@@ -41,15 +41,7 @@ export default function CreateRequestPage() {
   const [error, setError] = useState("");
 
   // ── Faculty list query ────────────────────────────────────────────────
-  const { data: allFacultyData, isLoading: isFacultyLoading } = useQuery({
-    queryKey: ["faculty-all"],
-    queryFn: async () => {
-      const res = await fetch("/api/requests/faculty-search");
-      if (!res.ok) throw new Error("Failed to fetch faculty list");
-      return res.json();
-    },
-    staleTime: 5 * 60 * 1000, // Cache for 5 mins
-  });
+  const { data: allFacultyData, isLoading: isFacultyLoading } = useFacultySearchQuery();
 
   const allFaculty: FacultyOption[] = allFacultyData?.data || [];
 
@@ -89,80 +81,30 @@ export default function CreateRequestPage() {
   };
 
   // ── Submit mutation ───────────────────────────────────────────────────
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      let attachmentUrl = null;
-      let attachmentType = null;
-      let attachmentSize = null;
+  const submitMutation = useCreateRequestMutation();
 
-      // Upload file if exists
-      if (file) {
-        const urlRes = await fetch("/api/student/upload-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            docType: "request_attachment",
-            contentType: file.type,
-            fileSize: file.size,
-          }),
-        });
-
-        if (!urlRes.ok) {
-          const errData = await urlRes.json();
-          throw new Error(errData.error || "Failed to get upload URL");
-        }
-
-        const {
-          data: { uploadUrl, fileKey },
-        } = await urlRes.json();
-
-        const uploadRes = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-
-        if (!uploadRes.ok) {
-          throw new Error("Failed to upload file");
-        }
-
-        attachmentUrl = fileKey;
-        attachmentType = file.type;
-        attachmentSize = file.size;
+  // Attach success/error handling manually since mutation definition is centralized
+  const doSubmit = () => {
+    submitMutation.mutate(
+      {
+        subject,
+        description,
+        targetFacultyId: selectedFacultyId,
+        file,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Request submitted", {
+            description: "Your request has been sent to the selected faculty.",
+          });
+          router.push("/app/workflows/requests");
+        },
+        onError: (err: Error) => {
+          setError(err.message || "An error occurred during submission.");
+        },
       }
-
-      // Create request
-      const res = await fetch("/api/requests", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subject: subject.trim(),
-          description: description.trim(),
-          targetFacultyId: selectedFacultyId,
-          requestType: "general",
-          attachmentUrl,
-          attachmentType,
-          attachmentSize,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Failed to create request");
-      }
-
-      return res.json();
-    },
-    onSuccess: () => {
-      toast.success("Request submitted", {
-        description: "Your request has been sent to the selected faculty.",
-      });
-      router.push("/app/workflows/requests");
-    },
-    onError: (err: Error) => {
-      setError(err.message || "An error occurred during submission.");
-    },
-  });
+    );
+  };
 
   // ── Validation ────────────────────────────────────────────────────────
   const handleSubmit = (e: React.FormEvent) => {
@@ -182,7 +124,7 @@ export default function CreateRequestPage() {
       return;
     }
 
-    submitMutation.mutate();
+    doSubmit();
   };
 
   // ── Guard ─────────────────────────────────────────────────────────────

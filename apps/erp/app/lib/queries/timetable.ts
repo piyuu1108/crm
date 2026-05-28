@@ -107,6 +107,7 @@ export const timetableKeys = {
   divisions: ["timetable", "divisions"] as const,
   grid: (divisionId: number) => ["timetable", "grid", divisionId] as const,
   readonly: (role?: string) => ["timetable", "readonly", role] as const,
+  adminTimetable: (forWhom: string, targetId: number) => ["timetable", "admin", forWhom, targetId] as const,
 };
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
@@ -284,5 +285,30 @@ export function useReadonlyTimetableQuery(role?: string) {
     staleTime: 0,
     retry: 1,
     refetchOnWindowFocus: true,
+  });
+}
+
+export async function fetchAdminTimetable(forWhom: string, id: number) {
+  const res = await fetchWithTimeout(`/api/academics/timetable?type=${forWhom}&id=${id}`, {
+    credentials: "include",
+    cache: "no-store",
+    timeoutMs: 8000,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || "Failed to fetch timetable");
+  }
+
+  const json = await res.json();
+  return json.data;
+}
+
+export function useAdminTimetableQuery(forWhom: string, targetId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: timetableKeys.adminTimetable(forWhom, targetId),
+    queryFn: () => fetchAdminTimetable(forWhom, targetId),
+    enabled: enabled && targetId > 0,
+    staleTime: 0,
   });
 }

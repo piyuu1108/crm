@@ -1,4 +1,3 @@
-
 # Classroom & Seating Infrastructure Management Module
 
 ## 1. Overview
@@ -23,15 +22,15 @@ The HOD/Admin can create classrooms manually.
 
 ### Classroom Fields
 
-| Field              | Description                                    |
-| ------------------ | ---------------------------------------------- |
-| `id`               | Unique classroom identifier                    |
-| `room_code`        | Classroom code (e.g., `G1`, `F2`)              |
-| `floor`            | Floor identifier (`Ground`, `First`, `Second`) |
-| `building_name`    | Optional building/block name                   |
-| `lecture_capacity` | Estimated normal classroom capacity            |
-| `description`      | Optional notes                                 |
-| `is_active`        | Classroom active/inactive status               |
+| Field | Description |
+| --- | --- |
+| `id` | Unique classroom identifier |
+| `room_code` | Classroom code (e.g., `G1`, `F2`) |
+| `floor` | Floor identifier (`Ground`, `First`, `Second`) |
+| `building_name` | Optional building/block name |
+| `lecture_capacity` | Estimated normal classroom capacity |
+| `description` | Optional notes |
+| `is_active` | Classroom active/inactive status |
 
 ---
 
@@ -43,9 +42,9 @@ It is **NOT** used directly for examination seating generation.
 
 ### Example
 
-| Scenario         | Seating        |
-| ---------------- | -------------- |
-| Daily lectures   | 80 students    |
+| Scenario | Seating |
+| --- | --- |
+| Daily lectures | 80 students |
 | Examination mode | 40–60 students |
 
 The actual examination seating capacity is calculated dynamically from the bench layout and anti-cheating rules.
@@ -83,6 +82,7 @@ Example:
 [] [] []
 
 [] [] []
+
 ```
 
 The system fully supports such irregular layouts.
@@ -97,16 +97,16 @@ Each classroom layout consists of multiple benches.
 
 ### Bench Fields
 
-| Field          | Description                             |
-| -------------- | --------------------------------------- |
-| `id`           | Unique bench identifier                 |
-| `room_id`      | Linked classroom                        |
-| `label`        | Human-readable bench label (`A1`, `B2`) |
-| `grid_x`       | Horizontal grid position                |
-| `grid_y`       | Vertical grid position                  |
+| Field | Description |
+| --- | --- |
+| `id` | Unique bench identifier |
+| `room_id` | Linked classroom |
+| `label` | Human-readable bench label (`A1`, `B2`) |
+| `grid_x` | Horizontal grid position |
+| `grid_y` | Vertical grid position |
 | `max_students` | Maximum students supported on the bench |
-| `is_active`    | Bench enabled/disabled                  |
-| `notes`        | Optional maintenance/admin notes        |
+| `is_active` | Bench enabled/disabled |
+| `notes` | Optional maintenance/admin notes |
 
 ---
 
@@ -117,10 +117,10 @@ The layout system uses logical grid coordinates rather than pixel-based position
 ### Example
 
 | Label | grid_x | grid_y |
-| ----- | ------ | ------ |
-| A1    | 0      | 0      |
-| A2    | 1      | 0      |
-| B1    | 0      | 1      |
+| --- | --- | --- |
+| A1 | 0 | 0 |
+| A2 | 1 | 0 |
+| B1 | 0 | 1 |
 
 Visual Representation:
 
@@ -128,6 +128,7 @@ Visual Representation:
 A1 A2
 
 B1
+
 ```
 
 This approach provides:
@@ -197,30 +198,21 @@ Classroom
  -> Bench Layout
     -> Bench Capacity
        -> Student Allocation
+
 ```
 
 ---
 
-## 6.2 Student Ordering
+## 6.2 Student Ordering & Academic Year Derivation
 
 Students are ordered sequentially by their **College ID** in ascending order.
 
-### College ID Structure
-
-The College ID encodes the student's admission year and is the sole basis for ordering and year derivation:
-
-| College ID    | Batch Year | Year of Study |
-| ------------- | ---------- | ------------- |
-| `24BCADS001`  | 2024       | SY (Second Year) |
-| `25BCADS001`  | 2025       | FY (First Year)  |
-
-* The **first two digits** of the College ID represent the admission year.
-* The system derives the student's academic year directly from this prefix — no separate year field is required for ordering.
-* Sequential seating follows strictly ascending College ID sort order within each year group.
+* While the College ID is strictly used for sequential sorting, the student's academic year (used for anti-cheating rules) is derived **directly from the database** via their active `currentSemesterNo`.
+* This explicitly avoids parsing ID string prefixes, natively accommodating ATKT/Year Drop students to ensure anti-cheating integrity.
+* Sequential seating follows strictly ascending College ID sort order.
 * Ineligible or absent students are skipped; the next eligible student in sequence is placed instead.
 
 ---
-Got it. Here's the updated anti-cheating section only — just replace section **6.3** in your document:
 
 ## 6.3 Anti-Cheating Seating Rules
 
@@ -229,25 +221,25 @@ The following rules are absolute and have no exceptions:
 * A bench **cannot** contain two or more students from the same academic year.
 * Maximum **one student per year per bench**, regardless of physical bench capacity.
 
-| Combination         | Allowed |
-| ------------------- | ------- |
-| `FY + SY`           | ✅      |
-| `FY + TY`           | ✅      |
-| `SY + TY`           | ✅      |
-| `FY + SY + TY`      | ✅      |
-| `FY + FY`           | ❌      |
-| `SY + SY`           | ❌      |
-| `TY + TY`           | ❌      |
+| Combination | Allowed |
+| --- | --- |
+| `FY + SY` | ✅ |
+| `FY + TY` | ✅ |
+| `SY + TY` | ✅ |
+| `FY + SY + TY` | ✅ |
+| `FY + FY` | ❌ |
+| `SY + SY` | ❌ |
+| `TY + TY` | ❌ |
 
 ### Bench Capacity vs Exam Usage
 
 Even if a bench physically supports 3 or 4 students, the anti-cheating rule naturally caps exam allocation:
 
-| Scenario                          | Max Students on Bench |
-| --------------------------------- | --------------------- |
-| Three years running simultaneously | 3 (one per year)      |
-| Two years running simultaneously   | 2 (one per year)      |
-| Only one year running              | 1                     |
+| Scenario | Max Students on Bench |
+| --- | --- |
+| Three years running simultaneously | 3 (one per year) |
+| Two years running simultaneously | 2 (one per year) |
+| Only one year running | 1 |
 
 ### Exhaustion Handling for 3-Year Exams
 
@@ -262,8 +254,10 @@ Bench 3 → FY003 + SY003 + TY003   ← TY list ends here
 Bench 4 → FY004 + SY004            ← TY exhausted, FY+SY continue
 Bench 5 → FY005 + SY005            ← SY list ends here
 Bench 6 → FY006                    ← FY continues solo
+
 ```
 
+---
 
 ## 6.4 Classroom Sequence and Bench Filling
 
@@ -273,6 +267,7 @@ The HOD defines the order in which classrooms are filled during seating generati
 
 ```
 F1 → F2 → F3 → F4 → G1 → G2
+
 ```
 
 The algorithm fills benches sequentially across classrooms in this defined order.
@@ -299,6 +294,7 @@ Bench 2 → SY002 + FY002
 Bench 3 → SY003 + FY003   ← FY list ends here
 Bench 4 → SY004           ← SY continues solo
 Bench 5 → SY005
+
 ```
 
 ---
@@ -315,7 +311,7 @@ Bench 5 → SY005
 
 ## 7.1 Supervision Pool Rules
 
-* Only faculty from the **relevant department** are included in the supervision pool.
+* The institution operates as a single-department structure tied to courses. Faculty are mapped directly via `courseId`, seamlessly generating the supervision pool without the need for complex interdisciplinary queries.
 * Faculty who are **on approved leave** on the examination day are automatically excluded.
 * Normal lectures are considered cancelled during examination days; lecture schedules do not count as conflicts.
 
@@ -323,11 +319,11 @@ Bench 5 → SY005
 
 Supervision duties are distributed as evenly as possible across available faculty.
 
-| Fair Example     | Unfair Example   |
-| ---------------- | ---------------- |
-| Faculty A → 3    | Faculty A → 5    |
-| Faculty B → 3    | Faculty B → 1    |
-| Faculty C → 3    | Faculty C → 3    |
+| Fair Example | Unfair Example |
+| --- | --- |
+| Faculty A → 3 | Faculty A → 5 |
+| Faculty B → 3 | Faculty B → 1 |
+| Faculty C → 3 | Faculty C → 3 |
 
 ## 7.3 Rotation Rules
 
@@ -338,12 +334,12 @@ Supervision duties are distributed as evenly as possible across available facult
 
 # 8. Access Control
 
-| Role          | Permission                            |
-| ------------- | ------------------------------------- |
-| **HOD/Admin** | Full classroom and layout management  |
-| **Faculty**   | View-only access to classroom layouts |
-| **Counselor** | View-only access                      |
-| **Student**   | No access                             |
+| Role | Permission |
+| --- | --- |
+| **HOD/Admin** | Full classroom and layout management |
+| **Faculty** | View-only access to classroom layouts |
+| **Counselor** | View-only access |
+| **Student** | No access |
 
 ---
 
@@ -355,11 +351,11 @@ Supervision duties are distributed as evenly as possible across available facult
 * Examination seating capacity is dynamically derived, not manually entered.
 * Bench labels are human-readable identifiers only.
 * Grid positioning is used instead of pixel coordinates for simplicity and maintainability.
-* Student ordering is strictly by College ID ascending; year is derived from the ID prefix.
+* Student ordering is strictly by College ID ascending; academic year is derived strictly from the database, not the ID prefix.
 * Anti-cheating bench rules are absolute with no exceptions.
 * The system is designed for future scalability including:
-  * automatic seating generation,
-  * supervision mapping,
-  * seating PDFs,
-  * visual examination charts,
-  * and anti-cheating algorithms.
+* automatic seating generation,
+* supervision mapping,
+* seating PDFs,
+* visual examination charts,
+* and anti-cheating algorithms.

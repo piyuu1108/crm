@@ -15,6 +15,7 @@ import {
   useExamMarksQuery,
   useSaveMarksMutation,
   useToggleVisibilityMutation,
+  useFacultyAssignmentsQuery,
 } from "@/app/lib/queries/internal-exams";
 import { MarksEntryTable } from "./marks-entry-table";
 
@@ -22,15 +23,7 @@ export function FacultyMarksEntry() {
   const { data: examsData, isLoading: loadingExams } = useInternalExamsQuery();
 
   // Fetch faculty's own assignments — role-aware endpoint returns flat array
-  const { data: assignments = [], isLoading: loadingAssignments } = useQuery({
-    queryKey: ["internal-exams-assignments"],
-    queryFn: async () => {
-      const res = await fetch(`/api/internal-exams/assignments`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json.data) ? json.data : [];
-    },
-  });
+  const { data: assignments = [], isLoading: loadingAssignments } = useFacultyAssignmentsQuery();
 
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(0);
   const [selectedExamId, setSelectedExamId] = useState(0);

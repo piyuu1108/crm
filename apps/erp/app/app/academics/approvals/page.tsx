@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission } from "@/app/lib/hooks/use-permission";
+import { 
+  useAvailableProxiesQuery, 
+  useApprovalsListQuery, 
+  useApprovalDetailQuery, 
+  useApprovalActionMutation 
+} from "@/app/lib/queries/workflows";
 import { useRouter } from "next/navigation";
 import {
   Spinner,
@@ -62,15 +67,7 @@ function ProxySelector({
   dbProxyCode: string;
   onSelect: (newId: number) => void;
 }) {
-  const { data: response, isLoading } = useQuery({
-    queryKey: ["approvals", "proxies", "available", date, slotId],
-    queryFn: async () => {
-      const res = await fetch(`/api/approvals/proxies/available?date=${date}&slotId=${slotId}`);
-      if (!res.ok) throw new Error("Failed to fetch available proxies");
-      return res.json();
-    },
-    enabled: !!date && !!slotId,
-  });
+  const { data: response, isLoading } = useAvailableProxiesQuery(date, slotId);
 
   let availableList = response?.data || [];
 
@@ -149,7 +146,6 @@ function ProxySelector({
 export default function ApprovalsPage() {
   const { activeRole, isHydrated } = useAuthStore();
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
@@ -165,59 +161,41 @@ export default function ApprovalsPage() {
   const canOverride = usePermission("approvals.override_proxy");
 
   // Fetch submitted requests list
-  const { data: listResponse, isLoading } = useQuery({
-    queryKey: ["approvals", "list", activeRole],
-    queryFn: async () => {
-      const res = await fetch("/api/approvals/list");
-      if (!res.ok) throw new Error("Failed to fetch approvals list");
-      return res.json();
-    },
-    enabled: isHydrated && !!activeRole,
-  });
+  const { data: listResponse, isLoading } = useApprovalsListQuery(activeRole, isHydrated);
 
   // Fetch detailed information of the selected request
-  const { data: detailResponse, isLoading: isDetailLoading } = useQuery({
-    queryKey: ["approvals", "detail", selectedRequestId],
-    queryFn: async () => {
-      if (!selectedRequestId) return null;
-      const res = await fetch(`/api/approvals/list?id=${selectedRequestId}`);
-      if (!res.ok) throw new Error("Failed to fetch request detail");
-      return res.json();
-    },
-    enabled: !!selectedRequestId,
-  });
+  const { data: detailResponse, isLoading: isDetailLoading } = useApprovalDetailQuery(selectedRequestId);
 
   // Action mutation (approve/reject)
-  const actionMutation = useMutation({
-    mutationFn: async (payload: {
-      requestId: number;
-      action: "approve" | "reject";
-      remarks: string;
-      proxyOverrides: { proxyId: number; newProxyFacultyId: number }[];
-    }) => {
-      const res = await fetch("/api/approvals/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Action failed");
+  const actionMutation = useApprovalActionMutation();
+
+  const handleAction = (action: "approve" | "reject") => {
+    if (!selectedRequestId) return;
+    
+    actionMutation.mutate(
+      {
+        requestId: selectedRequestId,
+        action,
+        remarks,
+        proxyOverrides: Object.entries(proxyOverrides).map(([pid, fid]) => ({
+          proxyId: Number(pid),
+          newProxyFacultyId: fid,
+        })),
+      },
+      {
+        onSuccess: () => {
+          drawerState.close();
+          setSelectedRequestId(null);
+          setProxyOverrides({});
+          setRemarks("");
+          toast.success("Action processed successfully!");
+        },
+        onError: (err: Error) => {
+          toast.danger(err.message || "An error occurred");
+        }
       }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["approvals"] });
-      drawerState.close();
-      setSelectedRequestId(null);
-      setProxyOverrides({});
-      setRemarks("");
-      toast.success("Action processed successfully!");
-    },
-    onError: (err: any) => {
-      toast.danger(err.message || "An error occurred");
-    },
-  });
+    );
+  };
 
   if (!isHydrated || isLoading) {
     return (
@@ -619,7 +597,7 @@ export default function ApprovalsPage() {
                         <div className="flex gap-3">
                           <Button
                             className="flex-1 font-semibold text-white bg-emerald-600"
-                            onPress={() => handleActionSubmit("approve")}
+                            onPress={() => handleAction("approve")}
                             isDisabled={actionMutation.isPending}
                           >
                             Approve Request
@@ -627,7 +605,7 @@ export default function ApprovalsPage() {
                           <Button
                             variant="danger-soft"
                             className="flex-1 font-semibold"
-                            onPress={() => handleActionSubmit("reject")}
+                            onPress={() => handleAction("reject")}
                             isDisabled={actionMutation.isPending}
                           >
                             Reject Request

@@ -15,38 +15,23 @@ import {
   useExamMarksQuery,
   useSaveMarksMutation,
   useToggleVisibilityMutation,
+  useFacultyAssignmentsQuery,
 } from "@/app/lib/queries/internal-exams";
+import { useCounselorDivisionsQuery } from "@/app/lib/queries/counselor";
 import { MarksEntryTable } from "./marks-entry-table";
 
 export function CounselorMarksView() {
   const { data: examsData, isLoading: loadingExams } = useInternalExamsQuery();
 
   // Fetch counselor's assigned divisions
-  const { data: myDivisions = [], isLoading: loadingDivisions } = useQuery({
-    queryKey: ["counselor-divisions"],
-    queryFn: async () => {
-      const res = await fetch("/api/counselor/divisions");
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json.data) ? json.data : [];
-    },
-  });
+  const { data: myDivisions = [], isLoading: loadingDivisions } = useCounselorDivisionsQuery();
 
   const [selectedDivisionId, setSelectedDivisionId] = useState("");
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(0);
   const [selectedExamId, setSelectedExamId] = useState(0);
 
   // Fetch assignments for selected division — role-aware, returns flat array
-  const { data: assignments = [] } = useQuery({
-    queryKey: ["internal-exams-assignments", selectedDivisionId],
-    queryFn: async () => {
-      const res = await fetch(`/api/internal-exams/assignments?divisionId=${selectedDivisionId}`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json.data) ? json.data : [];
-    },
-    enabled: !!selectedDivisionId,
-  });
+  const { data: assignments = [] } = useFacultyAssignmentsQuery(selectedDivisionId || undefined);
 
   const { data: marksData, isLoading: loadingMarks } = useExamMarksQuery(
     selectedExamId,

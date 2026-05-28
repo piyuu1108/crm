@@ -111,6 +111,8 @@ export const internalExamKeys = {
     ["internal-evaluation", assignmentId] as const,
   exportPreview: (assignmentId: number) =>
     ["internal-evaluation", "export", assignmentId] as const,
+  assignments: (divisionId?: string) =>
+    ["internal-exams", "assignments", divisionId ?? "all"] as const,
 };
 
 // ─── Fetchers ─────────────────────────────────────────────────────────────────
@@ -176,6 +178,22 @@ async function fetchExportPreview(assignmentId: number) {
   const json = await res.json();
   if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to fetch export preview");
   return json.data as ExportPreview;
+}
+
+async function fetchFacultyAssignments(divisionId?: string) {
+  const url = divisionId 
+    ? `/api/internal-exams/assignments?divisionId=${divisionId}`
+    : `/api/internal-exams/assignments`;
+  
+  const res = await fetchWithTimeout(url, { 
+    credentials: "include", 
+    cache: "no-store", 
+    timeoutMs: 8000 
+  });
+  
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.error ?? "Failed to fetch assignments");
+  return Array.isArray(json.data) ? json.data : [];
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
@@ -444,5 +462,22 @@ export function useFinalizeMutation(assignmentId: number) {
         queryKey: internalExamKeys.evaluation(assignmentId),
       });
     },
+  });
+}
+
+export function useExportPreviewQuery(assignmentId: number) {
+  return useQuery({
+    queryKey: internalExamKeys.exportPreview(assignmentId),
+    queryFn: () => fetchExportPreview(assignmentId),
+    staleTime: 0,
+    enabled: assignmentId > 0,
+  });
+}
+
+export function useFacultyAssignmentsQuery(divisionId?: string) {
+  return useQuery({
+    queryKey: internalExamKeys.assignments(divisionId),
+    queryFn: () => fetchFacultyAssignments(divisionId),
+    staleTime: 60 * 1000,
   });
 }

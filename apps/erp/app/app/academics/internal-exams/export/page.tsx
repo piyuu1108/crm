@@ -14,7 +14,7 @@ import { ArrowLeft, ArrowDownToLine } from "@gravity-ui/icons";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
-import { useExportPreviewQuery } from "@/app/lib/queries/internal-exams";
+import { useExportPreviewQuery, useFacultyAssignmentsQuery } from "@/app/lib/queries/internal-exams";
 
 export default function ExportPage() {
   const router = useRouter();
@@ -22,15 +22,7 @@ export default function ExportPage() {
 
   const [selectedAssignmentId, setSelectedAssignmentId] = useState(0);
 
-  const { data: assignments = [] } = useQuery({
-    queryKey: ["internal-exams-assignments"],
-    queryFn: async () => {
-      const res = await fetch(`/api/internal-exams/assignments`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json.data) ? json.data : [];
-    },
-  });
+  const { data: assignments = [] } = useFacultyAssignmentsQuery();
 
   const { data: preview, isLoading, isError, error } = useExportPreviewQuery(
     selectedAssignmentId

@@ -19,6 +19,7 @@ import {
   useExamMarksQuery,
   useSaveMarksMutation,
   useToggleVisibilityMutation,
+  useFacultyAssignmentsQuery,
 } from "@/app/lib/queries/internal-exams";
 import { MarksEntryTable } from "./marks-entry-table";
 
@@ -51,16 +52,7 @@ export function HodExamManagement() {
   });
 
   // Fetch assignments for marks entry
-  const { data: assignmentsData } = useQuery({
-    queryKey: ["internal-exams-assignments", selectedDivisionId],
-    queryFn: async () => {
-      const res = await fetch(`/api/internal-exams/assignments?divisionId=${selectedDivisionId}`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return Array.isArray(json.data) ? json.data : [];
-    },
-    enabled: !!selectedDivisionId,
-  });
+  const { data: assignmentsData } = useFacultyAssignmentsQuery(selectedDivisionId || undefined);
 
   const { data: marksData, isLoading: loadingMarks } = useExamMarksQuery(
     selectedExamId,

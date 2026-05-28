@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRequestsQuery } from "@/app/lib/queries/workflows";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useRouter } from "next/navigation";
@@ -99,26 +100,14 @@ export default function RequestsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const limit = 15;
-
   const isStudent = activeRole === "student";
   const isFaculty = usePermission("requests.view_assigned");
 
-  const apiUrl = isStudent ? "/api/requests" : "/api/requests/faculty";
-
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["requests", activeRole, statusFilter, page],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      params.set("limit", String(limit));
-      params.set("offset", String((page - 1) * limit));
-      if (statusFilter !== "all") params.set("status", statusFilter);
-
-      const res = await fetch(`${apiUrl}?${params}`);
-      if (!res.ok) throw new Error("Failed to fetch requests");
-      return res.json();
-    },
-    enabled: !!activeRole,
-  });
+  const { data, isLoading, isError, error } = useRequestsQuery(
+    activeRole,
+    statusFilter,
+    page
+  );
 
   const requests = data?.data || [];
   const total = data?.pagination?.total || 0;

@@ -20,3 +20,7 @@ export const SaveTimetableSchema = z.object({
 
 export type SaveTimetableInput = z.input<typeof SaveTimetableSchema>;
 export type SaveTimetableParsed = z.infer<typeof SaveTimetableSchema>;
+
+export const GetTimetableQuerySchema = z.object({
+  divisionId: IdSchema.or(z.string().regex(/^\d+$/).transform(Number)),
+});

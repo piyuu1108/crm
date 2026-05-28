@@ -23,6 +23,15 @@ export const CreateInternalExamSchema = z
 
 export type CreateInternalExamInput = z.infer<typeof CreateInternalExamSchema>;
 
+export const GetInternalExamsQuerySchema = z.object({
+  semesterId: IdSchema.or(z.string().regex(/^\d+$/).transform(Number)).optional(),
+});
+
+export const GetExamMarksQuerySchema = z.object({
+  examId: IdSchema.or(z.string().regex(/^\d+$/).transform(Number)),
+  assignmentId: IdSchema.or(z.string().regex(/^\d+$/).transform(Number)),
+});
+
 // ─── POST /api/internal-exams/marks ───────────────────────────────────────────
 
 const ExamMarkRecordSchema = z.object({

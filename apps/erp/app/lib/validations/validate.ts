@@ -47,3 +47,26 @@ export function validateBody<T>(
 
   return { success: true, data: result.data };
 }
+
+/**
+ * Parse URLSearchParams into a regular object and validate against a Zod schema.
+ */
+export function validateQuery<T>(
+  searchParams: URLSearchParams,
+  schema: z.ZodType<T>
+): ValidationResult<T> {
+  const obj: Record<string, string | string[]> = {};
+  searchParams.forEach((value, key) => {
+    if (obj[key] !== undefined) {
+      if (Array.isArray(obj[key])) {
+        (obj[key] as string[]).push(value);
+      } else {
+        obj[key] = [obj[key] as string, value];
+      }
+    } else {
+      obj[key] = value;
+    }
+  });
+
+  return validateBody(obj, schema);
+}

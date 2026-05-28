@@ -4,8 +4,8 @@ import { db } from "@/app/lib/db";
 import { internalExams, semesters } from "@/app/lib/schema";
 import { eq, and, desc, or } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
-import { validateBody } from "@/app/lib/validations/validate";
-import { CreateInternalExamSchema } from "@/app/lib/validations/schemas/exam";
+import { validateBody, validateQuery } from "@/app/lib/validations/validate";
+import { CreateInternalExamSchema, GetInternalExamsQuerySchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,12 +29,11 @@ export async function GET(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
-    const semesterIdParam = searchParams.get("semesterId");
+    const parsed = validateQuery(searchParams, GetInternalExamsQuerySchema);
+    if (!parsed.success) return parsed.error;
 
-    let semesterId: number;
-    if (semesterIdParam) {
-      semesterId = parseInt(semesterIdParam, 10);
-    } else {
+    let semesterId = parsed.data.semesterId;
+    if (!semesterId) {
       // Find the active semester
       const [activeSem] = await db
         .select({ id: semesters.id })

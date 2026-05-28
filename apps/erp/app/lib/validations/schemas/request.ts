@@ -24,3 +24,11 @@ export const ReviewStudentRequestSchema = z.object({
 
 export type ReviewStudentRequestInput = z.input<typeof ReviewStudentRequestSchema>;
 export type ReviewStudentRequestParsed = z.infer<typeof ReviewStudentRequestSchema>;
+
+// ─── GET /api/requests ────────────────────────────────────────────────────────
+
+import { PaginationSchema } from "./common";
+
+export const GetRequestsQuerySchema = PaginationSchema.extend({
+  status: z.enum(["pending", "approved", "rejected"]).optional(),
+});

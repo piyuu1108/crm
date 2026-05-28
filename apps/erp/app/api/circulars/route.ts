@@ -10,6 +10,8 @@ import {
 } from "@/app/lib/schema";
 import { desc, eq, and, or, inArray, count } from "drizzle-orm";
 import { remember, cacheTags, TTL } from "@/app/lib/cache";
+import { validateQuery } from "@/app/lib/validations/validate";
+import { PaginationSchema } from "@/app/lib/validations/schemas/common";
 
 
 async function getGlobalCirculars() {
@@ -111,8 +113,9 @@ export async function GET(req: NextRequest) {
     const { userId, activeRole } = auth;
 
     const { searchParams } = new URL(req.url);
-    const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
-    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const parsed = validateQuery(searchParams, PaginationSchema);
+    if (!parsed.success) return parsed.error;
+    const { limit, offset } = parsed.data;
 
     // Use activeRole (not roles array) for routing — respects the user's current role switch
     const isStudent = activeRole === "student";

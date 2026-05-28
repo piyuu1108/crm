@@ -12,8 +12,8 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
-import { validateBody } from "@/app/lib/validations/validate";
-import { SaveExamMarksSchema } from "@/app/lib/validations/schemas/exam";
+import { validateBody, validateQuery } from "@/app/lib/validations/validate";
+import { SaveExamMarksSchema, GetExamMarksQuerySchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -67,12 +67,10 @@ export async function GET(req: NextRequest) {
     if (auth instanceof NextResponse) return auth;
 
     const { searchParams } = new URL(req.url);
-    const examId = parseInt(searchParams.get("examId") || "0", 10);
-    const assignmentId = parseInt(searchParams.get("assignmentId") || "0", 10);
+    const parsed = validateQuery(searchParams, GetExamMarksQuerySchema);
+    if (!parsed.success) return parsed.error;
 
-    if (!examId || !assignmentId) {
-      return err("examId and assignmentId are required", 400);
-    }
+    const { examId, assignmentId } = parsed.data;
 
     if (!(await canAccessAssignment(auth, assignmentId))) {
       return err("Forbidden: no access to this assignment", 403);

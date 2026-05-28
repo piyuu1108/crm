@@ -12,8 +12,8 @@ import {
 import { eq, and, inArray } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
-import { validateBody } from "@/app/lib/validations/validate";
-import { SaveTimetableSchema } from "@/app/lib/validations/schemas/timetable";
+import { validateBody, validateQuery } from "@/app/lib/validations/validate";
+import { SaveTimetableSchema, GetTimetableQuerySchema } from "@/app/lib/validations/schemas/timetable";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,11 +40,10 @@ export async function GET(req: NextRequest) {
     if (result instanceof NextResponse) return result;
     const auth = result;
 
-    const divisionId = req.nextUrl.searchParams.get("divisionId");
-    if (!divisionId) return err("divisionId is required", 400);
+    const parsed = validateQuery(req.nextUrl.searchParams, GetTimetableQuerySchema);
+    if (!parsed.success) return parsed.error;
 
-    const divId = Number(divisionId);
-    if (isNaN(divId) || divId <= 0) return err("Invalid divisionId", 400);
+    const divId = parsed.data.divisionId;
 
     // 1. Get division details
     const [division] = await db

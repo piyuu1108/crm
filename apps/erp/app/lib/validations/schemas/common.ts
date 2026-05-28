@@ -65,6 +65,7 @@ export const CategorySchema = z.enum(["SC", "ST", "OBC", "Open"]);
 export const BoardSchema = z.enum(["GSEB", "CBSE", "ICSE", "IB", "STATE", "OTHER"]);
 
 export const RequestStatusSchema = z.enum(["pending", "approved", "rejected"]);
+export const StatusEnumSchema = z.enum(["pending", "approved", "rejected"]); // added for Phase 1 strict adherence
 export const AttendanceStatusSchema = z.enum(["present", "absent"]);
 export const TargetTypeSchema = z.enum(["ALL", "FACULTY", "YEAR", "DIVISION"]);
 export const SubjectTypeSchema = z.enum(["theory", "practical", "both", "project_minor", "project_major"]);

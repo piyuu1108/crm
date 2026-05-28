@@ -5,8 +5,8 @@ import { studentRequests, students, faculty, semesters } from "@/app/lib/schema"
 import { eq, and, desc, count, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
 import { AuditLogger } from "@/app/lib/audit-logger";
-import { validateBody } from "@/app/lib/validations/validate";
-import { CreateStudentRequestSchema } from "@/app/lib/validations/schemas/request";
+import { validateBody, validateQuery } from "@/app/lib/validations/validate";
+import { CreateStudentRequestSchema, GetRequestsQuerySchema } from "@/app/lib/validations/schemas/request";
 
 /**
  * GET /api/requests
@@ -21,9 +21,10 @@ export async function GET(req: NextRequest) {
     const payload = result;
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20", 10), 50);
-    const offset = parseInt(searchParams.get("offset") || "0", 10);
+    const parsed = validateQuery(searchParams, GetRequestsQuerySchema);
+    if (!parsed.success) return parsed.error;
+
+    const { status, limit, offset } = parsed.data;
 
     // Build conditions
     const conditions = [eq(studentRequests.studentId, payload.userId)];

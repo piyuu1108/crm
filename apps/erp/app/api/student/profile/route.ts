@@ -5,6 +5,7 @@ import { students, studentDocuments, courses } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
 import {
   PersonalInfoSchema,
   ContactInfoSchema,
@@ -184,16 +185,9 @@ export async function PUT(req: NextRequest) {
 
     switch (step) {
       case 1: {
-        const stepData = data as PersonalInfoData;
-        const validation = PersonalInfoSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, PersonalInfoSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         updatePayload = {
           fullName: stepData.fullName.trim(),
           dob: stepData.dob,
@@ -204,16 +198,9 @@ export async function PUT(req: NextRequest) {
       }
 
       case 2: {
-        const stepData = data as ContactInfoData;
-        const validation = ContactInfoSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, ContactInfoSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         updatePayload = {
           mobile: stepData.mobile.replace(/\s+/g, ""),
           parentMobile: stepData.parentMobile?.replace(/\s+/g, "") || null,
@@ -243,16 +230,9 @@ export async function PUT(req: NextRequest) {
       }
 
       case 3: {
-        const stepData = data as AcademicInfoData;
-        const validation = AcademicInfoSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, AcademicInfoSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         updatePayload = {
           category: stepData.category,
           board: stepData.board,
@@ -265,16 +245,9 @@ export async function PUT(req: NextRequest) {
       }
 
       case 4: {
-        const stepData = data as DocumentsData;
-        const validation = DocumentsSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, DocumentsSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
 
         // Profile photo goes to students table
         if (stepData.profilePhoto) {

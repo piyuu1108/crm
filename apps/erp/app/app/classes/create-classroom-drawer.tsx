@@ -16,6 +16,7 @@ import {
 } from "@heroui/react";
 import type { UseOverlayStateReturn } from "@heroui/react";
 import { useCreateClassroomMutation } from "@/app/lib/queries/classrooms";
+import { CreateClassroomSchema } from "@/app/lib/validations/schemas/classroom";
 
 interface CreateClassroomDrawerProps {
   state: UseOverlayStateReturn;
@@ -56,25 +57,21 @@ export function CreateClassroomDrawer({ state }: CreateClassroomDrawerProps) {
   };
 
   const validate = (): boolean => {
-    const e: FormErrors = {};
-
-    if (!form.roomCode.trim()) {
-      e.roomCode = "Room Code is required";
+    const parsed = CreateClassroomSchema.safeParse({
+      ...form,
+      lectureCapacity: form.lectureCapacity ? Number(form.lectureCapacity) : undefined,
+    });
+    if (!parsed.success) {
+      const e: FormErrors = {};
+      parsed.error.issues.forEach((i) => {
+        const key = i.path.join(".") as keyof FormErrors;
+        if (!e[key]) e[key] = i.message;
+      });
+      setErrors(e);
+      return false;
     }
-
-    if (!form.floor) {
-      e.floor = "Floor selection is required";
-    }
-
-    const capNum = parseInt(form.lectureCapacity, 10);
-    if (!form.lectureCapacity.trim() || isNaN(capNum)) {
-      e.lectureCapacity = "Lecture Capacity is required";
-    } else if (capNum <= 0 || capNum > 500) {
-      e.lectureCapacity = "Capacity must be between 1 and 500";
-    }
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    setErrors({});
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -98,6 +95,10 @@ export function CreateClassroomDrawer({ state }: CreateClassroomDrawerProps) {
       setErrors({});
       state.close();
     } catch (err) {
+      const error = err as Error & { errors?: FormErrors };
+      if (error.errors) {
+        setErrors(error.errors);
+      }
       toast.danger("Failed to create classroom", {
         description: err instanceof Error ? err.message : "Something went wrong",
       });

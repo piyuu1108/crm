@@ -118,7 +118,9 @@ export async function createClassroom(
   const json = await res.json();
 
   if (!res.ok || !json.success) {
-    throw new Error(json.error ?? `Request failed: ${res.status}`);
+    const err = new Error(json.error ?? `Request failed: ${res.status}`) as Error & { errors?: Record<string, string> };
+    if (json.errors) err.errors = json.errors;
+    throw err;
   }
 
   return json.data as ClassroomListItem;

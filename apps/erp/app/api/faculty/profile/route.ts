@@ -5,6 +5,7 @@ import { faculty, administrators } from "@/app/lib/schema";
 import { requirePermission } from "@/app/lib/api-auth";
 import { isAdminTableRole } from "@/app/lib/permissions";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
 import {
   FacultyPersonalInfoSchema,
   FacultyContactInfoSchema,
@@ -141,16 +142,9 @@ export async function PUT(req: NextRequest) {
 
     switch (step) {
       case 1: {
-        const stepData = data as FacultyPersonalInfoData;
-        const validation = FacultyPersonalInfoSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, FacultyPersonalInfoSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         if (isAdmin) {
           await db
             .update(administrators)
@@ -174,16 +168,9 @@ export async function PUT(req: NextRequest) {
       }
 
       case 2: {
-        const stepData = data as FacultyContactInfoData;
-        const validation = FacultyContactInfoSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, FacultyContactInfoSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         const setParams = {
           mobile: stepData.mobile.replace(/\s+/g, ""),
           alternateMobile: stepData.alternateMobile?.replace(/\s+/g, "") || null,
@@ -211,16 +198,9 @@ export async function PUT(req: NextRequest) {
       }
 
       case 3: {
-        const stepData = data as FacultyProfessionalInfoData;
-        const validation = FacultyProfessionalInfoSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, FacultyProfessionalInfoSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         const setParams = {
           qualification: stepData.qualification.trim(),
           experienceYears: Number(stepData.experienceYears),
@@ -242,16 +222,9 @@ export async function PUT(req: NextRequest) {
       }
 
       case 4: {
-        const stepData = data as FacultyDocumentsData;
-        const validation = FacultyDocumentsValidationSchema.safeParse(stepData);
-        if (!validation.success) {
-          const errors: Record<string, string> = {};
-          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
-          return audit.error(
-            "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
-          );
-        }
+        const parsed = validateBody(data, FacultyDocumentsValidationSchema);
+        if (!parsed.success) return audit.error("Validation failed", parsed.error);
+        const stepData = parsed.data;
         if (isAdmin) {
           await db
             .update(administrators)

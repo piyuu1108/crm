@@ -6,6 +6,8 @@ import { students, faculty } from "@/app/lib/schema";
 import { redis } from "@/app/lib/redis";
 import { consumePasswordSetupToken } from "@/app/lib/password-setup-token";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SetPasswordSchema } from "@/app/lib/validations/schemas/auth";
 
 export async function POST(request: NextRequest) {
   const audit = AuditLogger.start(request, null, {
@@ -15,21 +17,11 @@ export async function POST(request: NextRequest) {
   });
 
   try {
-    const body = (await request.json().catch(() => ({}))) as {
-      token?: string;
-      newPassword?: string;
-      confirmPassword?: string;
-    };
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const parsed = validateBody(body, SetPasswordSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    const token = (body.token ?? "").trim();
-    const newPassword = body.newPassword ?? "";
-    const confirmPassword = body.confirmPassword ?? "";
-
-    if (!token) return audit.error("Token is required", undefined, 400);
-    if (!newPassword) return audit.error("New password is required", undefined, 400);
-    if (newPassword.length < 8) return audit.error("Password must be at least 8 characters", undefined, 400);
-    if (!confirmPassword) return audit.error("Confirm password is required", undefined, 400);
-    if (newPassword !== confirmPassword) return audit.error("Passwords do not match", undefined, 400);
+    const { token, newPassword } = parsed.data;
 
     const tokenLookup = await consumePasswordSetupToken(token);
     if (!tokenLookup.userId || !tokenLookup.userType) {

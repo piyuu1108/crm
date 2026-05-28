@@ -4,6 +4,8 @@ import { db } from "@/app/lib/db";
 import { internalExams, semesters } from "@/app/lib/schema";
 import { eq, and, desc, or } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { CreateInternalExamSchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -74,20 +76,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { examName, examNumber, targetType, targetYear, targetDivisionId, semesterId: reqSemId } = body;
+    const parsed = validateBody(body, CreateInternalExamSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!examName || typeof examNumber !== "number") {
-      return audit.error("examName and examNumber are required", undefined, 400);
-    }
-    if (!["ALL", "YEAR", "DIVISION"].includes(targetType || "ALL")) {
-      return audit.error("targetType must be ALL, YEAR, or DIVISION", undefined, 400);
-    }
-    if (targetType === "YEAR" && !targetYear) {
-      return audit.error("targetYear is required when targetType is YEAR", undefined, 400);
-    }
-    if (targetType === "DIVISION" && !targetDivisionId) {
-      return audit.error("targetDivisionId is required when targetType is DIVISION", undefined, 400);
-    }
+    const { examName, examNumber, targetType, targetYear, targetDivisionId, semesterId: reqSemId } = parsed.data;
 
     let semesterId: number;
     if (reqSemId) {

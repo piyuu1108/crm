@@ -14,6 +14,8 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SaveEvaluationSchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -209,11 +211,10 @@ export async function POST(req: NextRequest) {
     const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
-    const { assignmentId, semesterId, records } = body;
+    const parsed = validateBody(body, SaveEvaluationSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!assignmentId || !semesterId || !Array.isArray(records) || records.length === 0) {
-      return audit.error("assignmentId, semesterId, and non-empty records are required", err("assignmentId, semesterId, and non-empty records are required", 400));
-    }
+    const { assignmentId, semesterId, records } = parsed.data;
 
     if (!(await canAccessAssignment(auth, assignmentId))) {
       return audit.error("Forbidden: no access to this assignment", err("Forbidden: no access to this assignment", 403));
@@ -235,14 +236,9 @@ export async function POST(req: NextRequest) {
       return audit.error("Evaluation is finalized. Only HOD can override.", err("Evaluation is finalized. Only HOD can override.", 403));
     }
 
-    // Batch upsert
     const values = records.map(
-      (r: {
-        studentId: number;
-        finalTheoryMarks: number | null;
-        finalPracticalMarks: number | null;
-      }) =>
-        sql`(${assignmentId}, ${r.studentId}, ${semesterId}, ${r.finalTheoryMarks}, ${r.finalPracticalMarks}, false, ${userId}, NOW())`
+      (r) =>
+        sql`(${assignmentId}, ${r.studentId}, ${semesterId}, ${r.finalTheoryMarks ?? null}, ${r.finalPracticalMarks ?? null}, false, ${userId}, NOW())`
     );
 
     await db.execute(sql`

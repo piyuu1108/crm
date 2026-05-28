@@ -5,23 +5,25 @@ import { eq, or } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { logEvent } from "@/app/lib/logger";
 import { signToken, JWTPayload } from "@/app/lib/auth";
+import { validateBody } from "@/app/lib/validations/validate";
+import { LoginSchema } from "@/app/lib/validations/schemas/auth";
 
 export async function POST(request: Request) {
   try {
     
-    const body = await request.json();
-    const identifier = String(body.identifier ?? body.email ?? "").trim();
-    const password = String(body.password ?? "");
-    const ip =
-  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-  const ua = request.headers.get("user-agent") || null;
-
-    if (!identifier || !password) {
+    const body = await request.json().catch(() => ({}));
+    const parsed = validateBody(body, LoginSchema);
+    if (!parsed.success) {
       return NextResponse.json(
         { success: false, error: "Credential and password are required" },
         { status: 400 }
       );
     }
+
+    const { identifier, password } = parsed.data;
+    const ip =
+  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  const ua = request.headers.get("user-agent") || null;
 
     // 0) Try administrator login (email or adminCode)
     const adminUsers = await db

@@ -6,6 +6,8 @@ import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { CreateCircularSchema } from "@/app/lib/validations/schemas/circular";
 
 const VALID_TARGET_TYPES = ["ALL", "FACULTY", "YEAR", "DIVISION"] as const;
 type TargetType = (typeof VALID_TARGET_TYPES)[number];
@@ -30,6 +32,9 @@ export async function POST(req: NextRequest) {
     const isGlobalAdmin = isAdminTableRole(auth.activeRole);
 
     const body = await req.json();
+    const parsed = validateBody(body, CreateCircularSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
+
     const {
       title,
       description,
@@ -38,34 +43,8 @@ export async function POST(req: NextRequest) {
       attachmentSize,
       targetType,
       targetYear,
-      targetDivisionIds, // number[] — for DIVISION type
-    } = body;
-
-    // ── Validation ─────────────────────────────────────────────────────────────
-    if (!title || typeof title !== "string" || title.trim().length === 0) {
-      return audit.error("Title is required", undefined, 400);
-    }
-    if (title.trim().length > 255) {
-      return audit.error("Title must be 255 characters or less", undefined, 400);
-    }
-    if (!VALID_TARGET_TYPES.includes(targetType as TargetType)) {
-      return audit.error(`Invalid target type. Must be one of: ${VALID_TARGET_TYPES.join(", ")}`, undefined, 400);
-    }
-    if (targetType === "YEAR") {
-      const year = Number(targetYear);
-      if (!year || year < 1 || year > 6) {
-        return audit.error("Target year must be between 1 and 6", undefined, 400);
-      }
-    }
-    if (targetType === "DIVISION") {
-      if (!Array.isArray(targetDivisionIds) || targetDivisionIds.length === 0) {
-        return audit.error("At least one division must be selected for Division-targeted circulars", undefined, 400);
-      }
-      const ids = targetDivisionIds.map(Number);
-      if (ids.some((id) => isNaN(id) || id <= 0)) {
-        return audit.error("Invalid division ID(s)", undefined, 400);
-      }
-    }
+      targetDivisionIds,
+    } = parsed.data;
 
     // ── Get Creator Name ────────────────────────────────────────────────────────
     let creatorName = "";
@@ -151,7 +130,7 @@ export async function POST(req: NextRequest) {
           data: {
             ...newCircular,
             targetDivisionIds:
-              targetType === "DIVISION" ? targetDivisionIds.map(Number) : [],
+              targetType === "DIVISION" ? (targetDivisionIds ?? []).map(Number) : [],
           },
         },
         { status: 201 }
@@ -161,7 +140,7 @@ export async function POST(req: NextRequest) {
         slug: newCircular.slug,
         ttyp: targetType,
         tyr: targetType === "YEAR" ? Number(targetYear) : undefined,
-        divs: targetType === "DIVISION" ? targetDivisionIds.map(Number) : undefined,
+        divs: targetType === "DIVISION" ? (targetDivisionIds ?? []).map(Number) : undefined,
       }
     );
   } catch (error) {

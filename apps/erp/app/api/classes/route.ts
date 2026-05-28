@@ -4,6 +4,8 @@ import { classrooms, classroomBenches, courses } from "@/app/lib/schema";
 import { requirePermission, requireCourseId } from "@/app/lib/api-auth";
 import { eq, sql } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { CreateClassroomSchema } from "@/app/lib/validations/schemas/classroom";
 
 export async function GET(req: NextRequest) {
   const result = await requirePermission(req, "classes.view");
@@ -82,14 +84,10 @@ export async function POST(req: NextRequest) {
   try {
     const courseId = requireCourseId(auth);
     const body = await req.json();
-    const { roomCode, buildingName, floor, lectureCapacity, description } = body;
+    const parsed = validateBody(body, CreateClassroomSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!roomCode || !floor || !lectureCapacity) {
-      return audit.error(
-        "Missing required fields (roomCode, floor, lectureCapacity)",
-        NextResponse.json({ success: false, error: "Missing required fields (roomCode, floor, lectureCapacity)" }, { status: 400 })
-      );
-    }
+    const { roomCode, buildingName, floor, lectureCapacity, description } = parsed.data;
 
     // Check if room code already exists
     const [existing] = await db

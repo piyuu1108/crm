@@ -5,6 +5,8 @@ import { studentRequests, students, faculty, semesters } from "@/app/lib/schema"
 import { eq, and, desc, count, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { CreateStudentRequestSchema } from "@/app/lib/validations/schemas/request";
 
 /**
  * GET /api/requests
@@ -102,28 +104,18 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
+    const parsed = validateBody(body, CreateStudentRequestSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
+
     const {
       subject,
       description,
       targetFacultyId,
-      requestType = "general",
+      requestType,
       attachmentUrl,
       attachmentType,
       attachmentSize,
-    } = body;
-
-    // ── Validation ──────────────────────────────────────────────────────
-    if (!subject || typeof subject !== "string" || subject.trim().length === 0) {
-      return audit.error("Subject (title) is required", undefined, 400);
-    }
-
-    if (!description || typeof description !== "string" || description.trim().length === 0) {
-      return audit.error("Description is required", undefined, 400);
-    }
-
-    if (!targetFacultyId || typeof targetFacultyId !== "number") {
-      return audit.error("Target faculty is required", undefined, 400);
-    }
+    } = parsed.data;
 
     // ── Look up student info ────────────────────────────────────────────
     const [student] = await db

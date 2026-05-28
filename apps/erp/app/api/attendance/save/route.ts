@@ -10,6 +10,8 @@ import { eq } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SaveAttendanceSchema } from "@/app/lib/validations/schemas/attendance";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -42,18 +44,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { sessionId, records } = body;
+    const parsed = validateBody(body, SaveAttendanceSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!sessionId || !Array.isArray(records) || records.length === 0) {
-      return audit.error("sessionId and non-empty records array are required", undefined, 400);
-    }
-
-    // Validate records
-    for (const r of records) {
-      if (!r.studentId || !["present", "absent"].includes(r.status)) {
-        return audit.error("Each record must have studentId and status (present|absent)", undefined, 400);
-      }
-    }
+    const { sessionId, records } = parsed.data;
 
     const [session] = await db
       .select({

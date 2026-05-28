@@ -12,6 +12,8 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SaveExamMarksSchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -159,7 +161,7 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/internal-exams/marks
  * Batch upsert marks for an exam + assignment.
- * Body: { examId, assignmentId, isDraft, records: [{ studentId, theoryMarks?, practicalMarks?, studentName, subjectName, divisionName }] }
+ * Body: { examId, assignmentId, isDraft, records: [{ studentId, theoryMarks?, practicalMarks? }] }
  */
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, "exams.evaluate");
@@ -176,11 +178,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { examId, assignmentId, isDraft, records } = body;
+    const parsed = validateBody(body, SaveExamMarksSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!examId || !assignmentId || !Array.isArray(records) || records.length === 0) {
-      return audit.error("examId, assignmentId, and non-empty records are required", undefined, 400);
-    }
+    const { examId, assignmentId, isDraft, records } = parsed.data;
 
     if (!(await canAccessAssignment(auth, assignmentId))) {
       return audit.error("Forbidden: no access to this assignment", undefined, 403);
@@ -196,12 +197,8 @@ export async function POST(req: NextRequest) {
 
     // Batch upsert using raw SQL for ON CONFLICT
     const values = records.map(
-      (r: {
-        studentId: number;
-        theoryMarks: number | null;
-        practicalMarks: number | null;
-      }) =>
-        sql`(${examId}, ${assignmentId}, ${r.studentId}, ${r.theoryMarks}, ${r.practicalMarks}, ${isDraft ?? true}, false, ${userId}, NOW())`
+      (r) =>
+        sql`(${examId}, ${assignmentId}, ${r.studentId}, ${r.theoryMarks ?? null}, ${r.practicalMarks ?? null}, ${isDraft ?? true}, false, ${userId}, NOW())`
     );
 
     await db.execute(sql`

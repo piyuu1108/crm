@@ -5,10 +5,10 @@ import { faculty, administrators } from "@/app/lib/schema";
 import { requirePermission } from "@/app/lib/api-auth";
 import { isAdminTableRole } from "@/app/lib/permissions";
 import {
-  validateFacultyStep1,
-  validateFacultyStep2,
-  validateFacultyStep3,
-  validateFacultyStep4,
+  FacultyPersonalInfoSchema,
+  FacultyContactInfoSchema,
+  FacultyProfessionalInfoSchema,
+  FacultyDocumentsValidationSchema,
   type FacultyPersonalInfoData,
   type FacultyContactInfoData,
   type FacultyProfessionalInfoData,
@@ -112,16 +112,24 @@ export async function POST(req: NextRequest) {
     };
 
     // Run validations across all steps
-    const step1 = validateFacultyStep1(step1Data);
-    const step2 = validateFacultyStep2(step2Data);
-    const step3 = validateFacultyStep3(step3Data);
-    const step4 = validateFacultyStep4(step4Data);
+    const step1 = FacultyPersonalInfoSchema.safeParse(step1Data);
+    const step2 = FacultyContactInfoSchema.safeParse(step2Data);
+    const step3 = FacultyProfessionalInfoSchema.safeParse(step3Data);
+    const step4 = FacultyDocumentsValidationSchema.safeParse(step4Data);
 
-    const errors = [...step1.errors, ...step2.errors, ...step3.errors, ...step4.errors];
-    if (errors.length > 0) {
+    const isValid = step1.success && step2.success && step3.success && step4.success;
+    if (!isValid) {
+      const allErrors: Record<string, string> = {};
+      [step1, step2, step3, step4].forEach((res) => {
+        if (!res.success) {
+          res.error.issues.forEach((i: any) => {
+            allErrors[i.path.join(".")] = i.message;
+          });
+        }
+      });
       return audit.error(
         "Profile is incomplete. Please fill all required fields.",
-        NextResponse.json({ success: false, error: "Profile is incomplete. Please fill all required fields.", errors }, { status: 422 })
+        NextResponse.json({ success: false, error: "Profile is incomplete. Please fill all required fields.", errors: allErrors }, { status: 422 })
       );
     }
 

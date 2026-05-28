@@ -6,10 +6,10 @@ import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
 import {
-  validateStep1,
-  validateStep2,
-  validateStep3,
-  validateStep4,
+  PersonalInfoSchema,
+  ContactInfoSchema,
+  AcademicInfoSchema,
+  DocumentsSchema,
   type PersonalInfoData,
   type ContactInfoData,
   type AcademicInfoData,
@@ -185,11 +185,13 @@ export async function PUT(req: NextRequest) {
     switch (step) {
       case 1: {
         const stepData = data as PersonalInfoData;
-        const validation = validateStep1(stepData);
-        if (!validation.valid) {
+        const validation = PersonalInfoSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         updatePayload = {
@@ -203,11 +205,13 @@ export async function PUT(req: NextRequest) {
 
       case 2: {
         const stepData = data as ContactInfoData;
-        const validation = validateStep2(stepData);
-        if (!validation.valid) {
+        const validation = ContactInfoSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         updatePayload = {
@@ -240,11 +244,13 @@ export async function PUT(req: NextRequest) {
 
       case 3: {
         const stepData = data as AcademicInfoData;
-        const validation = validateStep3(stepData);
-        if (!validation.valid) {
+        const validation = AcademicInfoSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         updatePayload = {
@@ -260,12 +266,13 @@ export async function PUT(req: NextRequest) {
 
       case 4: {
         const stepData = data as DocumentsData;
-        // Validation uses category/board from student record for conditional checks
-        const validation = validateStep4(stepData, student.category ?? undefined, student.board ?? undefined);
-        if (!validation.valid) {
+        const validation = DocumentsSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
 

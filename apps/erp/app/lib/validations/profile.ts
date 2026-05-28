@@ -114,35 +114,3 @@ export const StudentProfileSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Migration Certificate is required for non-GSEB board", path: ["step4", "migrationCertificate"] });
   }
 });
-
-// Legacy wrapper functions for frontend compatibility
-export interface ValidationError {
-  field: string;
-  message: string;
-}
-export interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-}
-function toValidationResult(result: any): ValidationResult {
-  if (result.success) return { valid: true, errors: [] };
-  return {
-    valid: false,
-    errors: result.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
-  };
-}
-
-export function validateStep1(data: PersonalInfoData) { return toValidationResult(PersonalInfoSchema.safeParse(data)); }
-export function validateStep2(data: ContactInfoData) { return toValidationResult(ContactInfoSchema.safeParse(data)); }
-export function validateStep3(data: AcademicInfoData) { return toValidationResult(AcademicInfoSchema.safeParse(data)); }
-export function validateStep4(data: DocumentsData, category?: string, board?: string) {
-  const result = DocumentsValidationSchema.superRefine((d, ctx) => {
-    if (category && category !== "Open" && !d.casteCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Caste Certificate is required for your category", path: ["casteCertificate"] });
-    if (board && board !== "GSEB" && !d.migrationCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Migration Certificate is required for non-GSEB board", path: ["migrationCertificate"] });
-  }).safeParse(data);
-  return toValidationResult(result);
-}
-
-export function validateAllSteps(step1: PersonalInfoData, step2: ContactInfoData, step3: AcademicInfoData, step4: DocumentsData): ValidationResult {
-  return toValidationResult(StudentProfileSchema.safeParse({ step1, step2, step3, step4 }));
-}

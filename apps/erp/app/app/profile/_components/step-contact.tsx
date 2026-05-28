@@ -18,12 +18,11 @@ import {
 import { ArrowRight } from "@gravity-ui/icons";
 import { useSaveStepMutation, type ProfileData } from "@/app/lib/queries/profile";
 import {
-  validateStep2,
+  ContactInfoSchema,
   ADDRESS_KINDS,
   type ContactInfoData,
   type StudentAddressData,
   type AddressKind,
-  type ValidationError,
 } from "@/app/lib/validations/profile";
 
 const ADDRESS_KIND_LABELS: Record<AddressKind, string> = {
@@ -59,7 +58,7 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
     aadhaarParent: profile.aadhaarParent || "",
   });
 
-  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -79,9 +78,6 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
     profile.aadhaarStudent,
     profile.aadhaarParent,
   ]);
-
-  const getFieldError = (field: string) =>
-    errors.find((e) => e.field === field)?.message;
 
   const setCurrentAddr = (patch: Partial<StudentAddressData["current"]>) =>
     setForm((p) => ({
@@ -104,9 +100,17 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
     e.preventDefault();
     setServerError(null);
 
-    const result = validateStep2(form);
-    setErrors(result.errors);
-    if (!result.valid) return;
+    const parsed = ContactInfoSchema.safeParse(form);
+    if (!parsed.success) {
+      const formattedErrors: Record<string, string> = {};
+      parsed.error.issues.forEach(i => {
+        const key = i.path.join(".");
+        if (!formattedErrors[key]) formattedErrors[key] = i.message;
+      });
+      setErrors(formattedErrors);
+      return;
+    }
+    setErrors({});
 
     onSaving(true);
     try {
@@ -134,40 +138,40 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
       <div className="grid gap-5 sm:grid-cols-2">
         <TextField
           isRequired
-          isInvalid={!!getFieldError("mobile")}
+          isInvalid={!!errors["mobile"]}
           value={form.mobile}
           onChange={(v) => setForm((p) => ({ ...p, mobile: v }))}
         >
           <Label>Mobile Number</Label>
           <Input placeholder="10-digit number" maxLength={10} />
-          {getFieldError("mobile") ? (
-            <FieldError>{getFieldError("mobile")}</FieldError>
+          {errors["mobile"] ? (
+            <FieldError>{errors["mobile"]}</FieldError>
           ) : (
             <Description>10-digit number</Description>
           )}
         </TextField>
 
         <TextField
-          isInvalid={!!getFieldError("parentMobile")}
+          isInvalid={!!errors["parentMobile"]}
           value={form.parentMobile ?? ""}
           onChange={(v) => setForm((p) => ({ ...p, parentMobile: v }))}
         >
           <Label>Parent Mobile</Label>
           <Input placeholder="10-digit number" maxLength={10} />
-          {getFieldError("parentMobile") && (
-            <FieldError>{getFieldError("parentMobile")}</FieldError>
+          {errors["parentMobile"] && (
+            <FieldError>{errors["parentMobile"]}</FieldError>
           )}
         </TextField>
 
         <TextField
-          isInvalid={!!getFieldError("optionalMobile")}
+          isInvalid={!!errors["optionalMobile"]}
           value={form.optionalMobile ?? ""}
           onChange={(v) => setForm((p) => ({ ...p, optionalMobile: v }))}
         >
           <Label>Optional Mobile</Label>
           <Input placeholder="10-digit number" maxLength={10} />
-          {getFieldError("optionalMobile") && (
-            <FieldError>{getFieldError("optionalMobile")}</FieldError>
+          {errors["optionalMobile"] && (
+            <FieldError>{errors["optionalMobile"]}</FieldError>
           )}
         </TextField>
       </div>
@@ -182,7 +186,7 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
           <div className="sm:col-span-2">
             <Select
               isRequired
-              isInvalid={!!getFieldError("address.current.kind")}
+              isInvalid={!!errors["address.current.kind"]}
               value={form.address.current.kind || null}
               onChange={(key: Key | null) => {
                 const kind = String(key ?? "home") as AddressKind;
@@ -207,8 +211,8 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
                   ))}
                 </ListBox>
               </Select.Popover>
-              {getFieldError("address.current.kind") && (
-                <FieldError>{getFieldError("address.current.kind")}</FieldError>
+              {errors["address.current.kind"] && (
+                <FieldError>{errors["address.current.kind"]}</FieldError>
               )}
             </Select>
           </div>
@@ -217,7 +221,7 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
           <div className="sm:col-span-2">
             <TextField
               isRequired
-              isInvalid={!!getFieldError("address.current.line1")}
+              isInvalid={!!errors["address.current.line1"]}
               value={form.address.current.line1}
               onChange={(v) => setCurrentAddr({ line1: v })}
             >
@@ -229,8 +233,8 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
                   : "Address Line 1"}
               </Label>
               <Input placeholder="Building / street / locality" />
-              {getFieldError("address.current.line1") && (
-                <FieldError>{getFieldError("address.current.line1")}</FieldError>
+              {errors["address.current.line1"] && (
+                <FieldError>{errors["address.current.line1"]}</FieldError>
               )}
             </TextField>
           </div>
@@ -238,28 +242,28 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
           {/* City */}
           <TextField
             isRequired
-            isInvalid={!!getFieldError("address.current.city")}
+            isInvalid={!!errors["address.current.city"]}
             value={form.address.current.city}
             onChange={(v) => setCurrentAddr({ city: v })}
           >
             <Label>City</Label>
             <Input placeholder="e.g. Ahmedabad" />
-            {getFieldError("address.current.city") && (
-              <FieldError>{getFieldError("address.current.city")}</FieldError>
+            {errors["address.current.city"] && (
+              <FieldError>{errors["address.current.city"]}</FieldError>
             )}
           </TextField>
 
           {/* Pincode */}
           <TextField
             isRequired
-            isInvalid={!!getFieldError("address.current.pincode")}
+            isInvalid={!!errors["address.current.pincode"]}
             value={form.address.current.pincode}
             onChange={(v) => setCurrentAddr({ pincode: v.replace(/\D/g, "").slice(0, 6) })}
           >
             <Label>Pincode</Label>
             <Input placeholder="6-digit pincode" maxLength={6} inputMode="numeric" />
-            {getFieldError("address.current.pincode") ? (
-              <FieldError>{getFieldError("address.current.pincode")}</FieldError>
+            {errors["address.current.pincode"] ? (
+              <FieldError>{errors["address.current.pincode"]}</FieldError>
             ) : (
               <Description>6-digit Indian pincode</Description>
             )}
@@ -276,7 +280,7 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
             <p className="mb-3 text-xs text-muted-foreground">
               Required for hostel / PG residents — your parents' / permanent address.
             </p>
-            {getFieldError("address.home.line1") && !form.address.home && (
+            {errors["address.home.line1"] && !form.address.home && (
               <Alert status="warning" className="mb-3">
                 <Alert.Indicator />
                 <Alert.Content>
@@ -288,41 +292,41 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
               <div className="sm:col-span-2">
                 <TextField
                   isRequired
-                  isInvalid={!!getFieldError("address.home.line1")}
+                  isInvalid={!!errors["address.home.line1"]}
                   value={form.address.home?.line1 ?? ""}
                   onChange={(v) => setHomeAddr({ line1: v })}
                 >
                   <Label>Home Address Line 1</Label>
                   <Input placeholder="Building / street / village" />
-                  {getFieldError("address.home.line1") && (
-                    <FieldError>{getFieldError("address.home.line1")}</FieldError>
+                  {errors["address.home.line1"] && (
+                    <FieldError>{errors["address.home.line1"]}</FieldError>
                   )}
                 </TextField>
               </div>
 
               <TextField
                 isRequired
-                isInvalid={!!getFieldError("address.home.city")}
+                isInvalid={!!errors["address.home.city"]}
                 value={form.address.home?.city ?? ""}
                 onChange={(v) => setHomeAddr({ city: v })}
               >
                 <Label>Home City</Label>
                 <Input placeholder="e.g. Surat" />
-                {getFieldError("address.home.city") && (
-                  <FieldError>{getFieldError("address.home.city")}</FieldError>
+                {errors["address.home.city"] && (
+                  <FieldError>{errors["address.home.city"]}</FieldError>
                 )}
               </TextField>
 
               <TextField
                 isRequired
-                isInvalid={!!getFieldError("address.home.pincode")}
+                isInvalid={!!errors["address.home.pincode"]}
                 value={form.address.home?.pincode ?? ""}
                 onChange={(v) => setHomeAddr({ pincode: v.replace(/\D/g, "").slice(0, 6) })}
               >
                 <Label>Home Pincode</Label>
                 <Input placeholder="6-digit pincode" maxLength={6} inputMode="numeric" />
-                {getFieldError("address.home.pincode") ? (
-                  <FieldError>{getFieldError("address.home.pincode")}</FieldError>
+                {errors["address.home.pincode"] ? (
+                  <FieldError>{errors["address.home.pincode"]}</FieldError>
                 ) : (
                   <Description>6-digit Indian pincode</Description>
                 )}
@@ -337,28 +341,28 @@ export function StepContact({ profile, onSaved, onSaving }: StepContactProps) {
       {/* ── Aadhaar ───────────────────────────────────────────────── */}
       <div className="grid gap-5 sm:grid-cols-2">
         <TextField
-          isInvalid={!!getFieldError("aadhaarStudent")}
+          isInvalid={!!errors["aadhaarStudent"]}
           value={form.aadhaarStudent ?? ""}
           onChange={(v) => setForm((p) => ({ ...p, aadhaarStudent: v }))}
         >
           <Label>Student Aadhaar Number</Label>
           <Input placeholder="12-digit Aadhaar" maxLength={12} />
-          {getFieldError("aadhaarStudent") ? (
-            <FieldError>{getFieldError("aadhaarStudent")}</FieldError>
+          {errors["aadhaarStudent"] ? (
+            <FieldError>{errors["aadhaarStudent"]}</FieldError>
           ) : (
             <Description>12-digit Aadhaar</Description>
           )}
         </TextField>
 
         <TextField
-          isInvalid={!!getFieldError("aadhaarParent")}
+          isInvalid={!!errors["aadhaarParent"]}
           value={form.aadhaarParent ?? ""}
           onChange={(v) => setForm((p) => ({ ...p, aadhaarParent: v }))}
         >
           <Label>Parent Aadhaar Number</Label>
           <Input placeholder="12-digit Aadhaar" maxLength={12} />
-          {getFieldError("aadhaarParent") ? (
-            <FieldError>{getFieldError("aadhaarParent")}</FieldError>
+          {errors["aadhaarParent"] ? (
+            <FieldError>{errors["aadhaarParent"]}</FieldError>
           ) : (
             <Description>12-digit Aadhaar</Description>
           )}

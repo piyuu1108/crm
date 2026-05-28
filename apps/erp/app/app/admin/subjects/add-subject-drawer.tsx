@@ -25,10 +25,6 @@ import {
 } from "@/app/lib/validations/schemas/subject";
 import { SubjectTypeSchema } from "@/app/lib/validations/schemas/common";
 
-interface ValidationError {
-  field: string;
-  message: string;
-}
 
 const SUBJECT_TYPES = SubjectTypeSchema.options;
 import { useQueryClient } from "@tanstack/react-query";
@@ -38,9 +34,6 @@ interface AddSubjectDrawerProps {
   state: UseOverlayStateReturn;
 }
 
-function getFieldError(errors: ValidationError[], field: string): string | undefined {
-  return errors.find((e) => e.field === field)?.message;
-}
 
 const TYPE_LABELS: Record<string, string> = {
   theory: "Theory",
@@ -55,13 +48,17 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
   const mutation = useCreateSubjectMutation();
 
   const [form, setForm] = useState<SubjectFormData>({ ...INITIAL_SUBJECT_FORM });
-  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
   const updateField = useCallback(
     <K extends keyof SubjectFormData>(field: K, value: SubjectFormData[K]) => {
       setForm((prev) => ({ ...prev, [field]: value }));
-      setErrors((prev) => prev.filter((e) => e.field !== field));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
     },
     []
   );
@@ -85,10 +82,15 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
 
       const validation = SubjectSchema.safeParse(form);
       if (!validation.success) {
-        setErrors(validation.error.issues.map(i => ({ field: i.path.join("."), message: i.message })));
+        const formattedErrors: Record<string, string> = {};
+        validation.error.issues.forEach((i: any) => {
+          const key = i.path.join(".");
+          if (!formattedErrors[key]) formattedErrors[key] = i.message;
+        });
+        setErrors(formattedErrors);
         return;
       }
-      setErrors([]);
+      setErrors({});
 
       try {
         const created = await mutation.mutateAsync(form);
@@ -102,10 +104,7 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
         const error = err as Error & { errors?: Record<string, string> };
         setServerError(error.message);
         if (error.errors) {
-          const serverErrors: ValidationError[] = Object.entries(error.errors).map(
-            ([field, message]) => ({ field, message })
-          );
-          setErrors(serverErrors);
+          setErrors(error.errors);
         }
       }
     },
@@ -115,7 +114,7 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
   const handleClose = () => {
     if (!mutation.isPending) {
       setForm({ ...INITIAL_SUBJECT_FORM });
-      setErrors([]);
+      setErrors({});
       setServerError(null);
       state.close();
     }
@@ -147,14 +146,14 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
                 <div className="grid grid-cols-2 gap-4">
                   <TextField
                     isRequired
-                    isInvalid={!!getFieldError(errors, "code")}
+                    isInvalid={!!errors["code"]}
                     value={form.code}
                     onChange={(v) => updateField("code", v)}
                   >
                     <Label>Subject Code</Label>
                     <Input placeholder="e.g. BCA101" variant="secondary" />
-                    {getFieldError(errors, "code") && (
-                      <FieldError>{getFieldError(errors, "code")}</FieldError>
+                    {errors["code"] && (
+                      <FieldError>{errors["code"]}</FieldError>
                     )}
                   </TextField>
 
@@ -169,23 +168,23 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
 
                 <TextField
                   isRequired
-                  isInvalid={!!getFieldError(errors, "name")}
+                  isInvalid={!!errors["name"]}
                   value={form.name}
                   onChange={(v) => updateField("name", v)}
                 >
                   <Label>Subject Name</Label>
-                  <Input placeholder="e.g. Java Programming" variant="secondary" />
-                  {getFieldError(errors, "name") && (
-                    <FieldError>{getFieldError(errors, "name")}</FieldError>
+                  <Input placeholder="e.g. Data Structures and Algorithms" variant="secondary" />
+                  {errors["name"] && (
+                    <FieldError>{errors["name"]}</FieldError>
                   )}
                 </TextField>
 
                 <div className="grid grid-cols-3 gap-4">
                   <Select
                     isRequired
-                    isInvalid={!!getFieldError(errors, "subjectType")}
+                    isInvalid={!!errors["subjectType"]}
                     selectedKey={form.subjectType || null}
-                    placeholder="Type"
+                    placeholder="Select type"
                     onSelectionChange={(key: Key | null) => {
                       const newType = String(key ?? "") as SubjectFormData["subjectType"];
                       updateField("subjectType", newType);
@@ -216,14 +215,14 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
                     <Select.Popover>
                       <ListBox>
                         {SUBJECT_TYPES.map((t) => (
-                          <ListBox.Item key={t} id={t}>
-                            {TYPE_LABELS[t] ?? t}
+                          <ListBox.Item key={t} id={t} textValue={TYPE_LABELS[t]}>
+                            {TYPE_LABELS[t]}
                           </ListBox.Item>
                         ))}
                       </ListBox>
                     </Select.Popover>
-                    {getFieldError(errors, "subjectType") && (
-                      <FieldError>{getFieldError(errors, "subjectType")}</FieldError>
+                    {errors["subjectType"] && (
+                      <FieldError>{errors["subjectType"]}</FieldError>
                     )}
                   </Select>
 
@@ -262,40 +261,40 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
                           <NumberField
                             isRequired
                             minValue={0}
-                            isInvalid={!!getFieldError(errors, "internalTheoryMax")}
+                            isInvalid={!!errors["internalTheoryMax"]}
                             value={form.internalTheoryMax ? Number(form.internalTheoryMax) : undefined}
                             onChange={(v) => updateField("internalTheoryMax", String(v ?? ""))}
                           >
-                            <Label>Internal</Label>
-                            <Input placeholder="30" variant="secondary" />
-                            {getFieldError(errors, "internalTheoryMax") && (
-                              <FieldError>{getFieldError(errors, "internalTheoryMax")}</FieldError>
+                            <Label>Internal Max</Label>
+                            <Input placeholder="0" variant="secondary" />
+                            {errors["internalTheoryMax"] && (
+                              <FieldError>{errors["internalTheoryMax"]}</FieldError>
                             )}
                           </NumberField>
                           <NumberField
                             isRequired
                             minValue={0}
-                            isInvalid={!!getFieldError(errors, "externalTheoryMax")}
+                            isInvalid={!!errors["externalTheoryMax"]}
                             value={form.externalTheoryMax ? Number(form.externalTheoryMax) : undefined}
                             onChange={(v) => updateField("externalTheoryMax", String(v ?? ""))}
                           >
-                            <Label>External</Label>
-                            <Input placeholder="70" variant="secondary" />
-                            {getFieldError(errors, "externalTheoryMax") && (
-                              <FieldError>{getFieldError(errors, "externalTheoryMax")}</FieldError>
+                            <Label>External Max</Label>
+                            <Input placeholder="0" variant="secondary" />
+                            {errors["externalTheoryMax"] && (
+                              <FieldError>{errors["externalTheoryMax"]}</FieldError>
                             )}
                           </NumberField>
                           <NumberField
                             isRequired
                             minValue={0}
-                            isInvalid={!!getFieldError(errors, "theoryPassingMarks")}
+                            isInvalid={!!errors["theoryPassingMarks"]}
                             value={form.theoryPassingMarks ? Number(form.theoryPassingMarks) : undefined}
                             onChange={(v) => updateField("theoryPassingMarks", String(v ?? ""))}
                           >
                             <Label>Passing</Label>
                             <Input placeholder="28" variant="secondary" />
-                            {getFieldError(errors, "theoryPassingMarks") && (
-                              <FieldError>{getFieldError(errors, "theoryPassingMarks")}</FieldError>
+                            {errors["theoryPassingMarks"] && (
+                              <FieldError>{errors["theoryPassingMarks"]}</FieldError>
                             )}
                           </NumberField>
                         </div>
@@ -316,40 +315,40 @@ export function AddSubjectDrawer({ state }: AddSubjectDrawerProps) {
                           <NumberField
                             isRequired
                             minValue={0}
-                            isInvalid={!!getFieldError(errors, "internalPracticalMax")}
+                            isInvalid={!!errors["internalPracticalMax"]}
                             value={form.internalPracticalMax ? Number(form.internalPracticalMax) : undefined}
                             onChange={(v) => updateField("internalPracticalMax", String(v ?? ""))}
                           >
-                            <Label>Internal</Label>
-                            <Input placeholder="25" variant="secondary" />
-                            {getFieldError(errors, "internalPracticalMax") && (
-                              <FieldError>{getFieldError(errors, "internalPracticalMax")}</FieldError>
+                            <Label>Internal Max</Label>
+                            <Input placeholder="0" variant="secondary" />
+                            {errors["internalPracticalMax"] && (
+                              <FieldError>{errors["internalPracticalMax"]}</FieldError>
                             )}
                           </NumberField>
                           <NumberField
                             isRequired
                             minValue={0}
-                            isInvalid={!!getFieldError(errors, "externalPracticalMax")}
+                            isInvalid={!!errors["externalPracticalMax"]}
                             value={form.externalPracticalMax ? Number(form.externalPracticalMax) : undefined}
                             onChange={(v) => updateField("externalPracticalMax", String(v ?? ""))}
                           >
-                            <Label>External</Label>
-                            <Input placeholder="25" variant="secondary" />
-                            {getFieldError(errors, "externalPracticalMax") && (
-                              <FieldError>{getFieldError(errors, "externalPracticalMax")}</FieldError>
+                            <Label>External Max</Label>
+                            <Input placeholder="0" variant="secondary" />
+                            {errors["externalPracticalMax"] && (
+                              <FieldError>{errors["externalPracticalMax"]}</FieldError>
                             )}
                           </NumberField>
                           <NumberField
                             isRequired
                             minValue={0}
-                            isInvalid={!!getFieldError(errors, "practicalPassingMarks")}
+                            isInvalid={!!errors["practicalPassingMarks"]}
                             value={form.practicalPassingMarks ? Number(form.practicalPassingMarks) : undefined}
                             onChange={(v) => updateField("practicalPassingMarks", String(v ?? ""))}
                           >
                             <Label>Passing</Label>
                             <Input placeholder="13" variant="secondary" />
-                            {getFieldError(errors, "practicalPassingMarks") && (
-                              <FieldError>{getFieldError(errors, "practicalPassingMarks")}</FieldError>
+                            {errors["practicalPassingMarks"] && (
+                              <FieldError>{errors["practicalPassingMarks"]}</FieldError>
                             )}
                           </NumberField>
                         </div>

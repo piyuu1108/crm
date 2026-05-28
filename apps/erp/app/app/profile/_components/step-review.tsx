@@ -5,10 +5,10 @@ import { Button, Alert, Separator, Spinner, toast } from "@heroui/react";
 import { Check, CircleCheck, CircleXmark } from "@gravity-ui/icons";
 import { useSubmitProfileMutation, type ProfileData } from "@/app/lib/queries/profile";
 import {
-  validateStep1,
-  validateStep2,
-  validateStep3,
-  validateStep4,
+  PersonalInfoSchema,
+  ContactInfoSchema,
+  AcademicInfoSchema,
+  DocumentsSchema,
   type PersonalInfoData,
   type ContactInfoData,
   type AcademicInfoData,
@@ -102,12 +102,12 @@ export function StepReview({ profile }: StepReviewProps) {
   };
 
   // Per-section validation
-  const v1 = validateStep1(step1);
-  const v2 = validateStep2(step2);
-  const v3 = validateStep3(step3);
-  const v4 = validateStep4(step4, step3.category, step3.board);
+  const v1 = PersonalInfoSchema.safeParse(step1);
+  const v2 = ContactInfoSchema.safeParse(step2);
+  const v3 = AcademicInfoSchema.safeParse(step3);
+  const v4 = DocumentsSchema.safeParse(step4);
 
-  const allValid = v1.valid && v2.valid && v3.valid && v4.valid;
+  const allValid = v1.success && v2.success && v3.success && v4.success;
 
   const handleSubmit = async () => {
     setServerError(null);
@@ -159,7 +159,7 @@ export function StepReview({ profile }: StepReviewProps) {
       )}
 
       {/* Section 1: Personal */}
-      <ReviewSection title="Personal Information" isValid={v1.valid}>
+      <ReviewSection title="Personal Information" isValid={v1.success}>
         <ReviewField label="Full Name" value={profile.fullName} />
         <ReviewField label="Date of Birth" value={profile.dob} />
         <ReviewField label="Gender" value={profile.gender} />
@@ -170,7 +170,7 @@ export function StepReview({ profile }: StepReviewProps) {
       <Separator />
 
       {/* Section 2: Contact */}
-      <ReviewSection title="Contact Information" isValid={v2.valid}>
+      <ReviewSection title="Contact Information" isValid={v2.success}>
         <ReviewField label="Mobile" value={profile.mobile} />
         <ReviewField label="Parent Mobile" value={profile.parentMobile} />
         <ReviewField label="Optional Mobile" value={profile.optionalMobile} />
@@ -195,7 +195,7 @@ export function StepReview({ profile }: StepReviewProps) {
       <Separator />
 
       {/* Section 3: Academic */}
-      <ReviewSection title="Academic Information" isValid={v3.valid}>
+      <ReviewSection title="Academic Information" isValid={v3.success}>
         <ReviewField label="Student ID" value={profile.studentId} />
         <ReviewField label="Course" value={profile.courseName} />
         <ReviewField label="Division" value={profile.currentDivisionName} />
@@ -210,7 +210,7 @@ export function StepReview({ profile }: StepReviewProps) {
       <Separator />
 
       {/* Section 4: Documents */}
-      <ReviewSection title="Documents" isValid={v4.valid}>
+      <ReviewSection title="Documents" isValid={v4.success}>
         <ReviewField label="Profile Photo" value={profile.profilePhoto ? "✓ Uploaded" : "Missing"} />
         <ReviewField label="LC Certificate" value={profile.documents?.["lc_certificate"] ? "✓ Uploaded" : "Missing"} />
         <ReviewField label="10th Marksheet" value={profile.documents?.["marksheet_10th"] ? "✓ Uploaded" : "Missing"} />

@@ -17,11 +17,10 @@ import type { Key } from "@heroui/react";
 import { ArrowRight } from "@gravity-ui/icons";
 import { useSaveStepMutation, type ProfileData } from "@/app/lib/queries/profile";
 import {
-  validateStep3,
+  AcademicInfoSchema,
   CATEGORIES,
   BOARDS,
   type AcademicInfoData,
-  type ValidationError,
 } from "@/app/lib/validations/profile";
 
 interface StepAcademicProps {
@@ -42,7 +41,7 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
     udiseCode: profile.udiseCode || "",
   });
 
-  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,16 +62,21 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
     profile.udiseCode,
   ]);
 
-  const getFieldError = (field: string) =>
-    errors.find((e) => e.field === field)?.message;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
 
-    const result = validateStep3(form);
-    setErrors(result.errors);
-    if (!result.valid) return;
+    const parsed = AcademicInfoSchema.safeParse(form);
+    if (!parsed.success) {
+      const formattedErrors: Record<string, string> = {};
+      parsed.error.issues.forEach(i => {
+        const key = i.path.join(".");
+        if (!formattedErrors[key]) formattedErrors[key] = i.message;
+      });
+      setErrors(formattedErrors);
+      return;
+    }
+    setErrors({});
 
     onSaving(true);
     try {
@@ -128,7 +132,7 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
       <div className="grid gap-5 sm:grid-cols-2">
         <Select
           isRequired
-          isInvalid={!!getFieldError("category")}
+          isInvalid={!!errors["category"]}
           placeholder="Select category"
           value={form.category || null}
           onChange={(key: Key | null) =>
@@ -150,14 +154,14 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
               ))}
             </ListBox>
           </Select.Popover>
-          {getFieldError("category") && (
-            <FieldError>{getFieldError("category")}</FieldError>
+          {errors["category"] && (
+            <FieldError>{errors["category"]}</FieldError>
           )}
         </Select>
 
         <Select
           isRequired
-          isInvalid={!!getFieldError("board")}
+          isInvalid={!!errors["board"]}
           placeholder="Select board"
           value={form.board || null}
           onChange={(key: Key | null) =>
@@ -179,22 +183,22 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
               ))}
             </ListBox>
           </Select.Popover>
-          {getFieldError("board") && (
-            <FieldError>{getFieldError("board")}</FieldError>
+          {errors["board"] && (
+            <FieldError>{errors["board"]}</FieldError>
           )}
         </Select>
 
         <TextField
           isRequired
           type="number"
-          isInvalid={!!getFieldError("twelfthPercent")}
+          isInvalid={!!errors["twelfthPercent"]}
           value={String(form.twelfthPercent)}
           onChange={(v) => setForm((p) => ({ ...p, twelfthPercent: v }))}
         >
           <Label>12th Percentage</Label>
           <Input placeholder="e.g. 85.50" />
-          {getFieldError("twelfthPercent") ? (
-            <FieldError>{getFieldError("twelfthPercent")}</FieldError>
+          {errors["twelfthPercent"] ? (
+            <FieldError>{errors["twelfthPercent"]}</FieldError>
           ) : (
             <Description>e.g. 85.50</Description>
           )}
@@ -202,14 +206,14 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
 
         <TextField
           isRequired
-          isInvalid={!!getFieldError("twelfthStream")}
+          isInvalid={!!errors["twelfthStream"]}
           value={form.twelfthStream}
           onChange={(v) => setForm((p) => ({ ...p, twelfthStream: v }))}
         >
           <Label>12th Stream</Label>
           <Input placeholder="e.g. Science, Commerce, Arts" />
-          {getFieldError("twelfthStream") ? (
-            <FieldError>{getFieldError("twelfthStream")}</FieldError>
+          {errors["twelfthStream"] ? (
+            <FieldError>{errors["twelfthStream"]}</FieldError>
           ) : (
             <Description>e.g. Science, Commerce, Arts</Description>
           )}
@@ -217,26 +221,26 @@ export function StepAcademic({ profile, onSaved, onSaving }: StepAcademicProps) 
 
         <TextField
           isRequired
-          isInvalid={!!getFieldError("schoolName")}
+          isInvalid={!!errors["schoolName"]}
           value={form.schoolName}
           onChange={(v) => setForm((p) => ({ ...p, schoolName: v }))}
         >
           <Label>School Name</Label>
           <Input placeholder="Enter your school name" />
-          {getFieldError("schoolName") && (
-            <FieldError>{getFieldError("schoolName")}</FieldError>
+          {errors["schoolName"] && (
+            <FieldError>{errors["schoolName"]}</FieldError>
           )}
         </TextField>
 
         <TextField
-          isInvalid={!!getFieldError("udiseCode")}
+          isInvalid={!!errors["udiseCode"]}
           value={form.udiseCode ?? ""}
           onChange={(v) => setForm((p) => ({ ...p, udiseCode: v }))}
         >
           <Label>UDISE Code</Label>
           <Input placeholder="School's UDISE code" />
-          {getFieldError("udiseCode") ? (
-            <FieldError>{getFieldError("udiseCode")}</FieldError>
+          {errors["udiseCode"] ? (
+            <FieldError>{errors["udiseCode"]}</FieldError>
           ) : (
             <Description>School's UDISE code (optional)</Description>
           )}

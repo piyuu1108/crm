@@ -42,30 +42,10 @@ export const FacultyDocumentsSchema = z.object({
 });
 export type FacultyDocumentsData = z.infer<typeof FacultyDocumentsSchema>;
 
-const FacultyDocumentsValidationSchema = FacultyDocumentsSchema.superRefine((data, ctx) => {
+export const FacultyDocumentsValidationSchema = FacultyDocumentsSchema.superRefine((data, ctx) => {
   if (!data.profilePhotoUrl) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Profile photo is required", path: ["profilePhotoUrl"] });
   }
 });
 
-// Legacy wrapper functions for frontend compatibility
-export interface ValidationError {
-  field: string;
-  message: string;
-}
-export interface ValidationResult {
-  valid: boolean;
-  errors: ValidationError[];
-}
-function toValidationResult(result: any): ValidationResult {
-  if (result.success) return { valid: true, errors: [] };
-  return {
-    valid: false,
-    errors: result.error.issues.map((i: any) => ({ field: i.path.join("."), message: i.message })),
-  };
-}
 
-export function validateFacultyStep1(data: FacultyPersonalInfoData) { return toValidationResult(FacultyPersonalInfoSchema.safeParse(data)); }
-export function validateFacultyStep2(data: FacultyContactInfoData) { return toValidationResult(FacultyContactInfoSchema.safeParse(data)); }
-export function validateFacultyStep3(data: FacultyProfessionalInfoData) { return toValidationResult(FacultyProfessionalInfoSchema.safeParse(data)); }
-export function validateFacultyStep4(data: FacultyDocumentsData) { return toValidationResult(FacultyDocumentsValidationSchema.safeParse(data)); }

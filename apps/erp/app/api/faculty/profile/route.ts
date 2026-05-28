@@ -6,10 +6,10 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { isAdminTableRole } from "@/app/lib/permissions";
 import { AuditLogger } from "@/app/lib/audit-logger";
 import {
-  validateFacultyStep1,
-  validateFacultyStep2,
-  validateFacultyStep3,
-  validateFacultyStep4,
+  FacultyPersonalInfoSchema,
+  FacultyContactInfoSchema,
+  FacultyProfessionalInfoSchema,
+  FacultyDocumentsValidationSchema,
   type FacultyPersonalInfoData,
   type FacultyContactInfoData,
   type FacultyProfessionalInfoData,
@@ -142,11 +142,13 @@ export async function PUT(req: NextRequest) {
     switch (step) {
       case 1: {
         const stepData = data as FacultyPersonalInfoData;
-        const validation = validateFacultyStep1(stepData);
-        if (!validation.valid) {
+        const validation = FacultyPersonalInfoSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         if (isAdmin) {
@@ -173,11 +175,13 @@ export async function PUT(req: NextRequest) {
 
       case 2: {
         const stepData = data as FacultyContactInfoData;
-        const validation = validateFacultyStep2(stepData);
-        if (!validation.valid) {
+        const validation = FacultyContactInfoSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         const setParams = {
@@ -208,11 +212,13 @@ export async function PUT(req: NextRequest) {
 
       case 3: {
         const stepData = data as FacultyProfessionalInfoData;
-        const validation = validateFacultyStep3(stepData);
-        if (!validation.valid) {
+        const validation = FacultyProfessionalInfoSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         const setParams = {
@@ -237,11 +243,13 @@ export async function PUT(req: NextRequest) {
 
       case 4: {
         const stepData = data as FacultyDocumentsData;
-        const validation = validateFacultyStep4(stepData);
-        if (!validation.valid) {
+        const validation = FacultyDocumentsValidationSchema.safeParse(stepData);
+        if (!validation.success) {
+          const errors: Record<string, string> = {};
+          validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
           return audit.error(
             "Validation failed",
-            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
+            NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 422 })
           );
         }
         if (isAdmin) {

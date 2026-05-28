@@ -1,5 +1,6 @@
 "use client";
 
+import { z } from "zod";
 import React, { useState, useCallback } from "react";
 import { Button, Alert, Spinner } from "@heroui/react";
 import {
@@ -19,9 +20,8 @@ import {
   type ProfileData,
 } from "@/app/lib/queries/profile";
 import {
-  validateStep4,
+  DocumentsValidationSchema,
   type DocumentsData,
-  type ValidationError,
 } from "@/app/lib/validations/profile";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -120,11 +120,8 @@ export function StepDocuments({ profile, onSaved, onSaving }: StepDocumentsProps
   }));
 
   const [uploading, setUploading] = useState<string | null>(null);
-  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
-
-  const getFieldError = (field: string) =>
-    errors.find((e) => e.field === field)?.message;
 
   // ── Upload a single file ────────────────────────────────────────────────
 
@@ -188,9 +185,23 @@ export function StepDocuments({ profile, onSaved, onSaving }: StepDocumentsProps
     setServerError(null);
 
     // Validate
-    const result = validateStep4(uploadedFiles, profile.category ?? undefined, profile.board ?? undefined);
-    setErrors(result.errors);
-    if (!result.valid) return;
+    const parsed = DocumentsValidationSchema.superRefine((d, ctx) => {
+      const category = profile.category;
+      const board = profile.board;
+      if (category && category !== "Open" && !d.casteCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Caste Certificate is required for your category", path: ["casteCertificate"] });
+      if (board && board !== "GSEB" && !d.migrationCertificate) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Migration Certificate is required for non-GSEB board", path: ["migrationCertificate"] });
+    }).safeParse(uploadedFiles);
+    
+    if (!parsed.success) {
+      const formattedErrors: Record<string, string> = {};
+      parsed.error.issues.forEach(i => {
+        const key = i.path.join(".");
+        if (!formattedErrors[key]) formattedErrors[key] = i.message;
+      });
+      setErrors(formattedErrors);
+      return;
+    }
+    setErrors({});
 
     onSaving(true);
     try {
@@ -229,7 +240,7 @@ export function StepDocuments({ profile, onSaved, onSaving }: StepDocumentsProps
           const fileKey = uploadedFiles[doc.key];
           const isUploaded = !!fileKey;
           const isCurrentlyUploading = uploading === doc.key;
-          const fieldError = getFieldError(doc.key);
+          const fieldError = errors[doc.key];
           const Icon = doc.icon;
 
           return (

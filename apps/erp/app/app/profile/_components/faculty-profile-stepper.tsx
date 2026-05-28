@@ -28,16 +28,26 @@ import {
 import {
   GENDERS,
   FACULTY_ADDRESS_KINDS,
-  validateFacultyStep1,
-  validateFacultyStep2,
-  validateFacultyStep3,
-  validateFacultyStep4,
+  FacultyPersonalInfoSchema,
+  FacultyContactInfoSchema,
+  FacultyProfessionalInfoSchema,
+  FacultyDocumentsValidationSchema,
   type FacultyContactInfoData,
   type FacultyDocumentsData,
   type FacultyPersonalInfoData,
   type FacultyProfessionalInfoData,
-  type ValidationError,
 } from "@/app/lib/validations/faculty-profile";
+
+// Helper function to map Zod issues to a flat record
+function extractZodErrors(parsed: any): Record<string, string> {
+  if (parsed.success) return {};
+  const formattedErrors: Record<string, string> = {};
+  parsed.error.issues.forEach((i: any) => {
+    const key = i.path.join(".");
+    if (!formattedErrors[key]) formattedErrors[key] = i.message;
+  });
+  return formattedErrors;
+}
 
 const STEPS = [
   { id: 1, title: "Personal Info", description: "Basic details" },
@@ -49,9 +59,7 @@ const STEPS = [
 
 const MAX_FILE_SIZE = 100 * 1024;
 
-function getFieldError(errors: ValidationError[], field: string) {
-  return errors.find((e) => e.field === field)?.message;
-}
+
 
 export function FacultyProfileStepper() {
   const { data: profile, isLoading, error } = useFacultyProfileQuery();
@@ -61,7 +69,7 @@ export function FacultyProfileStepper() {
 
   const [activeStep, setActiveStep] = useState(1);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   // Track the highest step the user has reached locally (not just server state)
   const [highestStepReached, setHighestStepReached] = useState(1);
@@ -92,10 +100,10 @@ export function FacultyProfileStepper() {
   // Compute progress from local validation state so it updates immediately
   const stepsCompleted = useMemo(() => {
     let count = 0;
-    if (validateFacultyStep1(personal).valid) count++;
-    if (validateFacultyStep2(contact).valid) count++;
-    if (validateFacultyStep3(professional).valid) count++;
-    if (validateFacultyStep4(documents).valid) count++;
+    if (FacultyPersonalInfoSchema.safeParse(personal).success) count++;
+    if (FacultyContactInfoSchema.safeParse(contact).success) count++;
+    if (FacultyProfessionalInfoSchema.safeParse(professional).success) count++;
+    if (FacultyDocumentsValidationSchema.safeParse(documents).success) count++;
     return count;
   }, [personal, contact, professional, documents]);
   const progressPercent = isComplete ? 100 : Math.round((stepsCompleted / 4) * 100);
@@ -159,7 +167,7 @@ export function FacultyProfileStepper() {
   const handleSaveStep = useCallback(
     async (step: number, data: Record<string, unknown>) => {
       setServerError(null);
-      setErrors([]);
+      setErrors({});
       const result = await saveStepMutation.mutateAsync({ step, data });
       // Advance highestStepReached so the next step becomes clickable
       setHighestStepReached((prev) => Math.max(prev, result.profileStep));
@@ -195,11 +203,11 @@ export function FacultyProfileStepper() {
   );
 
   const reviewValidations = useMemo(() => {
-    const v1 = validateFacultyStep1(personal);
-    const v2 = validateFacultyStep2(contact);
-    const v3 = validateFacultyStep3(professional);
-    const v4 = validateFacultyStep4(documents);
-    return { v1, v2, v3, v4, allValid: v1.valid && v2.valid && v3.valid && v4.valid };
+    const v1 = FacultyPersonalInfoSchema.safeParse(personal);
+    const v2 = FacultyContactInfoSchema.safeParse(contact);
+    const v3 = FacultyProfessionalInfoSchema.safeParse(professional);
+    const v4 = FacultyDocumentsValidationSchema.safeParse(documents);
+    return { allValid: v1.success && v2.success && v3.success && v4.success };
   }, [personal, contact, professional, documents]);
 
   if (isLoading) {
@@ -325,9 +333,12 @@ export function FacultyProfileStepper() {
               className="space-y-5"
               onSubmit={async (e) => {
                 e.preventDefault();
-                const validation = validateFacultyStep1(personal);
-                setErrors(validation.errors);
-                if (!validation.valid) return;
+                const parsed = FacultyPersonalInfoSchema.safeParse(personal);
+                if (!parsed.success) {
+                  setErrors(extractZodErrors(parsed));
+                  return;
+                }
+                setErrors({});
                 try {
                   await handleSaveStep(1, personal as unknown as Record<string, unknown>);
                 } catch (err) {
@@ -339,33 +350,33 @@ export function FacultyProfileStepper() {
                 <div className="sm:col-span-2">
                   <TextField
                     isRequired
-                    isInvalid={!!getFieldError(errors, "fullName")}
+                    isInvalid={!!errors["fullName"]}
                     value={personal.fullName}
                     onChange={(v) => setPersonal((p) => ({ ...p, fullName: v }))}
                   >
                     <Label>Full Name</Label>
                     <Input />
-                    {getFieldError(errors, "fullName") && (
-                      <FieldError>{getFieldError(errors, "fullName")}</FieldError>
+                    {errors["fullName"] && (
+                      <FieldError>{errors["fullName"]}</FieldError>
                     )}
                   </TextField>
                 </div>
                 <TextField
                   isRequired
                   type="date"
-                  isInvalid={!!getFieldError(errors, "dob")}
+                  isInvalid={!!errors["dob"]}
                   value={personal.dob}
                   onChange={(v) => setPersonal((p) => ({ ...p, dob: v }))}
                 >
                   <Label>Date of Birth</Label>
                   <Input />
-                  {getFieldError(errors, "dob") && (
-                    <FieldError>{getFieldError(errors, "dob")}</FieldError>
+                  {errors["dob"] && (
+                    <FieldError>{errors["dob"]}</FieldError>
                   )}
                 </TextField>
                 <Select
                   isRequired
-                  isInvalid={!!getFieldError(errors, "gender")}
+                  isInvalid={!!errors["gender"]}
                   value={personal.gender || null}
                   onChange={(key: Key | null) =>
                     setPersonal((p) => ({ ...p, gender: String(key ?? "") as FacultyPersonalInfoData["gender"] }))
@@ -385,8 +396,8 @@ export function FacultyProfileStepper() {
                       ))}
                     </ListBox>
                   </Select.Popover>
-                  {getFieldError(errors, "gender") && (
-                    <FieldError>{getFieldError(errors, "gender")}</FieldError>
+                  {errors["gender"] && (
+                    <FieldError>{errors["gender"]}</FieldError>
                   )}
                 </Select>
               </div>
@@ -407,9 +418,12 @@ export function FacultyProfileStepper() {
               className="space-y-5"
               onSubmit={async (e) => {
                 e.preventDefault();
-                const validation = validateFacultyStep2(contact);
-                setErrors(validation.errors);
-                if (!validation.valid) return;
+                const parsed = FacultyContactInfoSchema.safeParse(contact);
+                if (!parsed.success) {
+                  setErrors(extractZodErrors(parsed));
+                  return;
+                }
+                setErrors({});
                 try {
                   await handleSaveStep(2, contact as unknown as Record<string, unknown>);
                 } catch (err) {
@@ -420,25 +434,25 @@ export function FacultyProfileStepper() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <TextField
                   isRequired
-                  isInvalid={!!getFieldError(errors, "mobile")}
+                  isInvalid={!!errors["mobile"]}
                   value={contact.mobile ?? ""}
                   onChange={(v) => setContact((p) => ({ ...p, mobile: v }))}
                 >
                   <Label>Mobile</Label>
                   <Input />
-                  {getFieldError(errors, "mobile") && (
-                    <FieldError>{getFieldError(errors, "mobile")}</FieldError>
+                  {errors["mobile"] && (
+                    <FieldError>{errors["mobile"]}</FieldError>
                   )}
                 </TextField>
                 <TextField
-                  isInvalid={!!getFieldError(errors, "alternateMobile")}
+                  isInvalid={!!errors["alternateMobile"]}
                   value={contact.alternateMobile ?? ""}
                   onChange={(v) => setContact((p) => ({ ...p, alternateMobile: v }))}
                 >
                   <Label>Alternate Mobile</Label>
                   <Input />
-                  {getFieldError(errors, "alternateMobile") && (
-                    <FieldError>{getFieldError(errors, "alternateMobile")}</FieldError>
+                  {errors["alternateMobile"] && (
+                    <FieldError>{errors["alternateMobile"]}</FieldError>
                   )}
                 </TextField>
 
@@ -472,8 +486,8 @@ export function FacultyProfileStepper() {
                         ))}
                       </ListBox>
                     </Select.Popover>
-                    {getFieldError(errors, "address.kind") && (
-                      <FieldError>{getFieldError(errors, "address.kind")}</FieldError>
+                    {errors["address.kind"] && (
+                      <FieldError>{errors["address.kind"]}</FieldError>
                     )}
                   </Select>
                 </div>
@@ -481,7 +495,7 @@ export function FacultyProfileStepper() {
                 {/* Address line 1 */}
                 <div className="sm:col-span-2">
                   <TextField
-                    isInvalid={!!getFieldError(errors, "address.line1")}
+                    isInvalid={!!errors["address.line1"]}
                     value={(contact.address as { line1?: string })?.line1 ?? ""}
                     onChange={(v) =>
                       setContact((p) => ({
@@ -497,15 +511,15 @@ export function FacultyProfileStepper() {
                   >
                     <Label>Address Line 1</Label>
                     <Input placeholder="Building / street / locality" />
-                    {getFieldError(errors, "address.line1") && (
-                      <FieldError>{getFieldError(errors, "address.line1")}</FieldError>
+                    {errors["address.line1"] && (
+                      <FieldError>{errors["address.line1"]}</FieldError>
                     )}
                   </TextField>
                 </div>
 
                 {/* City */}
                 <TextField
-                  isInvalid={!!getFieldError(errors, "address.city")}
+                  isInvalid={!!errors["address.city"]}
                   value={(contact.address as { city?: string })?.city ?? ""}
                   onChange={(v) =>
                     setContact((p) => ({
@@ -521,14 +535,14 @@ export function FacultyProfileStepper() {
                 >
                   <Label>City</Label>
                   <Input placeholder="e.g. Ahmedabad" />
-                  {getFieldError(errors, "address.city") && (
-                    <FieldError>{getFieldError(errors, "address.city")}</FieldError>
+                  {errors["address.city"] && (
+                    <FieldError>{errors["address.city"]}</FieldError>
                   )}
                 </TextField>
 
                 {/* Pincode */}
                 <TextField
-                  isInvalid={!!getFieldError(errors, "address.pincode")}
+                  isInvalid={!!errors["address.pincode"]}
                   value={(contact.address as { pincode?: string })?.pincode ?? ""}
                   onChange={(v) =>
                     setContact((p) => ({
@@ -544,8 +558,8 @@ export function FacultyProfileStepper() {
                 >
                   <Label>Pincode</Label>
                   <Input placeholder="6-digit pincode" maxLength={6} inputMode="numeric" />
-                  {getFieldError(errors, "address.pincode") && (
-                    <FieldError>{getFieldError(errors, "address.pincode")}</FieldError>
+                  {errors["address.pincode"] && (
+                    <FieldError>{errors["address.pincode"]}</FieldError>
                   )}
                 </TextField>
               </div>
@@ -566,9 +580,12 @@ export function FacultyProfileStepper() {
               className="space-y-5"
               onSubmit={async (e) => {
                 e.preventDefault();
-                const validation = validateFacultyStep3(professional);
-                setErrors(validation.errors);
-                if (!validation.valid) return;
+                const parsed = FacultyProfessionalInfoSchema.safeParse(professional);
+                if (!parsed.success) {
+                  setErrors(extractZodErrors(parsed));
+                  return;
+                }
+                setErrors({});
                 try {
                   await handleSaveStep(3, professional as unknown as Record<string, unknown>);
                 } catch (err) {
@@ -579,7 +596,7 @@ export function FacultyProfileStepper() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <TextField
                   isRequired
-                  isInvalid={!!getFieldError(errors, "qualification")}
+                  isInvalid={!!errors["qualification"]}
                   value={professional.qualification}
                   onChange={(v) =>
                     setProfessional((p) => ({ ...p, qualification: v }))
@@ -587,14 +604,14 @@ export function FacultyProfileStepper() {
                 >
                   <Label>Qualification</Label>
                   <Input />
-                  {getFieldError(errors, "qualification") && (
-                    <FieldError>{getFieldError(errors, "qualification")}</FieldError>
+                  {errors["qualification"] && (
+                    <FieldError>{errors["qualification"]}</FieldError>
                   )}
                 </TextField>
                 <TextField
                   isRequired
                   type="number"
-                  isInvalid={!!getFieldError(errors, "experienceYears")}
+                  isInvalid={!!errors["experienceYears"]}
                   value={String(professional.experienceYears)}
                   onChange={(v) =>
                     setProfessional((p) => ({ ...p, experienceYears: v }))
@@ -602,13 +619,13 @@ export function FacultyProfileStepper() {
                 >
                   <Label>Experience (Years)</Label>
                   <Input />
-                  {getFieldError(errors, "experienceYears") && (
-                    <FieldError>{getFieldError(errors, "experienceYears")}</FieldError>
+                  {errors["experienceYears"] && (
+                    <FieldError>{errors["experienceYears"]}</FieldError>
                   )}
                 </TextField>
                 <TextField
                   isRequired
-                  isInvalid={!!getFieldError(errors, "specialization")}
+                  isInvalid={!!errors["specialization"]}
                   value={professional.specialization}
                   onChange={(v) =>
                     setProfessional((p) => ({ ...p, specialization: v }))
@@ -616,20 +633,20 @@ export function FacultyProfileStepper() {
                 >
                   <Label>Specialization</Label>
                   <Input />
-                  {getFieldError(errors, "specialization") && (
-                    <FieldError>{getFieldError(errors, "specialization")}</FieldError>
+                  {errors["specialization"] && (
+                    <FieldError>{errors["specialization"]}</FieldError>
                   )}
                 </TextField>
                 <TextField
                   isRequired
-                  isInvalid={!!getFieldError(errors, "designation")}
+                  isInvalid={!!errors["designation"]}
                   value={professional.designation}
                   onChange={(v) => setProfessional((p) => ({ ...p, designation: v }))}
                 >
                   <Label>Designation</Label>
                   <Input />
-                  {getFieldError(errors, "designation") && (
-                    <FieldError>{getFieldError(errors, "designation")}</FieldError>
+                  {errors["designation"] && (
+                    <FieldError>{errors["designation"]}</FieldError>
                   )}
                 </TextField>
               </div>
@@ -650,9 +667,12 @@ export function FacultyProfileStepper() {
               className="space-y-5"
               onSubmit={async (e) => {
                 e.preventDefault();
-                const validation = validateFacultyStep4(documents);
-                setErrors(validation.errors);
-                if (!validation.valid) return;
+                const parsed = FacultyDocumentsValidationSchema.safeParse(documents);
+                if (!parsed.success) {
+                  setErrors(extractZodErrors(parsed));
+                  return;
+                }
+                setErrors({});
                 try {
                   await handleSaveStep(4, documents as unknown as Record<string, unknown>);
                 } catch (err) {
@@ -672,7 +692,7 @@ export function FacultyProfileStepper() {
               <div
                 className={`
                   relative bg-surface rounded-xl border-2 border-dashed p-4 transition-all duration-200
-                  ${getFieldError(errors, "profilePhotoUrl")
+                  ${errors["profilePhotoUrl"]
                     ? "border-danger bg-danger/5"
                     : documents.profilePhotoUrl
                       ? "border-success/40 bg-success/5"
@@ -780,9 +800,9 @@ export function FacultyProfileStepper() {
                       </label>
                     )}
 
-                    {getFieldError(errors, "profilePhotoUrl") && (
+                    {errors["profilePhotoUrl"] && (
                       <p className="text-xs text-danger">
-                        {getFieldError(errors, "profilePhotoUrl")}
+                        {errors["profilePhotoUrl"]}
                       </p>
                     )}
                   </div>

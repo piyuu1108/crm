@@ -6,13 +6,12 @@ import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
 import {
-  validateAllSteps,
+  StudentProfileSchema,
   type PersonalInfoData,
   type ContactInfoData,
   type AcademicInfoData,
   type DocumentsData,
 } from "@/app/lib/validations/profile";
-
 /**
  * POST /api/student/profile/submit
  *
@@ -98,12 +97,14 @@ export async function POST(req: NextRequest) {
     };
 
     // Full validation
-    const validation = validateAllSteps(step1, step2, step3, step4);
-    if (!validation.valid) {
+    const validation = StudentProfileSchema.safeParse({ step1, step2, step3, step4 });
+    if (!validation.success) {
+      const errors: Record<string, string> = {};
+      validation.error.issues.forEach((i: any) => { errors[i.path.join(".")] = i.message; });
       return audit.error(
         "Profile is incomplete. Please fill all required fields.",
         NextResponse.json(
-          { success: false, error: "Profile is incomplete. Please fill all required fields.", errors: validation.errors },
+          { success: false, error: "Profile is incomplete. Please fill all required fields.", errors },
           { status: 422 }
         )
       );

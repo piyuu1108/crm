@@ -17,11 +17,10 @@ import type { Key } from "@heroui/react";
 import { ArrowRight } from "@gravity-ui/icons";
 import { useSaveStepMutation, type ProfileData } from "@/app/lib/queries/profile";
 import {
-  validateStep1,
+  PersonalInfoSchema,
   GENDERS,
   BLOOD_GROUPS,
   type PersonalInfoData,
-  type ValidationError,
 } from "@/app/lib/validations/profile";
 
 interface StepPersonalProps {
@@ -41,7 +40,7 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
     bloodGroup: (profile.bloodGroup || undefined) as PersonalInfoData["bloodGroup"],
   });
 
-  const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
 
   // Sync when profile data changes
@@ -54,17 +53,22 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
     });
   }, [profile.fullName, profile.dob, profile.gender, profile.bloodGroup]);
 
-  const getFieldError = (field: string) =>
-    errors.find((e) => e.field === field)?.message;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setServerError(null);
 
     // Client validation
-    const result = validateStep1(form);
-    setErrors(result.errors);
-    if (!result.valid) return;
+    const parsed = PersonalInfoSchema.safeParse(form);
+    if (!parsed.success) {
+      const formattedErrors: Record<string, string> = {};
+      parsed.error.issues.forEach(i => {
+        const key = i.path.join(".");
+        if (!formattedErrors[key]) formattedErrors[key] = i.message;
+      });
+      setErrors(formattedErrors);
+      return;
+    }
+    setErrors({});
 
     onSaving(true);
     try {
@@ -92,14 +96,14 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
         <div className="sm:col-span-2">
           <TextField
             isRequired
-            isInvalid={!!getFieldError("fullName")}
+            isInvalid={!!errors["fullName"]}
             value={form.fullName}
             onChange={(v) => setForm((p) => ({ ...p, fullName: v }))}
           >
             <Label>Full Name</Label>
             <Input placeholder="Enter your full name" />
-            {getFieldError("fullName") ? (
-              <FieldError>{getFieldError("fullName")}</FieldError>
+            {errors["fullName"] ? (
+              <FieldError>{errors["fullName"]}</FieldError>
             ) : (
               <Description>As per official records</Description>
             )}
@@ -109,20 +113,20 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
         <TextField
           isRequired
           type="date"
-          isInvalid={!!getFieldError("dob")}
+          isInvalid={!!errors["dob"]}
           value={form.dob}
           onChange={(v) => setForm((p) => ({ ...p, dob: v }))}
         >
           <Label>Date of Birth</Label>
           <Input />
-          {getFieldError("dob") && (
-            <FieldError>{getFieldError("dob")}</FieldError>
+          {errors["dob"] && (
+            <FieldError>{errors["dob"]}</FieldError>
           )}
         </TextField>
 
         <Select
           isRequired
-          isInvalid={!!getFieldError("gender")}
+          isInvalid={!!errors["gender"]}
           placeholder="Select gender"
           value={form.gender || null}
           onChange={(key: Key | null) =>
@@ -144,13 +148,13 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
               ))}
             </ListBox>
           </Select.Popover>
-          {getFieldError("gender") && (
-            <FieldError>{getFieldError("gender")}</FieldError>
+          {errors["gender"] && (
+            <FieldError>{errors["gender"]}</FieldError>
           )}
         </Select>
 
         <Select
-          isInvalid={!!getFieldError("bloodGroup")}
+          isInvalid={!!errors["bloodGroup"]}
           placeholder="Select blood group"
           value={form.bloodGroup || null}
           onChange={(key: Key | null) =>
@@ -172,8 +176,8 @@ export function StepPersonal({ profile, onSaved, onSaving }: StepPersonalProps) 
               ))}
             </ListBox>
           </Select.Popover>
-          {getFieldError("bloodGroup") && (
-            <FieldError>{getFieldError("bloodGroup")}</FieldError>
+          {errors["bloodGroup"] && (
+            <FieldError>{errors["bloodGroup"]}</FieldError>
           )}
         </Select>
 

@@ -22,6 +22,7 @@ import {
   useUpdateSubjectMutation,
   type SubjectAdminListItem,
 } from "@/app/lib/queries/subjects";
+import { SubjectSchema } from "@/app/lib/validations/schemas/subject";
 
 interface EditSubjectModalProps {
   subject: SubjectAdminListItem | null;
@@ -132,17 +133,28 @@ export function EditSubjectModal({
   const hasPractical = !isProject && (form.subjectType === "practical" || form.subjectType === "both");
 
   const validate = (): boolean => {
-    const e: FormErrors = {};
-    if (!form.code.trim()) e.code = "Subject code is required";
-    else if (form.code.trim().length > 20) e.code = "Max 20 characters";
+    // We map Form properties to SubjectSchema input shape
+    const validation = SubjectSchema.safeParse({
+      ...form,
+      internalTheoryMax: form.internalTheoryMax ? String(form.internalTheoryMax) : undefined,
+      externalTheoryMax: form.externalTheoryMax ? String(form.externalTheoryMax) : undefined,
+      theoryPassingMarks: form.theoryPassingMarks ? String(form.theoryPassingMarks) : undefined,
+      internalPracticalMax: form.internalPracticalMax ? String(form.internalPracticalMax) : undefined,
+      externalPracticalMax: form.externalPracticalMax ? String(form.externalPracticalMax) : undefined,
+      practicalPassingMarks: form.practicalPassingMarks ? String(form.practicalPassingMarks) : undefined,
+    });
 
-    if (!form.name.trim()) e.name = "Subject name is required";
-    else if (form.name.trim().length > 100) e.name = "Max 100 characters";
-
-    if (!form.subjectType) e.subjectType = "Subject type is required";
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    if (!validation.success) {
+      const formattedErrors: FormErrors = {};
+      validation.error.issues.forEach(i => {
+        const key = i.path.join(".") as keyof SubjectForm;
+        if (!formattedErrors[key]) formattedErrors[key] = i.message;
+      });
+      setErrors(formattedErrors);
+      return false;
+    }
+    setErrors({});
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

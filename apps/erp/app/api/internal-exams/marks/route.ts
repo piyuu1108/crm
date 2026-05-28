@@ -11,6 +11,7 @@ import {
   divisions,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -161,21 +162,28 @@ export async function GET(req: NextRequest) {
  * Body: { examId, assignmentId, isDraft, records: [{ studentId, theoryMarks?, practicalMarks?, studentName, subjectName, divisionName }] }
  */
 export async function POST(req: NextRequest) {
+  const auth = await requirePermission(req, "exams.evaluate");
+  if (auth instanceof NextResponse) return auth;
+
+  const { userId } = auth;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "marks.save",
+    category: "exams",
+    summary: "Uploaded/updated internal exam marks",
+    entityType: "exam_marks",
+  });
+
   try {
-    const auth = await requirePermission(req, "exams.evaluate");
-    if (auth instanceof NextResponse) return auth;
-
-    const { userId } = auth;
-
     const body = await req.json();
     const { examId, assignmentId, isDraft, records } = body;
 
     if (!examId || !assignmentId || !Array.isArray(records) || records.length === 0) {
-      return err("examId, assignmentId, and non-empty records are required", 400);
+      return audit.error("examId, assignmentId, and non-empty records are required", undefined, 400);
     }
 
     if (!(await canAccessAssignment(auth, assignmentId))) {
-      return err("Forbidden: no access to this assignment", 403);
+      return audit.error("Forbidden: no access to this assignment", undefined, 403);
     }
 
     // Verify exam exists
@@ -184,7 +192,7 @@ export async function POST(req: NextRequest) {
       .from(internalExams)
       .where(eq(internalExams.id, examId))
       .limit(1);
-    if (!exam) return err("Exam not found", 404);
+    if (!exam) return audit.error("Exam not found", undefined, 404);
 
     // Batch upsert using raw SQL for ON CONFLICT
     const values = records.map(
@@ -209,9 +217,16 @@ export async function POST(req: NextRequest) {
         updated_at = NOW()
     `);
 
-    return ok({ saved: records.length });
+    return audit.success(
+      NextResponse.json({ success: true, data: { saved: records.length } }),
+      {
+        exid: String(examId),
+        asid: String(assignmentId),
+        recs: records.length,
+        drft: isDraft ?? true,
+      }
+    );
   } catch (error) {
-    console.error("[POST /api/internal-exams/marks]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

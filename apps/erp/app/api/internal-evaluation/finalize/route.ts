@@ -7,6 +7,7 @@ import {
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,22 +27,29 @@ function err(message: string, status: number) {
  * Faculty can finalize their own assignments.
  */
 export async function PUT(req: NextRequest) {
+  const auth = await requirePermission(req, "exams.evaluate");
+  if (auth instanceof NextResponse) return auth;
+
+  const { userId, activeRole: resolvedRole } = auth;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "evaluation.finalize",
+    category: "evaluation",
+    summary: "Finalized/unfinalized internal evaluations",
+    entityType: "internal_evaluation",
+  });
+
   try {
-    const auth = await requirePermission(req, "exams.evaluate");
-    if (auth instanceof NextResponse) return auth;
-
-    const { userId, activeRole: resolvedRole } = auth;
-
     const body = await req.json();
     const { assignmentId, semesterId, finalize } = body;
 
     if (!assignmentId || !semesterId || typeof finalize !== "boolean") {
-      return err("assignmentId, semesterId, and finalize (boolean) are required", 400);
+      return audit.error("assignmentId, semesterId, and finalize (boolean) are required", undefined, 400);
     }
 
     // Un-finalize requires HOD
     if (!finalize && resolvedRole !== "hod") {
-      return err("Forbidden: only HOD can un-finalize evaluations", 403);
+      return audit.error("Forbidden: only HOD can un-finalize evaluations", undefined, 403);
     }
 
     // RBAC — faculty can only finalize own assignments
@@ -53,7 +61,7 @@ export async function PUT(req: NextRequest) {
         .limit(1);
 
       if (!assignment || assignment.facultyId !== userId) {
-        return err("Forbidden: not your assignment", 403);
+        return audit.error("Forbidden: not your assignment", undefined, 403);
       }
     }
 
@@ -72,9 +80,15 @@ export async function PUT(req: NextRequest) {
         )
       );
 
-    return ok({ assignmentId, semesterId, finalized: finalize });
+    return audit.success(
+      NextResponse.json({ success: true, data: { assignmentId, semesterId, finalized: finalize } }),
+      {
+        asid: String(assignmentId),
+        sem: String(semesterId),
+        fin: finalize,
+      }
+    );
   } catch (error) {
-    console.error("[PUT /api/internal-evaluation/finalize]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

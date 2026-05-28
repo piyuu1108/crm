@@ -9,6 +9,7 @@ import {
 import { eq } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,23 +28,30 @@ function err(message: string, status: number) {
  * Body: { sessionId, records: [{ studentId, status }] }
  */
 export async function POST(req: NextRequest) {
+  const auth = await requirePermission(req, "attendance.mark");
+  if (auth instanceof NextResponse) return auth;
+
+  const { userId, activeRole: resolvedRole } = auth;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "attendance.save",
+    category: "attendance",
+    summary: "Saved student attendance records",
+    entityType: "attendance_ledger",
+  });
+
   try {
-    const auth = await requirePermission(req, "attendance.mark");
-    if (auth instanceof NextResponse) return auth;
-
-    const { userId, activeRole: resolvedRole } = auth;
-
     const body = await req.json();
     const { sessionId, records } = body;
 
     if (!sessionId || !Array.isArray(records) || records.length === 0) {
-      return err("sessionId and non-empty records array are required", 400);
+      return audit.error("sessionId and non-empty records array are required", undefined, 400);
     }
 
     // Validate records
     for (const r of records) {
       if (!r.studentId || !["present", "absent"].includes(r.status)) {
-        return err("Each record must have studentId and status (present|absent)", 400);
+        return audit.error("Each record must have studentId and status (present|absent)", undefined, 400);
       }
     }
 
@@ -63,11 +71,11 @@ export async function POST(req: NextRequest) {
       .where(eq(attendanceSessionLedger.id, sessionId))
       .limit(1);
 
-    if (!session) return err("Session not found", 404);
+    if (!session) return audit.error("Session not found", undefined, 404);
 
     // RBAC: Faculty must own the assignment
     if (resolvedRole === "faculty" && session.facultyId !== userId) {
-      return err("Forbidden: not assigned to this subject", 403);
+      return audit.error("Forbidden: not assigned to this subject", undefined, 403);
     }
 
     // RBAC: Counselor must own the division
@@ -78,7 +86,7 @@ export async function POST(req: NextRequest) {
         .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       if (!counselorAssignments.some((a) => a.divisionId === session.divisionId)) {
-        return err("Forbidden: not assigned to this division", 403);
+        return audit.error("Forbidden: not assigned to this division", undefined, 403);
       }
     }
 
@@ -107,9 +115,16 @@ export async function POST(req: NextRequest) {
     await clearCache(cacheTags.attendance.division(session.divisionId));
     await clearCache(cacheTags.dashboard.division(session.divisionId));
 
-    return ok({ saved: records.length });
+    return audit.success(
+      NextResponse.json({ success: true, data: { saved: records.length } }),
+      {
+        eid: String(sessionId),
+        recs: records.length,
+        did: String(session.divisionId),
+        sub: String(session.subjectId),
+      }
+    );
   } catch (error) {
-    console.error("[POST /api/attendance/save]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

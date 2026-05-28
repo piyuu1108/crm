@@ -5,6 +5,7 @@ import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 /**
  * GET /api/requests/[id]
@@ -103,21 +104,29 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: rawId } = await params;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) {
+    return NextResponse.json(
+      { success: false, error: "Invalid request ID" },
+      { status: 400 }
+    );
+  }
+
+  const auth = await requirePermission(req, "requests.review");
+  if (auth instanceof NextResponse) return auth;
+
+  const { userId, activeRole } = auth;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "requests.review",
+    category: "requests",
+    summary: "Faculty reviewed student request",
+    entityType: "student_request",
+    entityId: id,
+  });
+
   try {
-    const { id: rawId } = await params;
-    const id = parseInt(rawId, 10);
-    if (isNaN(id)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid request ID" },
-        { status: 400 }
-      );
-    }
-
-    const auth = await requirePermission(req, "requests.review");
-    if (auth instanceof NextResponse) return auth;
-
-    const { userId, activeRole } = auth;
-
     // Verify request exists and belongs to this faculty
     const [request] = await db
       .select({ targetFacultyId: studentRequests.targetFacultyId })
@@ -125,28 +134,19 @@ export async function PATCH(
       .where(eq(studentRequests.id, id));
 
     if (!request) {
-      return NextResponse.json(
-        { success: false, error: "Request not found" },
-        { status: 404 }
-      );
+      return audit.error("Request not found", undefined, 404);
     }
 
     const isAdmin = hasPermission(activeRole, "requests.view_all");
     if (!isAdmin && request.targetFacultyId !== userId) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: this request is not assigned to you" },
-        { status: 403 }
-      );
+      return audit.error("Forbidden: this request is not assigned to you", undefined, 403);
     }
 
     const body = await req.json();
     const { status, remarks } = body;
 
     if (!status || !["approved", "rejected"].includes(status)) {
-      return NextResponse.json(
-        { success: false, error: "Status must be 'approved' or 'rejected'" },
-        { status: 400 }
-      );
+      return audit.error("Status must be 'approved' or 'rejected'", undefined, 400);
     }
 
     await db
@@ -205,15 +205,18 @@ export async function PATCH(
       .innerJoin(faculty, eq(studentRequests.targetFacultyId, faculty.id))
       .where(eq(studentRequests.id, id));
 
-    return NextResponse.json({
-      success: true,
-      data: updated,
-    });
-  } catch (error) {
-    console.error("[PATCH /api/requests/[id]]", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to update request" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: updated,
+      }),
+      {
+        sid: String(updated.studentId),
+        status: status,
+        remarks: remarks || undefined,
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

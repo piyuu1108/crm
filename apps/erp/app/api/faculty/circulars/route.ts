@@ -5,6 +5,7 @@ import { db } from "@/app/lib/db";
 import { circulars, circularRecipients, faculty } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 const VALID_TARGET_TYPES = ["ALL", "FACULTY", "YEAR", "DIVISION"] as const;
 type TargetType = (typeof VALID_TARGET_TYPES)[number];
@@ -14,11 +15,18 @@ function err(message: string, status = 400) {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "circulars.create");
-    if (result instanceof NextResponse) return result;
-    const auth = result;
+  const result = await requirePermission(req, "circulars.create");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "circulars.create",
+    category: "circulars",
+    summary: "Created new circular",
+    entityType: "circular",
+  });
+
+  try {
     const isGlobalAdmin = isAdminTableRole(auth.activeRole);
 
     const body = await req.json();
@@ -35,27 +43,27 @@ export async function POST(req: NextRequest) {
 
     // ── Validation ─────────────────────────────────────────────────────────────
     if (!title || typeof title !== "string" || title.trim().length === 0) {
-      return err("Title is required");
+      return audit.error("Title is required", undefined, 400);
     }
     if (title.trim().length > 255) {
-      return err("Title must be 255 characters or less");
+      return audit.error("Title must be 255 characters or less", undefined, 400);
     }
     if (!VALID_TARGET_TYPES.includes(targetType as TargetType)) {
-      return err(`Invalid target type. Must be one of: ${VALID_TARGET_TYPES.join(", ")}`);
+      return audit.error(`Invalid target type. Must be one of: ${VALID_TARGET_TYPES.join(", ")}`, undefined, 400);
     }
     if (targetType === "YEAR") {
       const year = Number(targetYear);
       if (!year || year < 1 || year > 6) {
-        return err("Target year must be between 1 and 6");
+        return audit.error("Target year must be between 1 and 6", undefined, 400);
       }
     }
     if (targetType === "DIVISION") {
       if (!Array.isArray(targetDivisionIds) || targetDivisionIds.length === 0) {
-        return err("At least one division must be selected for Division-targeted circulars");
+        return audit.error("At least one division must be selected for Division-targeted circulars", undefined, 400);
       }
       const ids = targetDivisionIds.map(Number);
       if (ids.some((id) => isNaN(id) || id <= 0)) {
-        return err("Invalid division ID(s)");
+        return audit.error("Invalid division ID(s)", undefined, 400);
       }
     }
 
@@ -68,7 +76,7 @@ export async function POST(req: NextRequest) {
         .from(administrators)
         .where(eq(administrators.id, auth.userId))
         .limit(1);
-      if (!adminData) return err("Administrator not found", 404);
+      if (!adminData) return audit.error("Administrator not found", undefined, 404);
       creatorName = adminData.name;
     } else {
       const [facultyData] = await db
@@ -76,7 +84,7 @@ export async function POST(req: NextRequest) {
         .from(faculty)
         .where(eq(faculty.id, auth.userId))
         .limit(1);
-      if (!facultyData) return err("Faculty not found", 404);
+      if (!facultyData) return audit.error("Faculty not found", undefined, 404);
       creatorName = facultyData.name;
     }
 
@@ -117,9 +125,6 @@ export async function POST(req: NextRequest) {
           divisionId,
         }))
       );
-      console.log(`[POST /api/faculty/circulars] Created circular id=${newCircular.id} slug=${newCircular.slug} type=${targetType} divisionIds=${uniqueIds.join(",")}`);
-    } else {
-      console.log(`[POST /api/faculty/circulars] Created circular id=${newCircular.id} slug=${newCircular.slug} type=${targetType} year=${newCircular.targetYear ?? "n/a"}`);
     }
 
     // Invalidate cached circular lists for target visibility
@@ -139,19 +144,27 @@ export async function POST(req: NextRequest) {
       console.warn("[Cache Error] Failed to invalidate circular cache:", cacheError);
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          ...newCircular,
-          targetDivisionIds:
-            targetType === "DIVISION" ? targetDivisionIds.map(Number) : [],
+    return audit.success(
+      NextResponse.json(
+        {
+          success: true,
+          data: {
+            ...newCircular,
+            targetDivisionIds:
+              targetType === "DIVISION" ? targetDivisionIds.map(Number) : [],
+          },
         },
-      },
-      { status: 201 }
+        { status: 201 }
+      ),
+      {
+        eid: String(newCircular.id),
+        slug: newCircular.slug,
+        ttyp: targetType,
+        tyr: targetType === "YEAR" ? Number(targetYear) : undefined,
+        divs: targetType === "DIVISION" ? targetDivisionIds.map(Number) : undefined,
+      }
     );
   } catch (error) {
-    console.error("[POST /api/faculty/circulars]", error);
-    return err("Failed to create circular", 500);
+    return audit.error(error);
   }
 }

@@ -42,7 +42,7 @@ export function ThemeCompliantDropdown() {
   return (
     <Select className="min-w-[200px]" placeholder="Choose Option">
       {/* 1. Use --field-background and --border for the trigger */}
-      <Select.Trigger className="bg-[var(--field-background)] border border-[var(--border)] hover:border-accent/40 rounded-lg py-2 px-3 text-sm text-[var(--foreground)] flex items-center justify-between shadow-sm min-h-[38px] w-full">
+      <Select.Trigger className="bg-[var(--field-background)] border border-border hover:border-accent/40 rounded-lg py-2 px-3 text-sm text-[var(--foreground)] flex items-center justify-between shadow-sm min-h-[38px] w-full">
         <div className="flex items-center gap-2">
           <Funnel className="size-4 text-muted-foreground shrink-0" />
           <Select.Value className="text-sm font-medium text-[var(--foreground)]" />

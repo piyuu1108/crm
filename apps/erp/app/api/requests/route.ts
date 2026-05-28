@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { studentRequests, students, faculty, semesters } from "@/app/lib/schema";
 import { eq, and, desc, count, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 /**
  * GET /api/requests
@@ -88,11 +89,18 @@ export async function GET(req: NextRequest) {
  * Body: { subject, description, targetFacultyId, requestType?, attachmentUrl?, attachmentType?, attachmentSize? }
  */
 export async function POST(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "requests.create");
-    if (result instanceof NextResponse) return result;
-    const payload = result;
+  const result = await requirePermission(req, "requests.create");
+  if (result instanceof NextResponse) return result;
+  const payload = result;
 
+  const audit = AuditLogger.start(req, payload, {
+    action: "requests.create",
+    category: "requests",
+    summary: "Created student request",
+    entityType: "student_request",
+  });
+
+  try {
     const body = await req.json();
     const {
       subject,
@@ -106,24 +114,15 @@ export async function POST(req: NextRequest) {
 
     // ── Validation ──────────────────────────────────────────────────────
     if (!subject || typeof subject !== "string" || subject.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Subject (title) is required" },
-        { status: 400 }
-      );
+      return audit.error("Subject (title) is required", undefined, 400);
     }
 
     if (!description || typeof description !== "string" || description.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Description is required" },
-        { status: 400 }
-      );
+      return audit.error("Description is required", undefined, 400);
     }
 
     if (!targetFacultyId || typeof targetFacultyId !== "number") {
-      return NextResponse.json(
-        { success: false, error: "Target faculty is required" },
-        { status: 400 }
-      );
+      return audit.error("Target faculty is required", undefined, 400);
     }
 
     // ── Look up student info ────────────────────────────────────────────
@@ -136,10 +135,7 @@ export async function POST(req: NextRequest) {
       .where(eq(students.id, payload.userId));
 
     if (!student) {
-      return NextResponse.json(
-        { success: false, error: "Student record not found" },
-        { status: 404 }
-      );
+      return audit.error("Student record not found", undefined, 404);
     }
 
     // ── Look up faculty info ────────────────────────────────────────────
@@ -149,10 +145,7 @@ export async function POST(req: NextRequest) {
       .where(and(eq(faculty.id, targetFacultyId), eq(faculty.isActive, true)));
 
     if (!targetFaculty) {
-      return NextResponse.json(
-        { success: false, error: "Selected faculty not found or inactive" },
-        { status: 404 }
-      );
+      return audit.error("Selected faculty not found or inactive", undefined, 404);
     }
 
     // ── Get active semester ─────────────────────────────────────────────
@@ -163,10 +156,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (!activeSem) {
-      return NextResponse.json(
-        { success: false, error: "No active semester found" },
-        { status: 400 }
-      );
+      return audit.error("No active semester found", undefined, 400);
     }
 
     // ── Insert ──────────────────────────────────────────────────────────
@@ -205,15 +195,18 @@ export async function POST(req: NextRequest) {
       divisionName: student.currentDivisionName || "N/A",
     };
 
-    return NextResponse.json({
-      success: true,
-      data: inserted,
-    }, { status: 201 });
-  } catch (error) {
-    console.error("[POST /api/requests]", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to create request" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: inserted,
+      }, { status: 201 }),
+      {
+        eid: String(insertedRow.id),
+        fid: String(targetFacultyId),
+        sub: subject.trim(),
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

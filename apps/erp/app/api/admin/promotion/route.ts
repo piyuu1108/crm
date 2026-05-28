@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown) {
@@ -35,22 +36,29 @@ function err(message: string, status: number) {
 //   }
 //
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "admin.promotion");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.promotion");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "students.promote",
+    category: "admin",
+    summary: "Promoted students between semesters",
+    entityType: "student",
+  });
+
+  try {
     const body = await req.json();
     const { sourceDivisionId, targetDivisionId, studentIds } = body;
 
     // ── Input validation ──────────────────────────────────────────────
     if (!sourceDivisionId || typeof sourceDivisionId !== "number") {
-      return err("sourceDivisionId is required and must be a number", 400);
+      return audit.error("sourceDivisionId is required and must be a number", undefined, 400);
     }
     if (!targetDivisionId || typeof targetDivisionId !== "number") {
-      return err("targetDivisionId is required and must be a number", 400);
+      return audit.error("targetDivisionId is required and must be a number", undefined, 400);
     }
     if (sourceDivisionId === targetDivisionId) {
-      return err("Source and target divisions must be different", 400);
+      return audit.error("Source and target divisions must be different", undefined, 400);
     }
 
     // ── Fetch source division ─────────────────────────────────────────
@@ -60,7 +68,7 @@ export async function POST(req: NextRequest) {
       .where(eq(divisions.id, sourceDivisionId))
       .limit(1);
 
-    if (!sourceDivision) return err("Source division not found", 404);
+    if (!sourceDivision) return audit.error("Source division not found", undefined, 404);
 
     // ── Fetch target division ─────────────────────────────────────────
     const [targetDivision] = await db
@@ -69,14 +77,15 @@ export async function POST(req: NextRequest) {
       .where(eq(divisions.id, targetDivisionId))
       .limit(1);
 
-    if (!targetDivision) return err("Target division not found", 404);
+    if (!targetDivision) return audit.error("Target division not found", undefined, 404);
 
     // ── Validate semester progression ─────────────────────────────────
     // Target must be exactly one semester ahead of source
     if (targetDivision.semesterNo !== sourceDivision.semesterNo + 1) {
-      return err(
+      return audit.error(
         `Invalid promotion: source is Sem ${sourceDivision.semesterNo}, ` +
         `target must be Sem ${sourceDivision.semesterNo + 1} but got Sem ${targetDivision.semesterNo}`,
+        undefined,
         400
       );
     }
@@ -99,8 +108,9 @@ export async function POST(req: NextRequest) {
       if (studentsToPromote.length !== studentIds.length) {
         const foundIds = new Set(studentsToPromote.map((s) => s.id));
         const missingIds = studentIds.filter((id: number) => !foundIds.has(id));
-        return err(
+        return audit.error(
           `Students not found in source division: ${missingIds.join(", ")}`,
+          undefined,
           400
         );
       }
@@ -113,7 +123,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (studentsToPromote.length === 0) {
-      return err("No students found in source division to promote", 400);
+      return audit.error("No students found in source division to promote", undefined, 400);
     }
 
     // ── Check target capacity ─────────────────────────────────────────
@@ -126,9 +136,10 @@ export async function POST(req: NextRequest) {
     const remainingCapacity = targetDivision.maxCapacity - currentStudentsInTarget;
 
     if (studentsToPromote.length > remainingCapacity) {
-      return err(
+      return audit.error(
         `Target division capacity exceeded: ${remainingCapacity} slots available, ` +
         `${studentsToPromote.length} students to promote`,
+        undefined,
         400
       );
     }
@@ -183,21 +194,30 @@ export async function POST(req: NextRequest) {
       console.warn("[Promotion] Cache invalidation failed:", cacheError);
     }
 
-    return ok({
-      promoted: studentsToPromote.length,
-      from: {
-        divisionId: sourceDivisionId,
-        displayName: sourceDivision.displayName,
-        semesterNo: sourceDivision.semesterNo,
-      },
-      to: {
-        divisionId: targetDivisionId,
-        displayName: targetDivision.displayName,
-        semesterNo: targetDivision.semesterNo,
-      },
-    });
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: {
+          promoted: studentsToPromote.length,
+          from: {
+            divisionId: sourceDivisionId,
+            displayName: sourceDivision.displayName,
+            semesterNo: sourceDivision.semesterNo,
+          },
+          to: {
+            divisionId: targetDivisionId,
+            displayName: targetDivision.displayName,
+            semesterNo: targetDivision.semesterNo,
+          },
+        }
+      }, { status: 200 }),
+      {
+        recs: studentsToPromote.length,
+        from_div: String(sourceDivisionId),
+        to_div: String(targetDivisionId),
+      }
+    );
   } catch (error) {
-    console.error("[POST /api/admin/promotion] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

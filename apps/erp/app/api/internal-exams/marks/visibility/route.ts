@@ -7,6 +7,7 @@ import {
   counselorDivisionAssignments,
 } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,17 +25,24 @@ function err(message: string, status: number) {
  * Body: { examId, assignmentId, isVisible }
  */
 export async function PUT(req: NextRequest) {
+  const auth = await requirePermission(req, "exams.evaluate");
+  if (auth instanceof NextResponse) return auth;
+
+  const { userId, activeRole: resolvedRole } = auth;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "marks.visibility.toggle",
+    category: "exams",
+    summary: "Toggled internal exam marks visibility",
+    entityType: "exam_marks",
+  });
+
   try {
-    const auth = await requirePermission(req, "exams.evaluate");
-    if (auth instanceof NextResponse) return auth;
-
-    const { userId, activeRole: resolvedRole } = auth;
-
     const body = await req.json();
     const { examId, assignmentId, isVisible } = body;
 
     if (!examId || !assignmentId || typeof isVisible !== "boolean") {
-      return err("examId, assignmentId, and isVisible (boolean) are required", 400);
+      return audit.error("examId, assignmentId, and isVisible (boolean) are required", undefined, 400);
     }
 
     // RBAC
@@ -48,16 +56,16 @@ export async function PUT(req: NextRequest) {
         .where(eq(facultySubjectAssignments.id, assignmentId))
         .limit(1);
 
-      if (!assignment) return err("Assignment not found", 404);
+      if (!assignment) return audit.error("Assignment not found", undefined, 404);
 
       if (resolvedRole === "faculty" && assignment.facultyId !== userId) {
-        return err("Forbidden: not your assignment", 403);
+        return audit.error("Forbidden: not your assignment", undefined, 403);
       }
 
       if (resolvedRole === "counselor") {
         const counselorDivisionIds = auth.counselorDivisionIds ?? [];
         if (!counselorDivisionIds.includes(assignment.divisionId)) {
-          return err("Forbidden: not your division", 403);
+          return audit.error("Forbidden: not your division", undefined, 403);
         }
       }
     }
@@ -73,9 +81,15 @@ export async function PUT(req: NextRequest) {
         )
       );
 
-    return ok({ examId, assignmentId, isVisible });
+    return audit.success(
+      NextResponse.json({ success: true, data: { examId, assignmentId, isVisible } }),
+      {
+        exid: String(examId),
+        asid: String(assignmentId),
+        vis: isVisible,
+      }
+    );
   } catch (error) {
-    console.error("[PUT /api/internal-exams/marks/visibility]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

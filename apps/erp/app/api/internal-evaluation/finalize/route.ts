@@ -8,6 +8,8 @@ import {
 } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { EvaluationFinalizeSchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -41,11 +43,10 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { assignmentId, semesterId, finalize } = body;
+    const parsed = validateBody(body, EvaluationFinalizeSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!assignmentId || !semesterId || typeof finalize !== "boolean") {
-      return audit.error("assignmentId, semesterId, and finalize (boolean) are required", undefined, 400);
-    }
+    const { assignmentId, semesterId, finalize } = parsed.data;
 
     // Un-finalize requires HOD
     if (!finalize && resolvedRole !== "hod") {

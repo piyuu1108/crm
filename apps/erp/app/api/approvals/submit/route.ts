@@ -15,6 +15,8 @@ import {
 import { eq, and, or, inArray } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SubmitApprovalSchema } from "@/app/lib/validations/schemas/approvals";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, "approvals.create");
@@ -30,6 +32,8 @@ export async function POST(req: NextRequest) {
   try {
     const { userId } = auth;
     const body = await req.json();
+    const parsed = validateBody(body, SubmitApprovalSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
     const {
       requestTypeCode,
@@ -37,12 +41,8 @@ export async function POST(req: NextRequest) {
       toDate,
       description,
       document,
-      proxies = [],
-    } = body;
-
-    if (!requestTypeCode || !fromDate || !toDate || !description) {
-      return audit.error("Missing required fields", undefined, 400);
-    }
+      proxies,
+    } = parsed.data;
 
     // 1. Fetch requesting faculty details to resolve course scope and name
     const [facultyUser] = await db

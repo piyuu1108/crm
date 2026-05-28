@@ -5,6 +5,8 @@ import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SendPasswordEmailSchema } from "@/app/lib/validations/schemas/admin-divisions";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -34,9 +36,11 @@ export async function POST(
   try {
     if (!Number.isFinite(divisionId)) return audit.error("Invalid division ID", undefined, 400);
 
-    const body = (await req.json().catch(() => ({}))) as { studentDbId?: number };
-    const studentDbId = Number(body.studentDbId);
-    if (!Number.isFinite(studentDbId)) return audit.error("studentDbId is required", undefined, 400);
+    const body = await req.json().catch(() => ({}));
+    const parsed = validateBody(body, SendPasswordEmailSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
+
+    const studentDbId = parsed.data.studentDbId;
 
     const [student] = await db
       .select({

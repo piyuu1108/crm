@@ -8,6 +8,8 @@ import {
 } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { ExamMarksVisibilitySchema } from "@/app/lib/validations/schemas/exam";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -39,11 +41,10 @@ export async function PUT(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { examId, assignmentId, isVisible } = body;
+    const parsed = validateBody(body, ExamMarksVisibilitySchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!examId || !assignmentId || typeof isVisible !== "boolean") {
-      return audit.error("examId, assignmentId, and isVisible (boolean) are required", undefined, 400);
-    }
+    const { examId, assignmentId, isVisible } = parsed.data;
 
     // RBAC
     if (resolvedRole !== "hod") {

@@ -55,3 +55,23 @@ export const SaveEvaluationSchema = z.object({
 });
 
 export type SaveEvaluationInput = z.infer<typeof SaveEvaluationSchema>;
+
+// ─── PUT /api/internal-exams/marks/visibility ─────────────────────────────────
+
+export const ExamMarksVisibilitySchema = z.object({
+  examId: IdSchema,
+  assignmentId: IdSchema,
+  isVisible: z.boolean(),
+});
+
+export type ExamMarksVisibilityInput = z.infer<typeof ExamMarksVisibilitySchema>;
+
+// ─── PUT /api/internal-evaluation/finalize ────────────────────────────────────
+
+export const EvaluationFinalizeSchema = z.object({
+  assignmentId: IdSchema,
+  semesterId: IdSchema,
+  finalize: z.boolean(),
+});
+
+export type EvaluationFinalizeInput = z.infer<typeof EvaluationFinalizeSchema>;

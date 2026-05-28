@@ -14,6 +14,8 @@ import {
 import { eq, and, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { ApprovalActionSchema } from "@/app/lib/validations/schemas/approvals";
 
 export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, "approvals.approve");
@@ -29,16 +31,10 @@ export async function POST(req: NextRequest) {
   try {
     const { userId, activeRole } = auth;
     const body = await req.json();
+    const parsed = validateBody(body, ApprovalActionSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    const { requestId, action, remarks, proxyOverrides = [] } = body;
-
-    if (!requestId || !action) {
-      return audit.error("Missing required fields", undefined, 400);
-    }
-
-    if (action !== "approve" && action !== "reject") {
-      return audit.error("Invalid action type", undefined, 400);
-    }
+    const { requestId, action, remarks, proxyOverrides } = parsed.data;
 
     // 1. Fetch request details and creator name
     const [request] = await db
@@ -180,7 +176,7 @@ export async function POST(req: NextRequest) {
           .where(eq(facultyRequestProxies.id, override.proxyId))
           .limit(1);
 
-        if (originalProxy && originalProxy.proxyFacultyId !== override.newProxyFacultyId) {
+        if (originalProxy && override.newProxyFacultyId !== undefined && originalProxy.proxyFacultyId !== override.newProxyFacultyId) {
           // Perform update
           await db
             .update(facultyRequestProxies)

@@ -14,3 +14,13 @@ export const CreateStudentRequestSchema = z.object({
 });
 
 export type CreateStudentRequestInput = z.infer<typeof CreateStudentRequestSchema>;
+
+// ─── PATCH /api/requests/[id] ─────────────────────────────────────────────────
+
+export const ReviewStudentRequestSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
+  remarks: z.string().trim().optional(),
+});
+
+export type ReviewStudentRequestInput = z.input<typeof ReviewStudentRequestSchema>;
+export type ReviewStudentRequestParsed = z.infer<typeof ReviewStudentRequestSchema>;

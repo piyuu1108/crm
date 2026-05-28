@@ -6,6 +6,8 @@ import { studentRequests, students, faculty } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { ReviewStudentRequestSchema } from "@/app/lib/validations/schemas/request";
 
 /**
  * GET /api/requests/[id]
@@ -143,11 +145,10 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { status, remarks } = body;
+    const parsed = validateBody(body, ReviewStudentRequestSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!status || !["approved", "rejected"].includes(status)) {
-      return audit.error("Status must be 'approved' or 'rejected'", undefined, 400);
-    }
+    const { status, remarks } = parsed.data;
 
     await db
       .update(studentRequests)

@@ -12,6 +12,8 @@ import {
 import { eq, and, inArray } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { SaveTimetableSchema } from "@/app/lib/validations/schemas/timetable";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -224,13 +226,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { divisionId, entries: newEntries } = body;
+    const parsed = validateBody(body, SaveTimetableSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    if (!divisionId || !Array.isArray(newEntries)) {
-      return audit.error("divisionId and entries[] are required", undefined, 400);
-    }
-
-    const divId = Number(divisionId);
+    const { divisionId, entries: newEntries } = parsed.data;
+    const divId = divisionId;
 
     // Get division
     const [division] = await db
@@ -240,13 +240,6 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (!division) return audit.error("Division not found", undefined, 404);
-
-    // Validation entries — check for missing fields
-    for (const entry of newEntries) {
-      if (!entry.dayOfWeek || !entry.startTime || !entry.endTime || !entry.assignmentId) {
-        return audit.error("Each entry must have dayOfWeek, startTime, endTime, assignmentId", undefined, 400);
-      }
-    }
 
     // Validate assignments exist and belong to this division
     const assignmentIds = [...new Set(newEntries.map((e: { assignmentId: number }) => e.assignmentId))];

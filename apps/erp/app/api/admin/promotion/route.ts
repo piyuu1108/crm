@@ -11,6 +11,8 @@ import {
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { AuditLogger } from "@/app/lib/audit-logger";
+import { validateBody } from "@/app/lib/validations/validate";
+import { PromotionSchema } from "@/app/lib/validations/schemas/promotion";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown) {
@@ -48,18 +50,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { sourceDivisionId, targetDivisionId, studentIds } = body;
+    const parsed = validateBody(body, PromotionSchema);
+    if (!parsed.success) return audit.error("Validation failed", parsed.error);
 
-    // ── Input validation ──────────────────────────────────────────────
-    if (!sourceDivisionId || typeof sourceDivisionId !== "number") {
-      return audit.error("sourceDivisionId is required and must be a number", undefined, 400);
-    }
-    if (!targetDivisionId || typeof targetDivisionId !== "number") {
-      return audit.error("targetDivisionId is required and must be a number", undefined, 400);
-    }
-    if (sourceDivisionId === targetDivisionId) {
-      return audit.error("Source and target divisions must be different", undefined, 400);
-    }
+    const { sourceDivisionId, targetDivisionId, studentIds } = parsed.data;
 
     // ── Fetch source division ─────────────────────────────────────────
     const [sourceDivision] = await db

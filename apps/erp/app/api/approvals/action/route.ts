@@ -13,29 +13,31 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "approvals.approve");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "approvals.approve");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "approvals.action",
+    category: "approvals",
+    summary: "Actioned approval step for faculty request",
+    entityType: "faculty_request",
+  });
+
+  try {
     const { userId, activeRole } = auth;
     const body = await req.json();
 
     const { requestId, action, remarks, proxyOverrides = [] } = body;
 
     if (!requestId || !action) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields" },
-        { status: 400 }
-      );
+      return audit.error("Missing required fields", undefined, 400);
     }
 
     if (action !== "approve" && action !== "reject") {
-      return NextResponse.json(
-        { success: false, error: "Invalid action type" },
-        { status: 400 }
-      );
+      return audit.error("Invalid action type", undefined, 400);
     }
 
     // 1. Fetch request details and creator name
@@ -56,17 +58,11 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (!request) {
-      return NextResponse.json(
-        { success: false, error: "Request not found" },
-        { status: 404 }
-      );
+      return audit.error("Request not found", undefined, 404);
     }
 
     if (request.status !== "pending") {
-      return NextResponse.json(
-        { success: false, error: "Request is already finalized" },
-        { status: 400 }
-      );
+      return audit.error("Request is already finalized", undefined, 400);
     }
 
     // 2. Fetch all approvals in the workflow chain
@@ -84,10 +80,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!activeStep) {
-      return NextResponse.json(
-        { success: false, error: `No active pending action for role: ${activeRole}` },
-        { status: 400 }
-      );
+      return audit.error(`No active pending action for role: ${activeRole}`, undefined, 400);
     }
 
     // Resolve name of current approver
@@ -358,12 +351,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, data: updatedRequest.requestState });
-  } catch (error) {
-    console.error("[POST /api/approvals/action] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({ success: true, data: updatedRequest.requestState }),
+      {
+        eid: String(requestId),
+        act: action,
+        fin: updatedRequest.isFinalized ? 1 : 0,
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

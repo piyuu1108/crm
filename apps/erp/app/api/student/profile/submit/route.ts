@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { students, studentDocuments } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 import {
   validateAllSteps,
   type PersonalInfoData,
@@ -19,11 +20,19 @@ import {
  * then moves verification to "pending" for admin review.
  */
 export async function POST(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "profile.edit_student");
-    if (result instanceof NextResponse) return result;
-    const studentDbId = result.userId;
+  const auth = await requirePermission(req, "profile.edit_student");
+  if (auth instanceof NextResponse) return auth;
+  const studentDbId = auth.userId;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "student.submit_profile",
+    category: "profile",
+    summary: "Submitted student profile for verification",
+    entityType: "student",
+    entityId: studentDbId,
+  });
+
+  try {
     // Fetch full student record
     const rows = await db
       .select()
@@ -32,10 +41,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (rows.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Student not found" },
-        { status: 404 }
-      );
+      return audit.error("Student not found", undefined, 404);
     }
 
     const student = rows[0];
@@ -94,13 +100,12 @@ export async function POST(req: NextRequest) {
     // Full validation
     const validation = validateAllSteps(step1, step2, step3, step4);
     if (!validation.valid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Profile is incomplete. Please fill all required fields.",
-          errors: validation.errors,
-        },
-        { status: 422 }
+      return audit.error(
+        "Profile is incomplete. Please fill all required fields.",
+        NextResponse.json(
+          { success: false, error: "Profile is incomplete. Please fill all required fields.", errors: validation.errors },
+          { status: 422 }
+        )
       );
     }
 
@@ -121,15 +126,16 @@ export async function POST(req: NextRequest) {
       console.warn("[student profile submit] cache clear failed:", cacheError);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { profileStatus: "complete", status: "pending" },
-    });
-  } catch (error) {
-    console.error("[POST /api/student/profile/submit]", error);
-    return NextResponse.json(
-      { success: false, error: "An unexpected error occurred" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: { profileStatus: "complete", status: "pending" },
+      }),
+      {
+        eid: String(studentDbId),
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

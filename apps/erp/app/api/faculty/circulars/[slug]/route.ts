@@ -5,16 +5,24 @@ import { db } from "@/app/lib/db";
 import { circulars, circularRecipients } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
-  try {
-    const { slug } = await params;
-    const auth = await requireAnyPermission(req, ["circulars.delete_own", "circulars.delete_any"]);
-    if (auth instanceof NextResponse) return auth;
+  const { slug } = await params;
+  const auth = await requireAnyPermission(req, ["circulars.delete_own", "circulars.delete_any"]);
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "circulars.delete",
+    category: "circulars",
+    summary: "Deleted existing circular",
+    entityType: "circular",
+  });
+
+  try {
     // Retrieve circular to ensure it exists and we can delete it
     const [existing] = await db
       .select()
@@ -22,16 +30,13 @@ export async function DELETE(
       .where(eq(circulars.slug, slug));
 
     if (!existing) {
-      return NextResponse.json({ success: false, error: "Circular not found" }, { status: 404 });
+      return audit.error("Circular not found", undefined, 404);
     }
 
     // Only allow delete_any (HOD+) to delete ANY circular; others can only delete their own
     const canDeleteAny = hasPermission(auth.activeRole, "circulars.delete_any");
     if (!canDeleteAny && existing.facultyId !== auth.userId) {
-      return NextResponse.json(
-        { success: false, error: "Forbidden: You can only delete your own circulars" },
-        { status: 403 }
-      );
+      return audit.error("Forbidden: You can only delete your own circulars", undefined, 403);
     }
 
     // Retrieve recipient division IDs if division-targeted
@@ -64,12 +69,14 @@ export async function DELETE(
       console.warn("[Cache Error] Failed to invalidate circular cache:", cacheError);
     }
 
-    return NextResponse.json({ success: true, data: "Deleted successfully" });
-  } catch (error) {
-    console.error("[DELETE /api/faculty/circulars/[slug]]", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to delete circular" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({ success: true, data: "Deleted successfully" }),
+      {
+        eid: String(existing.id),
+        slug: slug,
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

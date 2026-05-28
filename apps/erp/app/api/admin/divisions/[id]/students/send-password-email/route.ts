@@ -4,6 +4,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -17,17 +18,25 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const auth = await requirePermission(req, "admin.email");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.email");
+  if (auth instanceof NextResponse) return auth;
 
-    const { id: idStr } = await params;
-    const divisionId = Number.parseInt(idStr, 10);
-    if (!Number.isFinite(divisionId)) return err("Invalid division ID", 400);
+  const { id: idStr } = await params;
+  const divisionId = Number.parseInt(idStr, 10);
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "student.send_password_email",
+    category: "admin",
+    summary: "Sent setup password email to student",
+    entityType: "student",
+  });
+
+  try {
+    if (!Number.isFinite(divisionId)) return audit.error("Invalid division ID", undefined, 400);
 
     const body = (await req.json().catch(() => ({}))) as { studentDbId?: number };
     const studentDbId = Number(body.studentDbId);
-    if (!Number.isFinite(studentDbId)) return err("studentDbId is required", 400);
+    if (!Number.isFinite(studentDbId)) return audit.error("studentDbId is required", undefined, 400);
 
     const [student] = await db
       .select({
@@ -42,8 +51,8 @@ export async function POST(
       )
       .limit(1);
 
-    if (!student) return err("Student not found in this division", 404);
-    if (!student.studentId) return err("Student ID is not assigned", 400);
+    if (!student) return audit.error("Student not found in this division", undefined, 404);
+    if (!student.studentId) return audit.error("Student ID is not assigned", undefined, 400);
 
     const result = await sendPasswordEmail({
       userId: student.id,
@@ -54,12 +63,18 @@ export async function POST(
     });
 
     if (!result.success) {
-      return err(result.error ?? "Failed to send password email", 500);
+      return audit.error(result.error ?? "Failed to send password email", undefined, 500);
     }
 
-    return ok({ sent: true });
+    return audit.success(
+      NextResponse.json({ success: true, data: { sent: true } }, { status: 200 }),
+      {
+        eid: String(student.id),
+        email: student.email,
+        did: String(divisionId),
+      }
+    );
   } catch (error) {
-    console.error("[POST admin single password email] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

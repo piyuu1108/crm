@@ -14,12 +14,20 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, or, inArray } from "drizzle-orm";
 import { publishNotification } from "@/app/lib/notifications";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "approvals.create");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "approvals.create");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "approvals.submit",
+    category: "approvals",
+    summary: "Submitted new faculty request for approval",
+    entityType: "faculty_request",
+  });
+
+  try {
     const { userId } = auth;
     const body = await req.json();
 
@@ -33,10 +41,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!requestTypeCode || !fromDate || !toDate || !description) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields" },
-        { status: 400 }
-      );
+      return audit.error("Missing required fields", undefined, 400);
     }
 
     // 1. Fetch requesting faculty details to resolve course scope and name
@@ -50,10 +55,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (!facultyUser) {
-      return NextResponse.json(
-        { success: false, error: "Faculty not found" },
-        { status: 404 }
-      );
+      return audit.error("Faculty not found", undefined, 404);
     }
 
     // 2. Fetch the dynamic approval chain configuration
@@ -99,12 +101,10 @@ export async function POST(req: NextRequest) {
 
       if (existingProxies.length > 0) {
         const conflict = existingProxies[0];
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Faculty ${conflict.proxyFacultyName} is already assigned as a proxy for another lecture on ${conflict.date}.`,
-          },
-          { status: 400 }
+        return audit.error(
+          `Faculty ${conflict.proxyFacultyName} is already assigned as a proxy for another lecture on ${conflict.date}.`,
+          undefined,
+          400
         );
       }
     }
@@ -231,12 +231,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, data: newRequest });
-  } catch (error) {
-    console.error("[POST /api/approvals/submit] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({ success: true, data: newRequest }),
+      {
+        eid: String(newRequest.id),
+        type: requestTypeCode,
+        prox: proxies.length,
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

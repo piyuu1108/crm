@@ -4,6 +4,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, students } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -17,20 +18,28 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const { id: idStr } = await params;
-    const divisionId = Number.parseInt(idStr, 10);
-    if (!Number.isFinite(divisionId)) return err("Invalid division ID", 400);
+  const auth = await requirePermission(req, "counselor.email");
+  if (auth instanceof NextResponse) return auth;
 
-    const auth = await requirePermission(req, "counselor.email");
-    if (auth instanceof NextResponse) return auth;
+  const { id: idStr } = await params;
+  const divisionId = Number.parseInt(idStr, 10);
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "counselor.send_password_email",
+    category: "counselor",
+    summary: "Sent setup password email to student",
+    entityType: "student",
+  });
+
+  try {
+    if (!Number.isFinite(divisionId)) return audit.error("Invalid division ID", undefined, 400);
 
     const counselorDivisionIds = auth.counselorDivisionIds ?? [];
-    if (!counselorDivisionIds.includes(divisionId)) return err("Forbidden", 403);
+    if (!counselorDivisionIds.includes(divisionId)) return audit.error("Forbidden", undefined, 403);
 
     const body = (await req.json().catch(() => ({}))) as { studentDbId?: number };
     const studentDbId = Number(body.studentDbId);
-    if (!Number.isFinite(studentDbId)) return err("studentDbId is required", 400);
+    if (!Number.isFinite(studentDbId)) return audit.error("studentDbId is required", undefined, 400);
 
     const [student] = await db
       .select({
@@ -45,11 +54,9 @@ export async function POST(
       )
       .limit(1);
 
-    if (!student) return err("Student not found in this division", 404);
-    if (!student.studentId) return err("Student ID is not assigned", 400);
-    if (!student.email) return err("Student has no email address", 400);
-
-    console.log(`[counselor send-password-email] Sending to studentId=${student.studentId} dbId=${student.id}`);
+    if (!student) return audit.error("Student not found in this division", undefined, 404);
+    if (!student.studentId) return audit.error("Student ID is not assigned", undefined, 400);
+    if (!student.email) return audit.error("Student has no email address", undefined, 400);
 
     // FIXED: pass the correct payload shape that matches PasswordEmailPayload
     const result = await sendPasswordEmail({
@@ -61,14 +68,18 @@ export async function POST(
     });
 
     if (!result.success) {
-      console.error("[counselor send-password-email] Failed:", result.error);
-      return err(result.error ?? "Failed to send password email", 500);
+      return audit.error(result.error ?? "Failed to send password email", undefined, 500);
     }
 
-    console.log(`[counselor send-password-email] Sent successfully to ${student.email}`);
-    return ok({ sent: true });
+    return audit.success(
+      NextResponse.json({ success: true, data: { sent: true } }, { status: 200 }),
+      {
+        eid: String(student.id),
+        email: student.email,
+        did: String(divisionId),
+      }
+    );
   } catch (error) {
-    console.error("[POST counselor single password email] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

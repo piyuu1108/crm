@@ -4,6 +4,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { faculty } from "@/app/lib/schema";
 import { sendPasswordEmail } from "@/app/lib/email/service";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -14,13 +15,20 @@ function err(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "admin.email");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.email");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "faculty.send_password_email",
+    category: "admin",
+    summary: "Sent setup password email to faculty",
+    entityType: "faculty",
+  });
+
+  try {
     const body = (await req.json().catch(() => ({}))) as { facultyDbId?: number };
     const facultyDbId = Number(body.facultyDbId);
-    if (!Number.isFinite(facultyDbId)) return err("facultyDbId is required", 400);
+    if (!Number.isFinite(facultyDbId)) return audit.error("facultyDbId is required", undefined, 400);
 
     const [member] = await db
       .select({
@@ -33,7 +41,7 @@ export async function POST(req: NextRequest) {
       .where(eq(faculty.id, facultyDbId))
       .limit(1);
 
-    if (!member) return err("Faculty member not found", 404);
+    if (!member) return audit.error("Faculty member not found", undefined, 404);
 
     const result = await sendPasswordEmail({
       userId: member.id,
@@ -44,12 +52,17 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.success) {
-      return err(result.error ?? "Failed to send password email", 500);
+      return audit.error(result.error ?? "Failed to send password email", undefined, 500);
     }
 
-    return ok({ sent: true });
+    return audit.success(
+      NextResponse.json({ success: true, data: { sent: true } }, { status: 200 }),
+      {
+        eid: String(member.id),
+        email: member.email,
+      }
+    );
   } catch (error) {
-    console.error("[POST admin faculty password email] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

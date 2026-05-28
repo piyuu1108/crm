@@ -3,6 +3,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { internalExams, semesters } from "@/app/lib/schema";
 import { eq, and, desc, or } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -61,24 +62,31 @@ export async function GET(req: NextRequest) {
  * Body: { examName, examNumber, targetType, targetYear?, targetDivisionId?, semesterId? }
  */
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "exams.manage");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "exams.manage");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "exams.create",
+    category: "exams",
+    summary: "Created new internal exam definition",
+    entityType: "internal_exam",
+  });
+
+  try {
     const body = await req.json();
     const { examName, examNumber, targetType, targetYear, targetDivisionId, semesterId: reqSemId } = body;
 
     if (!examName || typeof examNumber !== "number") {
-      return err("examName and examNumber are required", 400);
+      return audit.error("examName and examNumber are required", undefined, 400);
     }
     if (!["ALL", "YEAR", "DIVISION"].includes(targetType || "ALL")) {
-      return err("targetType must be ALL, YEAR, or DIVISION", 400);
+      return audit.error("targetType must be ALL, YEAR, or DIVISION", undefined, 400);
     }
     if (targetType === "YEAR" && !targetYear) {
-      return err("targetYear is required when targetType is YEAR", 400);
+      return audit.error("targetYear is required when targetType is YEAR", undefined, 400);
     }
     if (targetType === "DIVISION" && !targetDivisionId) {
-      return err("targetDivisionId is required when targetType is DIVISION", 400);
+      return audit.error("targetDivisionId is required when targetType is DIVISION", undefined, 400);
     }
 
     let semesterId: number;
@@ -90,7 +98,7 @@ export async function POST(req: NextRequest) {
         .from(semesters)
         .where(eq(semesters.isActive, true))
         .limit(1);
-      if (!activeSem) return err("No active semester found", 404);
+      if (!activeSem) return audit.error("No active semester found", undefined, 404);
       semesterId = activeSem.id;
     }
 
@@ -107,9 +115,15 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    return ok(created);
+    return audit.success(
+      NextResponse.json({ success: true, data: created }),
+      {
+        eid: String(created.id),
+        name: created.examName,
+        num: created.examNumber,
+      }
+    );
   } catch (error) {
-    console.error("[POST /api/internal-exams]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

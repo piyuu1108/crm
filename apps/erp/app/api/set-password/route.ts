@@ -1,16 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { db } from "@/app/lib/db";
 import { students, faculty } from "@/app/lib/schema";
 import { redis } from "@/app/lib/redis";
 import { consumePasswordSetupToken } from "@/app/lib/password-setup-token";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
-function err(message: string, status: number) {
-  return NextResponse.json({ success: false, error: message }, { status });
-}
+export async function POST(request: NextRequest) {
+  const audit = AuditLogger.start(request, null, {
+    action: "auth.set_password",
+    category: "auth",
+    summary: "User set/reset password",
+  });
 
-export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as {
       token?: string;
@@ -22,21 +25,18 @@ export async function POST(request: Request) {
     const newPassword = body.newPassword ?? "";
     const confirmPassword = body.confirmPassword ?? "";
 
-    if (!token) return err("Token is required", 400);
-    if (!newPassword) return err("New password is required", 400);
-    if (newPassword.length < 8) return err("Password must be at least 8 characters", 400);
-    if (!confirmPassword) return err("Confirm password is required", 400);
-    if (newPassword !== confirmPassword) return err("Passwords do not match", 400);
-
-    console.log(`[set-password] Token received, length=${token.length}`);
+    if (!token) return audit.error("Token is required", undefined, 400);
+    if (!newPassword) return audit.error("New password is required", undefined, 400);
+    if (newPassword.length < 8) return audit.error("Password must be at least 8 characters", undefined, 400);
+    if (!confirmPassword) return audit.error("Confirm password is required", undefined, 400);
+    if (newPassword !== confirmPassword) return audit.error("Passwords do not match", undefined, 400);
 
     const tokenLookup = await consumePasswordSetupToken(token);
     if (!tokenLookup.userId || !tokenLookup.userType) {
       const reason = tokenLookup.reason === "malformed"
         ? "Invalid token format"
         : "Token has expired or has already been used";
-      console.error(`[set-password] Token lookup failed — reason=${tokenLookup.reason ?? "not_found"} key=${tokenLookup.key}`);
-      return err(reason, 400);
+      return audit.error(reason, undefined, 400);
     }
 
     const { userId, userType } = tokenLookup;
@@ -49,9 +49,8 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (!user) {
-      console.error(`[set-password] User not found in DB — userType=${userType}, userId=${userId}`);
       await redis.del(tokenLookup.key);
-      return err("Invalid token user", 400);
+      return audit.error("Invalid token user", undefined, 400);
     }
 
     const passwordHash = await bcrypt.hash(newPassword, 10);
@@ -63,15 +62,20 @@ export async function POST(request: Request) {
 
     await redis.del(tokenLookup.key);
 
-    return NextResponse.json(
+    return audit.success(
+      NextResponse.json(
+        {
+          success: true,
+          data: { message: "Password set successfully" },
+        },
+        { status: 200 }
+      ),
       {
-        success: true,
-        data: { message: "Password set successfully" },
-      },
-      { status: 200 }
+        uid: String(user.id),
+        utyp: userType,
+      }
     );
   } catch (error) {
-    console.error("[POST /api/set-password] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

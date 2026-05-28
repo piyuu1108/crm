@@ -6,6 +6,7 @@ import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { initializeEmailJob, incrementEmailJobCounters } from "@/app/lib/email/job-tracker";
 import { sendBulkPasswordEmails } from "@/app/lib/email/service";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 const BATCH_SIZE = 10;
 
@@ -21,20 +22,28 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const auth = await requirePermission(req, "admin.email");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.email");
+  if (auth instanceof NextResponse) return auth;
 
-    const { id: idStr } = await params;
-    const divisionId = Number.parseInt(idStr, 10);
-    if (!Number.isFinite(divisionId)) return err("Invalid division ID", 400);
+  const { id: idStr } = await params;
+  const divisionId = Number.parseInt(idStr, 10);
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "student.send_password_email_bulk",
+    category: "admin",
+    summary: "Sent setup password emails to bulk students",
+    entityType: "student",
+  });
+
+  try {
+    if (!Number.isFinite(divisionId)) return audit.error("Invalid division ID", undefined, 400);
 
     const body = (await req.json().catch(() => ({}))) as { studentDbIds?: number[] };
     const studentDbIds = Array.isArray(body.studentDbIds)
       ? body.studentDbIds.map(Number).filter(Number.isFinite)
       : [];
 
-    if (studentDbIds.length === 0) return err("studentDbIds is required", 400);
+    if (studentDbIds.length === 0) return audit.error("studentDbIds is required", undefined, 400);
 
     const selectedStudents = await db
       .select({
@@ -61,7 +70,7 @@ export async function POST(
         userType: "student" as const,
       }));
 
-    if (recipients.length === 0) return err("No valid students selected", 400);
+    if (recipients.length === 0) return audit.error("No valid students selected", undefined, 400);
 
     const jobId = randomUUID();
 
@@ -74,18 +83,26 @@ export async function POST(
       await incrementEmailJobCounters(jobId, recipients.length, 0);
     } else {
       await incrementEmailJobCounters(jobId, 0, recipients.length, recipients.map((r) => r.email));
-      console.error(`[POST admin bulk password email] Direct send failed:`, result.error);
-      return err(result.error ?? "Failed to send bulk emails", 500);
+      return audit.error(result.error ?? "Failed to send bulk emails", undefined, 500);
     }
 
-    return ok({
-      jobId,
-      total: recipients.length,
-      queuedBatches: 1,
-      messageIds: [],
-    });
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: {
+          jobId,
+          total: recipients.length,
+          queuedBatches: 1,
+          messageIds: [],
+        }
+      }, { status: 202 }),
+      {
+        recs: recipients.length,
+        jobId,
+        did: String(divisionId),
+      }
+    );
   } catch (error) {
-    console.error("[POST admin bulk password email] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { faculty, administrators } from "@/app/lib/schema";
 import { requirePermission } from "@/app/lib/api-auth";
 import { isAdminTableRole } from "@/app/lib/permissions";
+import { AuditLogger } from "@/app/lib/audit-logger";
 import {
   validateFacultyStep1,
   validateFacultyStep2,
@@ -92,28 +93,29 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const result = await requirePermission(req, "profile.edit_faculty");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
+
+  const isAdmin = isAdminTableRole(auth.activeRole);
+
+  const audit = AuditLogger.start(req, auth, {
+    action: isAdmin ? "admin.update_profile_step" : "faculty.update_profile_step",
+    category: "profile",
+    summary: "Saved faculty profile step",
+    entityType: isAdmin ? "admin" : "faculty",
+    entityId: auth.userId,
+  });
+
   try {
-    const result = await requirePermission(req, "profile.edit_faculty");
-    if (result instanceof NextResponse) return result;
-    const auth = result;
-
-    const isAdmin = isAdminTableRole(auth.activeRole);
-
     const body = await req.json();
     const { step, data } = body;
-    console.log(`[PUT /api/faculty/profile] facultyId=${auth.userId}, step=${step}`);
 
     if (!step || ![1, 2, 3, 4].includes(step)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid step (must be 1-4)" },
-        { status: 400 }
-      );
+      return audit.error("Invalid step (must be 1-4)", undefined, 400);
     }
     if (!data || typeof data !== "object") {
-      return NextResponse.json(
-        { success: false, error: "Missing step data" },
-        { status: 400 }
-      );
+      return audit.error("Missing step data", undefined, 400);
     }
 
     let existing;
@@ -134,10 +136,7 @@ export async function PUT(req: NextRequest) {
     }
 
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Profile not found" },
-        { status: 404 }
-      );
+      return audit.error("Profile not found", undefined, 404);
     }
 
     switch (step) {
@@ -145,9 +144,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as FacultyPersonalInfoData;
         const validation = validateFacultyStep1(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         if (isAdmin) {
@@ -176,9 +175,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as FacultyContactInfoData;
         const validation = validateFacultyStep2(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         const setParams = {
@@ -211,9 +210,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as FacultyProfessionalInfoData;
         const validation = validateFacultyStep3(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         const setParams = {
@@ -240,9 +239,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as FacultyDocumentsData;
         const validation = validateFacultyStep4(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         if (isAdmin) {
@@ -276,17 +275,18 @@ export async function PUT(req: NextRequest) {
         .where(eq(faculty.id, auth.userId));
     }
 
-    console.log(`[PUT /api/faculty/profile] Step ${step} saved. profileStep: ${existing.profileStep} -> ${clampedStep}`);
-
-    return NextResponse.json({
-      success: true,
-      data: { profileStep: clampedStep },
-    });
-  } catch (error) {
-    console.error("[PUT /api/faculty/profile]", error);
-    return NextResponse.json(
-      { success: false, error: "An unexpected error occurred" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: { profileStep: clampedStep },
+      }),
+      {
+        eid: String(auth.userId),
+        stp: step,
+        nstp: clampedStep,
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

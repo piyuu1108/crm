@@ -3,6 +3,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { divisions } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -20,23 +21,30 @@ function err(message: string, status: number) {
 // Toggle publish status for a division's timetable
 
 export async function PATCH(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "timetable.publish");
-    if (result instanceof NextResponse) return result;
+  const auth = await requirePermission(req, "timetable.publish");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "timetable.publish",
+    category: "timetable",
+    summary: "Published or drafted timetable for division",
+    entityType: "division_timetable",
+  });
+
+  try {
     const body = await req.json();
     const { divisionId, status } = body;
 
     if (!divisionId || !status) {
-      return err("divisionId and status are required", 400);
+      return audit.error("divisionId and status are required", undefined, 400);
     }
 
     if (!["draft", "published"].includes(status)) {
-      return err('status must be "draft" or "published"', 400);
+      return audit.error('status must be "draft" or "published"', undefined, 400);
     }
 
     const divId = Number(divisionId);
-    if (isNaN(divId) || divId <= 0) return err("Invalid divisionId", 400);
+    if (isNaN(divId) || divId <= 0) return audit.error("Invalid divisionId", undefined, 400);
 
     const [division] = await db
       .select({ id: divisions.id, publishStatus: divisions.publishStatus })
@@ -44,16 +52,21 @@ export async function PATCH(req: NextRequest) {
       .where(eq(divisions.id, divId))
       .limit(1);
 
-    if (!division) return err("Division not found", 404);
+    if (!division) return audit.error("Division not found", undefined, 404);
 
     await db
       .update(divisions)
       .set({ publishStatus: status })
       .where(eq(divisions.id, divId));
 
-    return ok({ divisionId: divId, publishStatus: status });
+    return audit.success(
+      NextResponse.json({ success: true, data: { divisionId: divId, publishStatus: status } }),
+      {
+        did: String(divId),
+        st: status,
+      }
+    );
   } catch (error) {
-    console.error("[PATCH /api/admin/timetable/publish]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

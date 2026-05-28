@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { faculty } from "@/app/lib/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 
@@ -20,16 +21,24 @@ export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  const result = await requirePermission(req, "admin.faculty");
+  if (result instanceof NextResponse) return result;
+
+  const { id: idStr } = await context.params;
+  const facultyId = parseInt(idStr, 10);
+  if (isNaN(facultyId)) {
+    return NextResponse.json({ success: false, error: "Invalid faculty ID" }, { status: 400 });
+  }
+
+  const audit = AuditLogger.start(req, result, {
+    action: "faculty.update",
+    category: "admin",
+    summary: "Updated faculty member profile",
+    entityType: "faculty",
+    entityId: facultyId,
+  });
+
   try {
-    const result = await requirePermission(req, "admin.faculty");
-    if (result instanceof NextResponse) return result;
-
-    const { id: idStr } = await context.params;
-    const facultyId = parseInt(idStr, 10);
-    if (isNaN(facultyId)) {
-      return err("Invalid faculty ID", 400);
-    }
-
     const body = await req.json();
     const { name, email, mobile, facultyCode, designation } = body;
 
@@ -67,7 +76,10 @@ export async function PUT(
     }
 
     if (Object.keys(errors).length > 0) {
-      return err("Validation failed", 400, errors);
+      return audit.error(
+        "Validation failed",
+        NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 })
+      );
     }
 
     // ── Check uniqueness (email + facultyCode) excluding self ─────────
@@ -78,7 +90,13 @@ export async function PUT(
       .limit(1);
 
     if (existingEmail) {
-      return err("Validation failed", 409, { email: "Email already registered to another faculty" });
+      return audit.error(
+        "Email already registered to another faculty",
+        NextResponse.json(
+          { success: false, error: "Email already registered to another faculty", errors: { email: "Email already registered to another faculty" } },
+          { status: 409 }
+        )
+      );
     }
 
     const [existingCode] = await db
@@ -88,7 +106,13 @@ export async function PUT(
       .limit(1);
 
     if (existingCode) {
-      return err("Validation failed", 409, { facultyCode: "Faculty code already in use" });
+      return audit.error(
+        "Faculty code already in use",
+        NextResponse.json(
+          { success: false, error: "Faculty code already in use", errors: { facultyCode: "Faculty code already in use" } },
+          { status: 409 }
+        )
+      );
     }
 
     // ── Update database ───────────────────────────────────────────────
@@ -105,7 +129,7 @@ export async function PUT(
       .returning();
 
     if (!updated) {
-      return err("Faculty not found", 404);
+      return audit.error("Faculty not found", undefined, 404);
     }
 
     // ── Invalidate cache ──────────────────────────────────────────────
@@ -115,13 +139,23 @@ export async function PUT(
       console.warn("[Cache Clear Error] Failed to clear faculty cache:", cacheError);
     }
 
-    return ok({
-      id: updated.id,
-      facultyCode: updated.facultyCode,
-      name: updated.name,
-    }, "Faculty updated successfully");
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: {
+          id: updated.id,
+          facultyCode: updated.facultyCode,
+          name: updated.name,
+        },
+        message: "Faculty updated successfully"
+      }),
+      {
+        eid: String(updated.id),
+        code: updated.facultyCode,
+        name: updated.name,
+      }
+    );
   } catch (error) {
-    console.error(`[PUT /api/admin/faculty/[id]] Error:`, error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

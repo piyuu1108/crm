@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { students, studentDocuments, courses } from "@/app/lib/schema";
 import { eq } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 import {
   validateStep1,
   validateStep2,
@@ -131,26 +132,28 @@ export async function GET(req: NextRequest) {
  * - Idempotent: can re-save any step
  */
 export async function PUT(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "profile.edit_student");
-    if (result instanceof NextResponse) return result;
-    const studentDbId = result.userId;
+  const auth = await requirePermission(req, "profile.edit_student");
+  if (auth instanceof NextResponse) return auth;
+  const studentDbId = auth.userId;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "student.update_profile_step",
+    category: "profile",
+    summary: "Saved student profile step",
+    entityType: "student",
+    entityId: studentDbId,
+  });
+
+  try {
     const body = await req.json();
     const { step, data } = body;
 
     if (!step || ![1, 2, 3, 4].includes(step)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid step (must be 1-4)" },
-        { status: 400 }
-      );
+      return audit.error("Invalid step (must be 1-4)", undefined, 400);
     }
 
     if (!data || typeof data !== "object") {
-      return NextResponse.json(
-        { success: false, error: "Missing step data" },
-        { status: 400 }
-      );
+      return audit.error("Missing step data", undefined, 400);
     }
 
     // Check student exists and is not already completed
@@ -168,10 +171,7 @@ export async function PUT(req: NextRequest) {
       .limit(1);
 
     if (existing.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Student not found" },
-        { status: 404 }
-      );
+      return audit.error("Student not found", undefined, 404);
     }
 
     const student = existing[0];
@@ -187,9 +187,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as PersonalInfoData;
         const validation = validateStep1(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         updatePayload = {
@@ -205,9 +205,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as ContactInfoData;
         const validation = validateStep2(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         updatePayload = {
@@ -242,9 +242,9 @@ export async function PUT(req: NextRequest) {
         const stepData = data as AcademicInfoData;
         const validation = validateStep3(stepData);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
         updatePayload = {
@@ -263,9 +263,9 @@ export async function PUT(req: NextRequest) {
         // Validation uses category/board from student record for conditional checks
         const validation = validateStep4(stepData, student.category ?? undefined, student.board ?? undefined);
         if (!validation.valid) {
-          return NextResponse.json(
-            { success: false, error: "Validation failed", errors: validation.errors },
-            { status: 422 }
+          return audit.error(
+            "Validation failed",
+            NextResponse.json({ success: false, error: "Validation failed", errors: validation.errors }, { status: 422 })
           );
         }
 
@@ -284,18 +284,6 @@ export async function PUT(req: NextRequest) {
 
         // Delete existing docs for this student and re-insert (idempotent upsert)
         if (docEntries.length > 0) {
-          // Remove old entries for these doc types
-          for (const entry of docEntries) {
-            const existingDoc = await db
-              .select({ id: studentDocuments.id })
-              .from(studentDocuments)
-              .where(eq(studentDocuments.studentId, studentDbId))
-              .limit(100);
-
-            // Filter by docType — drizzle doesn't have compound AND in delete easily,
-            // so we'll use raw approach: delete all, re-insert
-          }
-
           // Simpler: delete all existing docs, re-insert with current data
           // This is safe because documents are fully replaced on each step 4 save
           const { and: drizzleAnd } = await import("drizzle-orm");
@@ -342,15 +330,19 @@ export async function PUT(req: NextRequest) {
       console.warn("[student profile edit] cache clear failed:", cacheError);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { profileStep: clampedStep },
-    });
-  } catch (error) {
-    console.error("[PUT /api/student/profile]", error);
-    return NextResponse.json(
-      { success: false, error: "An unexpected error occurred" },
-      { status: 500 }
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: { profileStep: clampedStep },
+      }),
+      {
+        eid: String(studentDbId),
+        stp: step,
+        nstp: clampedStep,
+        st: nextStatus,
+      }
     );
+  } catch (error) {
+    return audit.error(error);
   }
 }

@@ -6,6 +6,7 @@ import { db } from "@/app/lib/db";
 import { faculty } from "@/app/lib/schema";
 import { initializeEmailJob, incrementEmailJobCounters } from "@/app/lib/email/job-tracker";
 import { sendBulkPasswordEmails } from "@/app/lib/email/service";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 const BATCH_SIZE = 10;
 
@@ -18,16 +19,23 @@ function err(message: string, status: number) {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "admin.email");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.email");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "faculty.send_password_email_bulk",
+    category: "admin",
+    summary: "Sent setup password emails to bulk faculty",
+    entityType: "faculty",
+  });
+
+  try {
     const body = (await req.json().catch(() => ({}))) as { facultyDbIds?: number[] };
     const facultyDbIds = Array.isArray(body.facultyDbIds)
       ? body.facultyDbIds.map(Number).filter(Number.isFinite)
       : [];
 
-    if (facultyDbIds.length === 0) return err("facultyDbIds is required", 400);
+    if (facultyDbIds.length === 0) return audit.error("facultyDbIds is required", undefined, 400);
 
     const selectedFaculty = await db
       .select({
@@ -47,7 +55,7 @@ export async function POST(req: NextRequest) {
       userType: "faculty" as const,
     }));
 
-    if (recipients.length === 0) return err("No valid faculty members selected", 400);
+    if (recipients.length === 0) return audit.error("No valid faculty members selected", undefined, 400);
 
     const jobId = randomUUID();
 
@@ -60,18 +68,25 @@ export async function POST(req: NextRequest) {
       await incrementEmailJobCounters(jobId, recipients.length, 0);
     } else {
       await incrementEmailJobCounters(jobId, 0, recipients.length, recipients.map((r) => r.email));
-      console.error(`[POST admin bulk faculty password email] Direct send failed:`, result.error);
-      return err(result.error ?? "Failed to send bulk emails", 500);
+      return audit.error(result.error ?? "Failed to send bulk emails", undefined, 500);
     }
 
-    return ok({
-      jobId,
-      total: recipients.length,
-      queuedBatches: 1,
-      messageIds: [],
-    });
+    return audit.success(
+      NextResponse.json({
+        success: true,
+        data: {
+          jobId,
+          total: recipients.length,
+          queuedBatches: 1,
+          messageIds: [],
+        }
+      }, { status: 202 }),
+      {
+        recs: recipients.length,
+        jobId,
+      }
+    );
   } catch (error) {
-    console.error("[POST admin bulk faculty password email] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

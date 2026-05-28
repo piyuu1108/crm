@@ -465,19 +465,11 @@ export function useFinalizeMutation(assignmentId: number) {
   });
 }
 
-export function useExportPreviewQuery(assignmentId: number) {
-  return useQuery({
-    queryKey: internalExamKeys.exportPreview(assignmentId),
-    queryFn: () => fetchExportPreview(assignmentId),
-    staleTime: 0,
-    enabled: assignmentId > 0,
-  });
-}
-
-export function useFacultyAssignmentsQuery(divisionId?: string) {
+export function useFacultyAssignmentsQuery(divisionId?: string, enabled: boolean = true) {
   return useQuery({
     queryKey: internalExamKeys.assignments(divisionId),
     queryFn: () => fetchFacultyAssignments(divisionId),
     staleTime: 60 * 1000,
+    enabled,
   });
 }

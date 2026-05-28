@@ -532,7 +532,7 @@ export default function ApprovalsPage() {
                           return (
                             <div key={app.id} className="relative flex flex-col gap-1 text-xs">
                               {/* Dot indicator */}
-                              <div className={`absolute -left-[21px] top-1 size-2.5 rounded-full border-2 ${
+                              <div className={`absolute left-[-21px] top-1 size-2.5 rounded-full border-2 ${
                                 app.status === "approved" ? "bg-emerald-500 border-emerald-500" :
                                 app.status === "rejected" ? "bg-rose-500 border-rose-500" :
                                 isActiveStep ? "bg-amber-500 border-amber-500 animate-pulse" : "bg-default-200 border-default-200"

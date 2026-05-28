@@ -4,8 +4,8 @@ import React, { useMemo, useState, useEffect } from "react";
 import { Card, Button, Spinner, Dropdown, ComboBox, Input, Label, ListBox, Table } from "@heroui/react";
 import { Funnel, Flask } from "@gravity-ui/icons";
 import { useReadonlyTimetableQuery, useAdminTimetableQuery, TimetableSlot } from "@/app/lib/queries/timetable";
-import { useDivisionListQuery } from "@/app/lib/queries/divisions";
-import { useFacultyListQuery } from "@/app/lib/queries/faculty";
+import { fetchDivisionList } from "@/app/lib/queries/divisions";
+import { fetchFacultyList } from "@/app/lib/queries/faculty";
 import { useAuthStore } from "@/app/lib/store/use-auth-store";
 import { usePermission } from "@/app/lib/hooks/use-permission";
 import { useQuery } from "@tanstack/react-query";
@@ -106,11 +106,19 @@ export default function AcademicsTimetablePage() {
   const [selectedTargetId, setSelectedTargetId] = useState<number | null>(null);
 
   // Fetch list of divisions
-  const { data: divisionsData, isLoading: isDivisionsLoading } = useDivisionListQuery({ limit: 1000, page: 1 });
+  const { data: divisionsData, isLoading: isDivisionsLoading } = useQuery({
+    queryKey: ["admin-divisions-list"],
+    queryFn: () => fetchDivisionList({ limit: 1000, page: 1 }),
+    enabled: isAdmin,
+  });
   const divisions = divisionsData?.divisions ?? [];
 
   // Fetch list of faculty
-  const { data: facultyData, isLoading: isFacultyLoading } = useFacultyListQuery({ limit: 1000, page: 1 });
+  const { data: facultyData, isLoading: isFacultyLoading } = useQuery({
+    queryKey: ["admin-faculty-list"],
+    queryFn: () => fetchFacultyList({ limit: 1000, page: 1 }),
+    enabled: isAdmin,
+  });
   const facultyList = facultyData?.faculty ?? [];
 
   // Fetch dynamic admin timetable

@@ -52,7 +52,7 @@ export function HodExamManagement() {
   });
 
   // Fetch assignments for marks entry
-  const { data: assignmentsData } = useFacultyAssignmentsQuery(selectedDivisionId || undefined);
+  const { data: assignmentsData } = useFacultyAssignmentsQuery(selectedDivisionId || undefined, !!selectedDivisionId);
 
   const { data: marksData, isLoading: loadingMarks } = useExamMarksQuery(
     selectedExamId,

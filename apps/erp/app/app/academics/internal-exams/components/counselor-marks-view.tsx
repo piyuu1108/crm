@@ -31,7 +31,7 @@ export function CounselorMarksView() {
   const [selectedExamId, setSelectedExamId] = useState(0);
 
   // Fetch assignments for selected division — role-aware, returns flat array
-  const { data: assignments = [] } = useFacultyAssignmentsQuery(selectedDivisionId || undefined);
+  const { data: assignments = [] } = useFacultyAssignmentsQuery(selectedDivisionId || undefined, !!selectedDivisionId);
 
   const { data: marksData, isLoading: loadingMarks } = useExamMarksQuery(
     selectedExamId,

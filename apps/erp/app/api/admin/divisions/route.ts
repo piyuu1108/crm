@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { divisions, courses, semesters, students, counselorDivisionAssignments, facultySubjectAssignments, faculty, subjects, academicYears } from "@/app/lib/schema";
 import { eq, and, count, asc, desc, sql, max, inArray } from "drizzle-orm";
 import { remember, cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown, source: "db" | "cache" = "db") {
@@ -164,11 +165,17 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/admin/divisions — Create a new division ────────────────────────
 export async function POST(req: NextRequest) {
-  try {
-    const authResult = await requirePermission(req, "admin.divisions");
-    if (authResult instanceof NextResponse) return authResult;
-    const auth = { payload: authResult };
+  const authResult = await requirePermission(req, "admin.divisions");
+  if (authResult instanceof NextResponse) return authResult;
+  const auth = { payload: authResult };
 
+  const audit = AuditLogger.start(req, auth.payload, {
+    action: "divisions.create",
+    category: "admin",
+    summary: "Created new division",
+  });
+
+  try {
     const body = await req.json();
     const { batchYear, semesterNo, specialization } = body;
 
@@ -189,9 +196,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (Object.keys(errors).length > 0) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", errors },
-        { status: 400 }
+      return audit.error(
+        "Validation failed",
+        NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 })
       );
     }
 
@@ -206,9 +213,12 @@ export async function POST(req: NextRequest) {
       } else if (authPayload.activeCourseId && authPayload.activeCourseId !== "all") {
         courseId = Number(authPayload.activeCourseId);
       } else {
-        return NextResponse.json(
-          { success: false, error: "Validation failed", errors: { courseId: "Course is required for administrative division creation" } },
-          { status: 400 }
+        return audit.error(
+          "Course is required for administrative division creation",
+          NextResponse.json(
+            { success: false, error: "Validation failed", errors: { courseId: "Course is required for administrative division creation" } },
+            { status: 400 }
+          )
         );
       }
     } else {
@@ -222,7 +232,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (!course) {
-      return err("Your account is not linked to a valid course. Contact admin.", 400);
+      return audit.error("Your account is not linked to a valid course. Contact admin.", undefined, 400);
     }
 
     // ── All creation logic wrapped in a single transaction ────────────
@@ -342,9 +352,8 @@ export async function POST(req: NextRequest) {
       console.warn("[Cache Clear Error] Failed to invalidate cache:", cacheError);
     }
 
-    return NextResponse.json({ success: true, data: created }, { status: 201 });
+    return audit.success(NextResponse.json({ success: true, data: created }, { status: 201 }), { eid: String(created.id) });
   } catch (error) {
-    console.error("[POST /api/admin/divisions] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

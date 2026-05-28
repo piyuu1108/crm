@@ -9,6 +9,7 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, ne } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 
@@ -26,13 +27,21 @@ export async function PUT(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const auth = await requirePermission(req, "admin.subjects");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.subjects");
+  if (auth instanceof NextResponse) return auth;
 
-    const { id: idStr } = await context.params;
-    const subjectId = parseInt(idStr, 10);
-    if (isNaN(subjectId)) return err("Invalid subject ID", 400);
+  const { id: idStr } = await context.params;
+  const subjectId = parseInt(idStr, 10);
+  
+  const audit = AuditLogger.start(req, auth, {
+    action: "subjects.update",
+    category: "admin",
+    summary: "Updated subject",
+    entityId: isNaN(subjectId) ? undefined : subjectId,
+  });
+
+  try {
+    if (isNaN(subjectId)) return audit.error("Invalid subject ID", undefined, 400);
 
     const body = await req.json();
     const {
@@ -71,7 +80,7 @@ export async function PUT(
     }
 
     if (Object.keys(errors).length > 0) {
-      return err("Validation failed", 400, errors);
+      return audit.error("Validation failed", err("Validation failed", 400, errors));
     }
 
     // ── Check code uniqueness (excluding self) ────────────────────────
@@ -82,7 +91,7 @@ export async function PUT(
       .limit(1);
 
     if (existingCode) {
-      return err("Validation failed", 409, { code: "Subject code already in use by another subject" });
+      return audit.error("Validation failed", err("Validation failed", 409, { code: "Subject code already in use by another subject" }));
     }
 
     // ── Resolve impact: which assignments does this subject have? ─────
@@ -124,7 +133,7 @@ export async function PUT(
       .where(eq(subjects.id, subjectId))
       .returning();
 
-    if (!updated) return err("Subject not found", 404);
+    if (!updated) return audit.error("Subject not found", undefined, 404);
 
     // Invalidate cached subjects for all affected divisions and faculties
     for (const assignment of assignmentRows) {
@@ -136,13 +145,11 @@ export async function PUT(
       }
     }
 
-    return ok(
-      { subject: updated, affectedAssignments: assignmentRows.length },
-      "Subject updated successfully"
+    return audit.success(
+      ok({ subject: updated, affectedAssignments: assignmentRows.length }, "Subject updated successfully")
     );
   } catch (error) {
-    console.error(`[PUT /api/admin/subjects/[id]] Error:`, error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }
 
@@ -152,13 +159,21 @@ export async function DELETE(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const auth = await requirePermission(req, "admin.subjects");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.subjects");
+  if (auth instanceof NextResponse) return auth;
 
-    const { id: idStr } = await context.params;
-    const subjectId = parseInt(idStr, 10);
-    if (isNaN(subjectId)) return err("Invalid subject ID", 400);
+  const { id: idStr } = await context.params;
+  const subjectId = parseInt(idStr, 10);
+  
+  const audit = AuditLogger.start(req, auth, {
+    action: "subjects.delete",
+    category: "admin",
+    summary: "Deleted subject",
+    entityId: isNaN(subjectId) ? undefined : subjectId,
+  });
+
+  try {
+    if (isNaN(subjectId)) return audit.error("Invalid subject ID", undefined, 400);
 
     // Check for existing assignments before deleting
     const assignmentCount = await db
@@ -167,8 +182,9 @@ export async function DELETE(
       .where(eq(facultySubjectAssignments.subjectId, subjectId));
 
     if (assignmentCount.length > 0) {
-      return err(
+      return audit.error(
         `Cannot delete: subject has ${assignmentCount.length} active assignment(s). Remove assignments first.`,
+        undefined,
         409
       );
     }
@@ -178,11 +194,10 @@ export async function DELETE(
       .where(eq(subjects.id, subjectId))
       .returning({ id: subjects.id, code: subjects.code, name: subjects.name });
 
-    if (!deleted) return err("Subject not found", 404);
+    if (!deleted) return audit.error("Subject not found", undefined, 404);
 
-    return ok(deleted, "Subject deleted successfully");
+    return audit.success(ok(deleted, "Subject deleted successfully"));
   } catch (error) {
-    console.error(`[DELETE /api/admin/subjects/[id]] Error:`, error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

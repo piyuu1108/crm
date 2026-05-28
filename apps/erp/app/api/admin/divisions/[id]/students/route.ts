@@ -3,6 +3,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, divisions, studentEnrollmentHistory } from "@/app/lib/schema";
 import { eq, sql } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown) {
@@ -18,13 +19,22 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const result = await requirePermission(req, "admin.students");
-    if (result instanceof NextResponse) return result;
+  const result = await requirePermission(req, "admin.students");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
 
-    const { id: idStr } = await params;
-    const divisionId = parseInt(idStr, 10);
-    if (isNaN(divisionId)) return err("Invalid division ID", 400);
+  const { id: idStr } = await params;
+  const divisionId = parseInt(idStr, 10);
+  
+  const audit = AuditLogger.start(req, auth, {
+    action: "students.bulk_import",
+    category: "admin",
+    summary: "Bulk uploaded students to division",
+    divisionId: isNaN(divisionId) ? undefined : divisionId,
+  });
+
+  try {
+    if (isNaN(divisionId)) return audit.error("Invalid division ID", undefined, 400);
 
     // Fetch division details
     const [division] = await db
@@ -33,13 +43,13 @@ export async function POST(
       .where(eq(divisions.id, divisionId))
       .limit(1);
 
-    if (!division) return err("Division not found", 404);
+    if (!division) return audit.error("Division not found", undefined, 404);
 
     const body = await req.json();
     const { students: studentRows } = body;
 
     if (!Array.isArray(studentRows) || studentRows.length === 0) {
-      return err("No student data provided", 400);
+      return audit.error("No student data provided", undefined, 400);
     }
 
     // Validate and check for duplicates inside the CSV payload itself
@@ -160,20 +170,24 @@ export async function POST(
       });
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          total: studentRows.length,
-          inserted: validStudents.length,
-          errors: studentRows.length - validStudents.length,
-          results,
+    return audit.success(
+      NextResponse.json(
+        {
+          success: true,
+          data: {
+            total: studentRows.length,
+            inserted: validStudents.length,
+            errors: studentRows.length - validStudents.length,
+            results,
+          },
         },
-      },
-      { status: 201 }
+        { status: 201 }
+      ),
+      {
+        recs: validStudents.length,
+      }
     );
   } catch (error) {
-    console.error("[POST /api/admin/divisions/[id]/students] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

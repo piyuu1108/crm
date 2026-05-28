@@ -9,6 +9,7 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, count } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -123,31 +124,37 @@ export async function GET(req: NextRequest) {
 
 // ─── POST: Create a new faculty–subject–division assignment ───────────────────
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "admin.assignments");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.assignments");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "subject_assignments.create",
+    category: "admin",
+    summary: "Created subject assignment for division",
+  });
+
+  try {
     const body = await req.json();
     const { divisionId, subjectId, facultyId } = body;
 
     if (!divisionId || !subjectId || !facultyId) {
-      return err("divisionId, subjectId, and facultyId are required", 400);
+      return audit.error("divisionId, subjectId, and facultyId are required", undefined, 400);
     }
 
     // 1. Verify division exists — derive semester from it
     const [div] = await db.select().from(divisions).where(eq(divisions.id, divisionId)).limit(1);
-    if (!div) return err("Division not found", 404);
+    if (!div) return audit.error("Division not found", undefined, 404);
 
     const semesterId = div.semesterId;
 
     // 2. Verify subject exists
     const [sub] = await db.select().from(subjects).where(eq(subjects.id, subjectId)).limit(1);
-    if (!sub) return err("Subject not found", 404);
+    if (!sub) return audit.error("Subject not found", undefined, 404);
 
     // 3. Verify faculty exists and is active
     const [fac] = await db.select().from(faculty).where(eq(faculty.id, facultyId)).limit(1);
-    if (!fac) return err("Faculty not found", 404);
-    if (!fac.isActive) return err("Faculty member is inactive", 400);
+    if (!fac) return audit.error("Faculty not found", undefined, 404);
+    if (!fac.isActive) return audit.error("Faculty member is inactive", undefined, 400);
 
     // 4. CRITICAL: Check duplicate — same division + subject must NOT exist in this semester
     const [existing] = await db
@@ -163,8 +170,9 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return err(
+      return audit.error(
         `Subject "${sub.name}" is already assigned to division "${div.displayName}" for this semester.`,
+        undefined,
         409
       );
     }
@@ -193,9 +201,8 @@ export async function POST(req: NextRequest) {
     await clearCache(cacheTags.subjects.division(divisionId, semesterId));
     await clearCache(cacheTags.subjects.faculty(facultyId));
 
-    return ok(assignment, 201);
+    return audit.success(ok(assignment, 201), { eid: String(inserted.id), did: String(divisionId), fid: String(facultyId) });
   } catch (error) {
-    console.error("[POST /api/admin/subject-assignments]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

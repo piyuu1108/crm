@@ -1,15 +1,22 @@
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { getAuthContext } from "@/app/lib/api-auth";
-import { NextRequest } from "next/server";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export async function POST(request: NextRequest) {
+  const auth = await getAuthContext(request);
+  if (!auth || !auth.isGlobal) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const audit = AuditLogger.start(request, auth, {
+    action: "auth.switch_course",
+    category: "auth",
+    summary: "User switched active course context",
+  });
+
   try {
-    const auth = await getAuthContext(request);
-    if (!auth || !auth.isGlobal) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
     if (auth.isRoleForbidden) {
-      return NextResponse.json({ success: false, error: `Forbidden: role '${auth.forbiddenRole}' is not assigned to this user` }, { status: 403 });
+      return audit.error(`Forbidden: role '${auth.forbiddenRole}' is not assigned to this user`, undefined, 403);
     }
 
     const { courseId } = await request.json();
@@ -27,8 +34,8 @@ export async function POST(request: NextRequest) {
       path: "/",
     });
     
-    return response;
+    return audit.success(response, { cid: String(courseId) });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return audit.error(error);
   }
 }

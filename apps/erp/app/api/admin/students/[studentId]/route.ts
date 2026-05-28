@@ -5,6 +5,7 @@ import { db } from "@/app/lib/db";
 import { students } from "@/app/lib/schema";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { publishNotification } from "@/app/lib/notifications";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -56,13 +57,22 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
-  try {
-    const auth = await requirePermission(req, "admin.students");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "admin.students");
+  if (auth instanceof NextResponse) return auth;
 
-    const { studentId } = await params;
-    const id = Number(studentId);
-    if (Number.isNaN(id) || id <= 0) return err("Invalid student ID", 400);
+  const { studentId } = await params;
+  const id = Number(studentId);
+  
+  const audit = AuditLogger.start(req, auth, {
+    action: "students.update",
+    category: "admin",
+    summary: "Updated student details or profile status",
+    entityType: "student",
+    entityId: id,
+  });
+
+  try {
+    if (Number.isNaN(id) || id <= 0) return audit.error("Invalid student ID", undefined, 400);
 
     const body = await req.json();
     const action = body?.action as string | undefined;
@@ -72,11 +82,11 @@ export async function PATCH(
       .from(students)
       .where(eq(students.id, id))
       .limit(1);
-    if (!existing[0]) return err("Student not found", 404);
+    if (!existing[0]) return audit.error("Student not found", undefined, 404);
 
     if (action) {
       if (action !== "approve" && action !== "reject") {
-        return err("Invalid action. Must be 'approve' or 'reject'", 400);
+        return audit.error("Invalid action. Must be 'approve' or 'reject'", undefined, 400);
       }
 
       const nextStatus = action === "approve" ? "approved" : "rejected";
@@ -106,16 +116,16 @@ export async function PATCH(
         console.warn("[admin student verify] cache clear failed:", cacheError);
       }
 
-      return ok({ id, status: nextStatus });
+      return audit.success(ok({ id, status: nextStatus }), { st: nextStatus });
     }
 
     // Otherwise, edit profile (fullName, email)
     const { fullName, email } = body || {};
     if (!fullName || typeof fullName !== "string" || !fullName.trim()) {
-      return err("Full name is required", 400);
+      return audit.error("Full name is required", undefined, 400);
     }
     if (!email || typeof email !== "string" || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email.trim())) {
-      return err("A valid email address is required", 400);
+      return audit.error("A valid email address is required", undefined, 400);
     }
 
     // Check email uniqueness
@@ -125,7 +135,7 @@ export async function PATCH(
       .where(and(eq(students.email, email.trim()), ne(students.id, id)))
       .limit(1);
     if (emailConflict[0]) {
-      return err("Email is already in use by another student", 400);
+      return audit.error("Email is already in use by another student", undefined, 400);
     }
 
     await db
@@ -142,9 +152,8 @@ export async function PATCH(
       console.warn("[admin student update] cache clear failed:", cacheError);
     }
 
-    return ok({ id, fullName: fullName.trim(), email: email.trim() });
+    return audit.success(ok({ id, fullName: fullName.trim(), email: email.trim() }));
   } catch (error) {
-    console.error("[PATCH /api/admin/students/[studentId]] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

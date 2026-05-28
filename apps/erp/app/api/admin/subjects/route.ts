@@ -4,6 +4,7 @@ import { db } from "@/app/lib/db";
 import { subjects, facultySubjectAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, count, inArray, and } from "drizzle-orm";
 import { validateSubjectForm, type SubjectFormData } from "@/app/lib/validations/subject";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown) {
@@ -98,10 +99,16 @@ export async function GET(req: NextRequest) {
 // ─── POST /api/admin/subjects — Create a new subject ──────────────────────────
 
 export async function POST(req: NextRequest) {
-  try {
-    const authResult = await requirePermission(req, "admin.subjects");
-    if (authResult instanceof NextResponse) return authResult;
+  const authResult = await requirePermission(req, "admin.subjects");
+  if (authResult instanceof NextResponse) return authResult;
 
+  const audit = AuditLogger.start(req, authResult, {
+    action: "subjects.create",
+    category: "admin",
+    summary: "Created new subject",
+  });
+
+  try {
     const courseId = requireCourseId(authResult);
 
     const body = await req.json();
@@ -127,7 +134,7 @@ export async function POST(req: NextRequest) {
         if (!errorMap[e.field]) errorMap[e.field] = e.message;
       }
       console.warn("[POST /api/admin/subjects] Validation failed:", errorMap);
-      return err("Validation failed", 400, errorMap);
+      return audit.error("Validation failed", err("Validation failed", 400, errorMap));
     }
 
     // ── Check uniqueness of subject code ──
@@ -139,9 +146,9 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return err("Validation failed", 409, {
+      return audit.error("Validation failed", err("Validation failed", 409, {
         code: `Subject code "${trimmedCode}" already exists`,
-      });
+      }));
     }
 
     // ── Build insert payload ──
@@ -180,9 +187,8 @@ export async function POST(req: NextRequest) {
       });
 
     console.log("[POST /api/admin/subjects] Created:", created);
-    return ok(created);
+    return audit.success(ok(created), { eid: String(created.id) });
   } catch (error) {
-    console.error("[POST /api/admin/subjects] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

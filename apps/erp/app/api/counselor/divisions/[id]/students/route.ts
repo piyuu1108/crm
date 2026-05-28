@@ -3,6 +3,7 @@ import { requirePermission } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { students, divisions, counselorDivisionAssignments } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -16,17 +17,23 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requirePermission(req, "counselor.students");
+  if (auth instanceof NextResponse) return auth;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "counselor_students.bulk_import",
+    category: "counselor",
+    summary: "Bulk imported counselor students",
+  });
+
   try {
     const { id: idStr } = await params;
     const divisionId = parseInt(idStr, 10);
-    if (isNaN(divisionId)) return err("Invalid division ID", 400);
-
-    const auth = await requirePermission(req, "counselor.students");
-    if (auth instanceof NextResponse) return auth;
+    if (isNaN(divisionId)) return audit.error("Invalid division ID", err("Invalid division ID", 400));
 
     const counselorDivisionIds = auth.counselorDivisionIds ?? [];
     if (!counselorDivisionIds.includes(divisionId)) {
-      return err("Forbidden: You are not the counselor for this division", 403);
+      return audit.error("Forbidden: You are not the counselor for this division", err("Forbidden: You are not the counselor for this division", 403));
     }
 
     // Fetch division details
@@ -36,13 +43,13 @@ export async function POST(
       .where(eq(divisions.id, divisionId))
       .limit(1);
 
-    if (!division) return err("Division not found", 404);
+    if (!division) return audit.error("Division not found", err("Division not found", 404));
 
     const body = await req.json();
     const { students: studentRows } = body;
 
     if (!Array.isArray(studentRows) || studentRows.length === 0) {
-      return err("No student data provided", 400);
+      return audit.error("No student data provided", err("No student data provided", 400));
     }
 
     const results: { id: string; name: string; email: string; status: string; reason?: string }[] = [];
@@ -109,7 +116,7 @@ export async function POST(
       );
     }
 
-    return NextResponse.json(
+    return audit.success(NextResponse.json(
       {
         success: true,
         data: {
@@ -120,9 +127,8 @@ export async function POST(
         },
       },
       { status: 201 }
-    );
+    ), { did: String(divisionId), recs: validStudents.length });
   } catch (error) {
-    console.error("[POST /api/counselor/divisions/[id]/students] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

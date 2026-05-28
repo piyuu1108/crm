@@ -13,6 +13,7 @@ import {
   divisions,
 } from "@/app/lib/schema";
 import { eq, and, sql } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -195,21 +196,27 @@ export async function GET(req: NextRequest) {
  * Body: { assignmentId, semesterId, records: [{ studentId, finalTheoryMarks?, finalPracticalMarks?, studentName, subjectName, subjectType, divisionName }] }
  */
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "exams.evaluate");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "exams.evaluate");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "internal_evaluation.bulk_upsert",
+    category: "exams",
+    summary: "Bulk upserted final evaluation marks",
+  });
+
+  try {
     const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
     const { assignmentId, semesterId, records } = body;
 
     if (!assignmentId || !semesterId || !Array.isArray(records) || records.length === 0) {
-      return err("assignmentId, semesterId, and non-empty records are required", 400);
+      return audit.error("assignmentId, semesterId, and non-empty records are required", err("assignmentId, semesterId, and non-empty records are required", 400));
     }
 
     if (!(await canAccessAssignment(auth, assignmentId))) {
-      return err("Forbidden: no access to this assignment", 403);
+      return audit.error("Forbidden: no access to this assignment", err("Forbidden: no access to this assignment", 403));
     }
 
     // Check if already finalized (only HOD can override)
@@ -225,7 +232,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existing.length > 0 && existing[0].isFinalized && resolvedRole !== "hod") {
-      return err("Evaluation is finalized. Only HOD can override.", 403);
+      return audit.error("Evaluation is finalized. Only HOD can override.", err("Evaluation is finalized. Only HOD can override.", 403));
     }
 
     // Batch upsert
@@ -250,9 +257,8 @@ export async function POST(req: NextRequest) {
         updated_at = NOW()
     `);
 
-    return ok({ saved: records.length });
+    return audit.success(ok({ saved: records.length }), { recs: records.length });
   } catch (error) {
-    console.error("[POST /api/internal-evaluation]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

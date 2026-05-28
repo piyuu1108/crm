@@ -3,6 +3,7 @@ import { requirePermission, requireCourseId } from "@/app/lib/api-auth";
 import { db } from "@/app/lib/db";
 import { counselorDivisionAssignments, divisions, faculty } from "@/app/lib/schema";
 import { eq, and } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown, status = 200) {
   return NextResponse.json({ success: true, data }, { status });
@@ -95,25 +96,31 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "admin.assignments");
-    if (result instanceof NextResponse) return result;
-    const auth = result;
+  const result = await requirePermission(req, "admin.assignments");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "assignments.create",
+    category: "admin",
+    summary: "Assigned faculty to division counselor role",
+  });
+
+  try {
     const body = await req.json();
     const { facultyId, divisionId } = body;
 
     if (!facultyId || !divisionId) {
-      return err("facultyId and divisionId are required", 400);
+      return audit.error("facultyId and divisionId are required", undefined, 400);
     }
 
     // Verify faculty exists
     const [fac] = await db.select().from(faculty).where(eq(faculty.id, facultyId)).limit(1);
-    if (!fac) return err("Faculty not found", 404);
+    if (!fac) return audit.error("Faculty not found", undefined, 404);
 
     // Verify division exists — derive semester from it
     const [div] = await db.select().from(divisions).where(eq(divisions.id, divisionId)).limit(1);
-    if (!div) return err("Division not found", 404);
+    if (!div) return audit.error("Division not found", undefined, 404);
 
     const semesterId = div.semesterId;
 
@@ -131,7 +138,7 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return err("Already assigned for this semester", 409);
+      return audit.error("Already assigned for this semester", undefined, 409);
     }
 
     // Insert
@@ -150,29 +157,34 @@ export async function POST(req: NextRequest) {
       divisionName: div.displayName,
     };
 
-    return ok(assignment, 201);
+    return audit.success(ok(assignment, 201), { eid: String(inserted.id), did: String(div.id), fid: String(fac.id) });
   } catch (error) {
-    console.error("[POST /api/admin/assignments]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }
 
 export async function DELETE(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "admin.assignments");
-    if (result instanceof NextResponse) return result;
-    const auth = result;
+  const result = await requirePermission(req, "admin.assignments");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "assignments.delete",
+    category: "admin",
+    summary: "Removed faculty from division counselor role",
+  });
+
+  try {
     const body = await req.json();
     const { facultyId, divisionId } = body;
 
     if (!facultyId || !divisionId) {
-      return err("facultyId and divisionId are required", 400);
+      return audit.error("facultyId and divisionId are required", undefined, 400);
     }
 
     // Derive semester from division
     const [div] = await db.select({ semesterId: divisions.semesterId }).from(divisions).where(eq(divisions.id, divisionId)).limit(1);
-    if (!div) return err("Division not found", 404);
+    if (!div) return audit.error("Division not found", undefined, 404);
 
     await db
       .delete(counselorDivisionAssignments)
@@ -184,9 +196,8 @@ export async function DELETE(req: NextRequest) {
         )
       );
 
-    return ok({ message: "Assignment removed" });
+    return audit.success(ok({ message: "Assignment removed" }), { did: String(divisionId), fid: String(facultyId) });
   } catch (error) {
-    console.error("[DELETE /api/admin/assignments]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

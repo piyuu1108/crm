@@ -14,13 +14,20 @@ import {
   type FacultyProfessionalInfoData,
   type FacultyDocumentsData,
 } from "@/app/lib/validations/faculty-profile";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export async function POST(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "profile.edit_faculty");
-    if (result instanceof NextResponse) return result;
-    const auth = result;
+  const result = await requirePermission(req, "profile.edit_faculty");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "faculty_profile.submit",
+    category: "profile",
+    summary: "Faculty submitted profile",
+  });
+
+  try {
     const isAdmin = isAdminTableRole(auth.activeRole);
 
     let row;
@@ -67,9 +74,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (!row) {
-      return NextResponse.json(
-        { success: false, error: "Profile not found" },
-        { status: 404 }
+      return audit.error(
+        "Profile not found",
+        NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 })
       );
     }
 
@@ -112,14 +119,9 @@ export async function POST(req: NextRequest) {
 
     const errors = [...step1.errors, ...step2.errors, ...step3.errors, ...step4.errors];
     if (errors.length > 0) {
-      console.warn("[POST /api/faculty/profile/submit] 422 — validation errors:", errors);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Profile is incomplete. Please fill all required fields.",
-          errors,
-        },
-        { status: 422 }
+      return audit.error(
+        "Profile is incomplete. Please fill all required fields.",
+        NextResponse.json({ success: false, error: "Profile is incomplete. Please fill all required fields.", errors }, { status: 422 })
       );
     }
 
@@ -142,17 +144,13 @@ export async function POST(req: NextRequest) {
         .where(eq(faculty.id, auth.userId));
     }
 
-    return NextResponse.json({
+    return audit.success(NextResponse.json({
       success: true,
       data: {
         profileCompletion: "complete",
       },
-    });
+    }));
   } catch (error) {
-    console.error("[POST /api/faculty/profile/submit]", error);
-    return NextResponse.json(
-      { success: false, error: "An unexpected error occurred" },
-      { status: 500 }
-    );
+    return audit.error(error);
   }
 }

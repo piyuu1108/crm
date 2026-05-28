@@ -3,8 +3,9 @@ import { getAuthContext, requireCourseId, requirePermission } from "@/app/lib/ap
 import { db } from "@/app/lib/db";
 import { faculty, facultyRoles, roles, facultySubjectAssignments, divisions, subjects } from "@/app/lib/schema";
 import { eq, and, like, count, asc, desc, or, sql, inArray } from "drizzle-orm";
-import bcrypt from "bcryptjs";
 import { remember, cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
+import * as bcrypt from "bcryptjs";
 
 // ─── Response helpers ─────────────────────────────────────────────────────────
 function ok(data: unknown, source: "db" | "cache" = "db") {
@@ -171,11 +172,17 @@ export async function GET(req: NextRequest) {
 
 // ─── POST /api/admin/faculty — Create a new faculty member ────────────────────
 export async function POST(req: NextRequest) {
-  try {
-    const authResult = await requirePermission(req, "admin.faculty");
-    if (authResult instanceof NextResponse) return authResult;
-    const auth = { payload: authResult };
+  const authResult = await requirePermission(req, "admin.faculty");
+  if (authResult instanceof NextResponse) return authResult;
+  const auth = { payload: authResult };
 
+  const audit = AuditLogger.start(req, auth.payload, {
+    action: "faculty.create",
+    category: "admin",
+    summary: "Created new faculty member",
+  });
+
+  try {
     const body = await req.json();
     const { name, email, mobile, facultyCode, designation } = body;
 
@@ -213,9 +220,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (Object.keys(errors).length > 0) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", errors },
-        { status: 400 }
+      return audit.error(
+        "Validation failed",
+        NextResponse.json({ success: false, error: "Validation failed", errors }, { status: 400 })
       );
     }
 
@@ -227,9 +234,9 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existingEmail) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", errors: { email: "Email already registered" } },
-        { status: 409 }
+      return audit.error(
+        "Email already registered",
+        NextResponse.json({ success: false, error: "Validation failed", errors: { email: "Email already registered" } }, { status: 409 })
       );
     }
 
@@ -240,9 +247,9 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existingCode) {
-      return NextResponse.json(
-        { success: false, error: "Validation failed", errors: { facultyCode: "Faculty code already exists" } },
-        { status: 409 }
+      return audit.error(
+        "Faculty code already exists",
+        NextResponse.json({ success: false, error: "Validation failed", errors: { facultyCode: "Faculty code already exists" } }, { status: 409 })
       );
     }
 
@@ -256,9 +263,12 @@ export async function POST(req: NextRequest) {
       } else if (authPayload.activeCourseId && authPayload.activeCourseId !== "all") {
         courseId = Number(authPayload.activeCourseId);
       } else {
-        return NextResponse.json(
-          { success: false, error: "Validation failed", errors: { courseId: "Course is required for administrative faculty creation" } },
-          { status: 400 }
+        return audit.error(
+          "Course is required for administrative faculty creation",
+          NextResponse.json(
+            { success: false, error: "Validation failed", errors: { courseId: "Course is required for administrative faculty creation" } },
+            { status: 400 }
+          )
         );
       }
     } else {
@@ -313,9 +323,8 @@ export async function POST(req: NextRequest) {
       console.warn("[Cache Clear Error] Failed to clear faculty list cache:", cacheError);
     }
 
-    return NextResponse.json({ success: true, data: created }, { status: 201 });
+    return audit.success(NextResponse.json({ success: true, data: created }, { status: 201 }), { eid: String(created.id) });
   } catch (error) {
-    console.error("[POST /api/admin/faculty] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

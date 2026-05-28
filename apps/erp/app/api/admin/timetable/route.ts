@@ -11,6 +11,7 @@ import {
 } from "@/app/lib/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { cacheTags, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -211,16 +212,22 @@ export async function GET(req: NextRequest) {
 // Bulk save timetable entries for a division (replace all)
 
 export async function POST(req: NextRequest) {
-  try {
-    const result = await requirePermission(req, "timetable.manage");
-    if (result instanceof NextResponse) return result;
-    const auth = result;
+  const result = await requirePermission(req, "timetable.manage");
+  if (result instanceof NextResponse) return result;
+  const auth = result;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "timetable.bulk_save",
+    category: "admin",
+    summary: "Bulk updated timetable entries",
+  });
+
+  try {
     const body = await req.json();
     const { divisionId, entries: newEntries } = body;
 
     if (!divisionId || !Array.isArray(newEntries)) {
-      return err("divisionId and entries[] are required", 400);
+      return audit.error("divisionId and entries[] are required", undefined, 400);
     }
 
     const divId = Number(divisionId);
@@ -232,12 +239,12 @@ export async function POST(req: NextRequest) {
       .where(eq(divisions.id, divId))
       .limit(1);
 
-    if (!division) return err("Division not found", 404);
+    if (!division) return audit.error("Division not found", undefined, 404);
 
     // Validation entries — check for missing fields
     for (const entry of newEntries) {
       if (!entry.dayOfWeek || !entry.startTime || !entry.endTime || !entry.assignmentId) {
-        return err("Each entry must have dayOfWeek, startTime, endTime, assignmentId", 400);
+        return audit.error("Each entry must have dayOfWeek, startTime, endTime, assignmentId", undefined, 400);
       }
     }
 
@@ -260,7 +267,7 @@ export async function POST(req: NextRequest) {
 
     for (const aId of assignmentIds) {
       if (!validAssignmentSet.has(aId as number)) {
-        return err(`Assignment ${aId} is not valid for this division`, 400);
+        return audit.error(`Assignment ${aId} is not valid for this division`, undefined, 400);
       }
     }
 
@@ -331,9 +338,8 @@ export async function POST(req: NextRequest) {
     await clearCache(cacheTags.timetable.division(divId));
     await clearCache(cacheTags.dashboard.division(divId));
 
-    return ok({ saved: newEntries.length, status: "draft" });
+    return audit.success(ok({ saved: newEntries.length, status: "draft" }), { did: String(divId), recs: newEntries.length });
   } catch (error) {
-    console.error("[POST /api/admin/timetable]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

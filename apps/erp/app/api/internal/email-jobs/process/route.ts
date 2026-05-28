@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { incrementEmailJobCounters } from "@/app/lib/email/job-tracker";
 import { sendPasswordEmail, type PasswordEmailPayload } from "@/app/lib/email/service";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 interface ProcessBody {
   jobId?: string;
@@ -8,16 +9,19 @@ interface ProcessBody {
 }
 
 export async function POST(req: NextRequest) {
+  const audit = AuditLogger.start(req, { userId: 0, activeRole: "system", isGlobal: true } as any, {
+    action: "email_jobs.process",
+    category: "internal",
+    summary: "Processed email batch job",
+  });
+
   try {
     const body = (await req.json().catch(() => ({}))) as ProcessBody;
     const jobId = body.jobId;
     const recipients = Array.isArray(body.recipients) ? body.recipients : [];
 
     if (!jobId || recipients.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Invalid payload" },
-        { status: 400 }
-      );
+      return audit.error("Invalid payload", NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 }));
     }
 
     let sent = 0;
@@ -31,12 +35,8 @@ export async function POST(req: NextRequest) {
 
     await incrementEmailJobCounters(jobId, sent, failed);
 
-    return NextResponse.json({ success: true, data: { sent, failed } }, { status: 200 });
+    return audit.success(NextResponse.json({ success: true, data: { sent, failed } }, { status: 200 }), { sent, failed });
   } catch (error) {
-    console.error("[POST internal email job process] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    );
+    return audit.error(error);
   }
 }

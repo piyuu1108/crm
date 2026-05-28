@@ -3,6 +3,7 @@ import { db } from "@/app/lib/db";
 import { classrooms, classroomBenches } from "@/app/lib/schema";
 import { requirePermission } from "@/app/lib/api-auth";
 import { eq } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 interface BenchPayload {
   label: string;
@@ -18,32 +19,39 @@ export async function PUT(
 ) {
   const result = await requirePermission(req, "classes.manage");
   if (result instanceof NextResponse) return result;
+  const auth = result;
 
   const { slug } = await params;
+
+  const audit = AuditLogger.start(req, auth, {
+    action: "classes.layout_update",
+    category: "admin",
+    summary: "Updated classroom layout",
+  });
 
   try {
     const body = await req.json();
     const benches: BenchPayload[] = body.benches;
 
     if (!Array.isArray(benches)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid payload: benches array required" },
-        { status: 400 }
+      return audit.error(
+        "Invalid payload: benches array required",
+        NextResponse.json({ success: false, error: "Invalid payload: benches array required" }, { status: 400 })
       );
     }
 
     // Validate bench data
     for (const bench of benches) {
       if (!bench.label || bench.gridX == null || bench.gridY == null) {
-        return NextResponse.json(
-          { success: false, error: `Invalid bench data: missing required fields` },
-          { status: 400 }
+        return audit.error(
+          "Invalid bench data: missing required fields",
+          NextResponse.json({ success: false, error: `Invalid bench data: missing required fields` }, { status: 400 })
         );
       }
       if (bench.maxStudents < 1 || bench.maxStudents > 4) {
-        return NextResponse.json(
-          { success: false, error: `Invalid capacity for bench ${bench.label}: must be 1-4` },
-          { status: 400 }
+        return audit.error(
+          `Invalid capacity for bench ${bench.label}: must be 1-4`,
+          NextResponse.json({ success: false, error: `Invalid capacity for bench ${bench.label}: must be 1-4` }, { status: 400 })
         );
       }
     }
@@ -53,9 +61,9 @@ export async function PUT(
     for (const bench of benches) {
       const key = `${bench.gridX},${bench.gridY}`;
       if (gridKeys.has(key)) {
-        return NextResponse.json(
-          { success: false, error: `Duplicate grid position: (${bench.gridX}, ${bench.gridY})` },
-          { status: 400 }
+        return audit.error(
+          `Duplicate grid position: (${bench.gridX}, ${bench.gridY})`,
+          NextResponse.json({ success: false, error: `Duplicate grid position: (${bench.gridX}, ${bench.gridY})` }, { status: 400 })
         );
       }
       gridKeys.add(key);
@@ -69,9 +77,9 @@ export async function PUT(
       .limit(1);
 
     if (!classroom) {
-      return NextResponse.json(
-        { success: false, error: "Classroom not found" },
-        { status: 404 }
+      return audit.error(
+        "Classroom not found",
+        NextResponse.json({ success: false, error: "Classroom not found" }, { status: 404 })
       );
     }
 
@@ -108,7 +116,7 @@ export async function PUT(
     const activeBenches = updatedBenches.filter((b) => b.isActive).length;
     const physicalCapacity = updatedBenches.reduce((sum, b) => sum + b.maxStudents, 0);
 
-    return NextResponse.json({
+    return audit.success(NextResponse.json({
       success: true,
       data: {
         benches: updatedBenches.map((b) => ({
@@ -126,12 +134,8 @@ export async function PUT(
           physicalCapacity,
         },
       },
-    });
+    }), { room: slug, total: totalBenches, eid: String(classroom.id) });
   } catch (error) {
-    console.error("[PUT /api/classes/:slug/layout] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to save layout" },
-      { status: 500 }
-    );
+    return audit.error(error);
   }
 }

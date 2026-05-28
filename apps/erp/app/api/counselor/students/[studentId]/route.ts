@@ -9,6 +9,7 @@ import {
 } from "@/app/lib/schema";
 import { cacheTags, clearCache } from "@/app/lib/cache";
 import { publishNotification } from "@/app/lib/notifications";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 function ok(data: unknown) {
   return NextResponse.json({ success: true, data }, { status: 200 });
@@ -75,16 +76,30 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ studentId: string }> }
 ) {
+  const auth = await requirePermission(req, "counselor.students");
+  if (auth instanceof NextResponse) return auth;
+
+  const { studentId } = await params;
+  const id = Number(studentId);
+
+  // Read body before starting audit to get action
+  let body: any = {};
   try {
-    const auth = await requirePermission(req, "counselor.students");
-    if (auth instanceof NextResponse) return auth;
+    body = await req.json();
+  } catch (e) {
+    // Ignore error, hand it to logic
+  }
+  const action = body?.action as string | undefined;
 
-    const { studentId } = await params;
-    const id = Number(studentId);
-    if (Number.isNaN(id) || id <= 0) return err("Invalid student ID", 400);
+  const audit = AuditLogger.start(req, auth, {
+    action: action ? `counselor_student.${action}` : "counselor_student.update",
+    category: "counselor",
+    summary: action ? `Profile ${action} by counselor` : "Edited profile by counselor",
+    entityId: isNaN(id) ? undefined : id,
+  });
 
-    const body = await req.json();
-    const action = body?.action as string | undefined;
+  try {
+    if (Number.isNaN(id) || id <= 0) return audit.error("Invalid student ID", err("Invalid student ID", 400));
 
     const rows = await db
       .select({
@@ -96,18 +111,18 @@ export async function PATCH(
       .limit(1);
 
     const student = rows[0];
-    if (!student) return err("Student not found", 404);
-    if (!student.currentDivisionId) return err("Student has no active division", 400);
+    if (!student) return audit.error("Student not found", err("Student not found", 404));
+    if (!student.currentDivisionId) return audit.error("Student has no active division", err("Student has no active division", 400));
 
     const allowed = ensureDivisionAccess(
       auth,
       student.currentDivisionId
     );
-    if (!allowed) return err("Forbidden: student not in your assigned division", 403);
+    if (!allowed) return audit.error("Forbidden: student not in your assigned division", err("Forbidden: student not in your assigned division", 403));
 
     if (action) {
       if (action !== "approve" && action !== "reject") {
-        return err("Invalid action. Must be 'approve' or 'reject'", 400);
+        return audit.error("Invalid action. Must be 'approve' or 'reject'", err("Invalid action. Must be 'approve' or 'reject'", 400));
       }
 
       const nextStatus = action === "approve" ? "approved" : "rejected";
@@ -133,16 +148,16 @@ export async function PATCH(
         console.warn("[counselor student verify] cache clear failed:", cacheError);
       }
 
-      return ok({ id, status: nextStatus });
+      return audit.success(ok({ id, status: nextStatus }));
     }
 
     // Otherwise, edit profile (fullName, email)
     const { fullName, email } = body || {};
     if (!fullName || typeof fullName !== "string" || !fullName.trim()) {
-      return err("Full name is required", 400);
+      return audit.error("Full name is required", err("Full name is required", 400));
     }
     if (!email || typeof email !== "string" || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email.trim())) {
-      return err("A valid email address is required", 400);
+      return audit.error("A valid email address is required", err("A valid email address is required", 400));
     }
 
     // Check email uniqueness
@@ -152,7 +167,7 @@ export async function PATCH(
       .where(and(eq(students.email, email.trim()), ne(students.id, id)))
       .limit(1);
     if (emailConflict[0]) {
-      return err("Email is already in use by another student", 400);
+      return audit.error("Email is already in use by another student", err("Email is already in use by another student", 400));
     }
 
     await db
@@ -169,9 +184,8 @@ export async function PATCH(
       console.warn("[counselor student update] cache clear failed:", cacheError);
     }
 
-    return ok({ id, fullName: fullName.trim(), email: email.trim() });
+    return audit.success(ok({ id, fullName: fullName.trim(), email: email.trim() }));
   } catch (error) {
-    console.error("[PATCH /api/counselor/students/[studentId]] Error:", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

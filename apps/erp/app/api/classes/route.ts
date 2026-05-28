@@ -3,6 +3,7 @@ import { db } from "@/app/lib/db";
 import { classrooms, classroomBenches, courses } from "@/app/lib/schema";
 import { requirePermission, requireCourseId } from "@/app/lib/api-auth";
 import { eq, sql } from "drizzle-orm";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 export async function GET(req: NextRequest) {
   const result = await requirePermission(req, "classes.view");
@@ -72,15 +73,21 @@ export async function POST(req: NextRequest) {
   const auth = await requirePermission(req, "classes.manage");
   if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "classes.create",
+    category: "admin",
+    summary: "Created new classroom",
+  });
+
   try {
     const courseId = requireCourseId(auth);
     const body = await req.json();
     const { roomCode, buildingName, floor, lectureCapacity, description } = body;
 
     if (!roomCode || !floor || !lectureCapacity) {
-      return NextResponse.json(
-        { success: false, error: "Missing required fields (roomCode, floor, lectureCapacity)" },
-        { status: 400 }
+      return audit.error(
+        "Missing required fields (roomCode, floor, lectureCapacity)",
+        NextResponse.json({ success: false, error: "Missing required fields (roomCode, floor, lectureCapacity)" }, { status: 400 })
       );
     }
 
@@ -92,9 +99,9 @@ export async function POST(req: NextRequest) {
       .limit(1);
 
     if (existing) {
-      return NextResponse.json(
-        { success: false, error: `Classroom with room code "${roomCode}" already exists` },
-        { status: 400 }
+      return audit.error(
+        `Classroom with room code "${roomCode}" already exists`,
+        NextResponse.json({ success: false, error: `Classroom with room code "${roomCode}" already exists` }, { status: 400 })
       );
     }
 
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json({
+    return audit.success(NextResponse.json({
       success: true,
       data: {
         ...newClass,
@@ -119,12 +126,8 @@ export async function POST(req: NextRequest) {
         physicalCapacity: 0,
         hasLayout: false,
       },
-    });
+    }), { eid: String(newClass.id), room: roomCode.trim().toUpperCase() });
   } catch (error) {
-    console.error("[POST /api/classes] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to create classroom" },
-      { status: 500 }
-    );
+    return audit.error(error);
   }
 }

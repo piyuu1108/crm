@@ -15,6 +15,7 @@ import {
 import { eq, and, sql, count } from "drizzle-orm";
 import { submitAttendanceCQRS } from "@/app/lib/integration/attendance-cqrs";
 import { remember, cacheTags, TTL, clearCache } from "@/app/lib/cache";
+import { AuditLogger } from "@/app/lib/audit-logger";
 
 async function getDivisionAttendance(divisionId: number) {
   return remember(
@@ -265,17 +266,23 @@ export async function GET(req: NextRequest) {
  * Create a new attendance session ledger entry (or return existing one).
  */
 export async function POST(req: NextRequest) {
-  try {
-    const auth = await requirePermission(req, "attendance.mark");
-    if (auth instanceof NextResponse) return auth;
+  const auth = await requirePermission(req, "attendance.mark");
+  if (auth instanceof NextResponse) return auth;
 
+  const audit = AuditLogger.start(req, auth, {
+    action: "attendance_session.create",
+    category: "attendance",
+    summary: "Created attendance session",
+  });
+
+  try {
     const { userId, activeRole: resolvedRole } = auth;
 
     const body = await req.json();
     const { timetableEntryId, date } = body;
 
     if (!timetableEntryId || !date) {
-      return err("timetableEntryId and date are required", 400);
+      return audit.error("timetableEntryId and date are required", undefined, 400);
     }
 
     // Validate timetable entry exists
@@ -292,7 +299,7 @@ export async function POST(req: NextRequest) {
       .where(eq(timetableEntries.id, timetableEntryId))
       .limit(1);
 
-    if (!entry) return err("Timetable entry not found", 404);
+    if (!entry) return audit.error("Timetable entry not found", undefined, 404);
 
     const [entryDetails] = await db
       .select({
@@ -308,11 +315,11 @@ export async function POST(req: NextRequest) {
       .where(eq(timetableEntries.id, timetableEntryId))
       .limit(1);
 
-    if (!entryDetails) return err("Assignment details not found", 404);
+    if (!entryDetails) return audit.error("Assignment details not found", undefined, 404);
 
     // RBAC: Faculty must own the assignment
     if (resolvedRole === "faculty" && entryDetails.facultyId !== userId) {
-      return err("Forbidden: not assigned to this subject", 403);
+      return audit.error("Forbidden: not assigned to this subject", undefined, 403);
     }
 
     // RBAC: Counselor must own the division
@@ -323,7 +330,7 @@ export async function POST(req: NextRequest) {
         .where(eq(counselorDivisionAssignments.facultyId, userId));
 
       if (!counselorAssignments.some((a) => a.divisionId === entry.divisionId)) {
-        return err("Forbidden: not assigned to this division", 403);
+        return audit.error("Forbidden: not assigned to this division", undefined, 403);
       }
     }
 
@@ -355,7 +362,7 @@ export async function POST(req: NextRequest) {
         studentId: s.id,
         status: existing.absentStudentIds.includes(s.id) ? "absent" : "present",
       }));
-      return ok({ sessionId: existing.id, isNew: false, records });
+      return audit.success(ok({ sessionId: existing.id, isNew: false, records }), { eid: String(existing.id) });
     }
 
     // Create a new ledger session (everyone present by default)
@@ -378,9 +385,8 @@ export async function POST(req: NextRequest) {
       status: "present",
     }));
 
-    return ok({ sessionId: newSessionId, isNew: true, records });
+    return audit.success(ok({ sessionId: newSessionId, isNew: true, records }), { eid: String(newSessionId) });
   } catch (error) {
-    console.error("[POST /api/attendance/sessions]", error);
-    return err("Internal server error", 500);
+    return audit.error(error);
   }
 }

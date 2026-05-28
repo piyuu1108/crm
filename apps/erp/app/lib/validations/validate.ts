@@ -27,10 +27,13 @@ export function validateBody<T>(
   const result = schema.safeParse(body);
 
   if (!result.success) {
-    const fieldErrors = result.error.issues.map((issue) => ({
-      field: issue.path.join("."),
-      message: issue.message,
-    }));
+    const fieldErrors: Record<string, string> = {};
+    result.error.issues.forEach((issue) => {
+      const key = issue.path.join(".");
+      if (!fieldErrors[key]) {
+        fieldErrors[key] = issue.message;
+      }
+    });
 
     return {
       success: false,

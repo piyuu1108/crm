@@ -1,0 +1,87 @@
+# Architectural Readiness Analysis: Classroom Seating & Internal Exams
+
+This document compares the desired features outlined in [Combine.md](file:///p:/02_projects/mono/apps/erp/docs/Combine.md) against the actual implementation in the Next.js/Drizzle/Postgres ERP workspace.
+
+---
+
+## Executive Summary
+
+| Module | Specs Defined in `Combine.md` | Current Codebase Implementation | Readiness Score | Status |
+| :--- | :--- | :--- | :---: | :---: |
+| **PART 1: Physical Classroom Infrastructure** | Database schema, CRUD operations, capacity metrics. | `classrooms` table, CRUD drawer, full dashboard listing. | **100%** | **Complete** |
+| **PART 1: Classroom Layout Designer** | Interactive logical grid coordinator, bench labels, capacity resizing, layout cloning/auto-generation. | Visual canvas grid editor, BookMyShow-style board & grids, add/remove, capacity `+`/`−`, auto-generator form, copy from other rooms, transactional saving, and real-time HOD stats. | **100%** | **Complete** |
+| **PART 1: Exam Seating Compatibility & Rules** | Ascending College ID sequential sorting, academic year derivation from `currentSemesterNo`, anti-cheating separation (FY/SY/TY), room ordering, dual-year filling, and manual regeneration. | Benches contain physical capacity constraints, but the automatic seating allocation engines, room sequencing logic, and student sequence filler algorithms are not yet written. | **0%** | **Not Started** |
+| **PART 2: Listing & Basic Exam Creation** | Exam listing table (DataTable), statuses, basic exam creation. | Listing table of exams, role-based entry point, flat basic creation popup card. | **60%** | **Partially Implemented** |
+| **PART 2: Stepper Wizard Flow & Advanced Step UI** | 7-step wizard (Basic Details, Target Scope, Eligibility Rules, Subject Selection, Schedule Planning, Hall Allocation, Review & Publish) with live summary panels, calendar slot mapping, custom duration inputs, and click-to-order hall allocations. | No `create/` route. HOD exam creation is confined to a simple flat single-card popup form. Individual step components or routes (e.g. `scope`, `eligibility`, `subjects`, `schedule`, `halls`) are completely missing. | **0%** | **Not Started** |
+| **PART 2: Advanced Relational Database Model** | Normalized schema relations: `Exam` → `ExamScopes` → `EligibilityScopes` → `ExamSubjects` → `ExamSchedules` → `ExamHallAllocations`. | Legacy flat `internal_exams` table. The normalized schema relations do not exist in `app/lib/schema.ts`. | **0%** | **Not Started** |
+
+---
+
+## Detailed Gap Analysis
+
+### PART 1: Classroom & Seating Infrastructure Management
+
+> [!NOTE]
+> The physical infrastructure layer is beautifully built, premium in appearance, and matches the modern visual guidelines.
+
+#### 1. Classroom Management
+* **Database Schema (Drizzle):** Fully implemented in [schema.ts](file:///p:/02_projects/mono/apps/erp/app/lib/schema.ts#L605-L620). Handles `roomCode` (e.g. G1, F2), `buildingName`, `floor`, `lectureCapacity`, `description`, and `isActive`.
+* **Classrooms Page:** Fully implemented at [app/classes/page.tsx](file:///p:/02_projects/mono/apps/erp/app/app/classes/page.tsx). Renders a data table with standard actions, floor color badges, and interactive KPI summaries (Total Classes, Physical Capacity, Active Benches, Layouts Configured/Unconfigured).
+* **Creation Drawer:** Operates perfectly using `CreateClassroomDrawer` via `@heroui/react` overlay triggers.
+
+#### 2. Classroom Layout Designer (BookMyShow-Style)
+* **View Layout Page:** Fully implemented at [app/classes/\[slug\]/page.tsx](file:///p:/02_projects/mono/apps/erp/app/app/classes/%5Bslug%5D/page.tsx). Renders a stage/board indicator and maps cells based on coordinate grid coordinates (`gridX`, `gridY`). Row lettering (A, B, C) and column numbering (Col 1, Col 2) are fully functional.
+* **Layout Editor Page:** Fully implemented at [app/classes/\[slug\]/edit/page.tsx](file:///p:/02_projects/mono/apps/erp/app/app/classes/%5Bslug%5D/edit/page.tsx). 
+  * *Add Bench:* Clicking standard dashed `+` empty grids immediately instantiates a bench.
+  * *Remove Bench:* Clicking the hover `X` button cleanses the grid coordinate.
+  * *Capacity Controls:* Bench cells contain `+` and `−` controls modifying `maxStudents` (caps at 1–4 per bench) inline.
+  * *Auto-Generate Tool:* Wizard utility allows setting a dynamic grid dimension (e.g. $4 \times 5$) and default bench capacity to seed layout immediately.
+  * *Copy Tool:* Features a select dropdown to copy the layout structure directly from other configured classrooms.
+  * *Backend API:* Handles PUT requests at [route.ts](file:///p:/02_projects/mono/apps/erp/app/api/classes/%5Bslug%5D/layout/route.ts) that transactionally deletes obsolete benches and populates newly constructed arrays.
+
+#### 3. Seating Generator Logic & Rules
+* **Status:** **0% implemented**.
+* **Missing Elements:**
+  * No seating allocation algorithm exists in the API routes.
+  * The HOD-defined room sequencing filler rules (e.g. `F1 → F2 → F3`) have no database schema storage or visual layout in the frontend.
+  * There are no functions/triggers to fetch eligible students based on their `currentSemesterNo` while sequentially ordering them by `College ID`.
+  * The anti-cheating bench capacity constraint logic (no two students of the same year per bench, multi-year list exhaustion handling) is not yet written.
+
+---
+
+### PART 2: Internal Examination Module Redesign
+
+> [!WARNING]
+> While a basic exam marks entry framework exists (supporting division-subject-exam mapping, draft saves, and student visibility toggling), the multi-step Stepper Wizard and its normalized relational database backend do not yet exist.
+
+#### 1. Stepper Wizard UI (`/create` route)
+* **Status:** **0% implemented**.
+* **Missing Routes/Views:**
+  * No stepper navigation or tab progress indicators.
+  * **Step 1 (Basic Details):** Only exists as a simple form fields box inside the main page component.
+  * **Step 2 (Target Scope):** No interactive grid showing student counts/division mapping, and no sticky summary panel.
+  * **Step 3 (Eligibility Rules):** No year-wise attendance rule cards (Minimum Attendance %, Approval Override toggles) or real-time indicators (Estimated Eligible / Blocked count).
+  * **Step 4 (Subject Selection):** No deduplicated unique subject mapping grid. Currently, subjects are selected per-division rather than deduplicating common subjects.
+  * **Step 5 (Schedule Planning):** No left-right schedule builder, timeline visualizer, calendar slots, or conflict detector.
+  * **Step 6 (Hall Allocation):** No visual room cards displaying utilization capacity progress bars, click-to-sequence order lists, or capacity warnings.
+  * **Step 7 (Review & Publish):** No visual reviews or generation action triggers.
+
+#### 2. Advanced Normalized Architecture
+* **Status:** **0% implemented**.
+* **Missing Tables:** The schema only holds a flat `internal_exams` record. To align with Section 5 of your specification, the following tables need to be created and linked:
+  1. `exam_scopes` (Links exams to multiple divisions/years)
+  2. `exam_eligibility_scopes` (Saves year-wise attendance policies & deadlines)
+  3. `exam_subjects` (Maps selected subjects and their scheduled durations)
+  4. `exam_schedules` (Saves scheduled dates, time slots, and their assigned subjects)
+  5. `exam_hall_allocations` (Saves room allocation ordering, capacity parameters, and final generated seat positions)
+
+---
+
+## Action Plan Recommendations (When You Are Ready to Build)
+
+1. **Phase 1: DB Normalization (Drizzle Migration)**
+   Refactor `app/lib/schema.ts` to implement the structured exam relation tables (Scopes, Eligibility, Subjects, Schedules, Allocations) to support cross-year schedules.
+2. **Phase 2: Wizard Creation Flow Frontend**
+   Create a dedicated `/app/academics/internal-exams/create` directory. Build the 7-step stepper wizard, using HeroUI components for forms, chips, and progress bars.
+3. **Phase 3: Seating & Supervision Core Engine**
+   Write the sequential coordinate seat generator algorithm. Leverage the physical coordinate structures of `classroomBenches` (X, Y) to allocate students in ascending order of `studentId` according to the anti-cheating constraints.

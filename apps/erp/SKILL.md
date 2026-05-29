@@ -1,0 +1,1 @@
+Propperly use Permision, query, cache, auth, zod reusablity function and etc.

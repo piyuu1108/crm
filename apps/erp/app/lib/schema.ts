@@ -426,16 +426,89 @@ export const circularRecipients = pgTable("circular_recipients", {
 export const internalExams = pgTable("internal_exams", {
   id: serial("id").primaryKey(),
   semesterId: integer("semester_id").notNull().references(() => semesters.id),
+  academicYearId: integer("academic_year_id"),
   examName: varchar("exam_name", { length: 100 }).notNull(),
   examNumber: integer("exam_number").notNull(),
-  targetType: varchar("target_type", { length: 20 }).notNull().default("ALL"), // "ALL" | "YEAR" | "DIVISION"
+  description: text("description"),
+  examType: varchar("exam_type", { length: 20 }).notNull().default("internal"), // "internal" | "mid" | "unit"
+  status: varchar("status", { length: 20 }).notNull().default("draft"), // "draft" | "scheduled" | "seating_pending" | "active" | "completed"
+  completedStep: integer("completed_step").notNull().default(0), // 0-7, tracks wizard progress
+  // Legacy flat targeting (kept for backward compat with marks entry)
+  targetType: varchar("target_type", { length: 20 }).notNull().default("ALL"),
   targetYear: integer("target_year"),
   targetDivisionId: integer("target_division_id").references(() => divisions.id),
   createdByFacultyId: integer("created_by_faculty_id").notNull().references(() => faculty.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => [
   index("ie_sem_idx").on(t.semesterId),
-  index("ie_sem_num_idx").on(t.semesterId, t.examNumber)
+  index("ie_sem_num_idx").on(t.semesterId, t.examNumber),
+  index("ie_status_idx").on(t.status),
+]);
+
+// -- EXAM SCOPES (Step 2: which divisions/years are targeted) --
+
+export const examScopes = pgTable("exam_scopes", {
+  id: serial("id").primaryKey(),
+  examId: integer("exam_id").notNull().references(() => internalExams.id, { onDelete: "cascade" }),
+  divisionId: integer("division_id").notNull().references(() => divisions.id),
+  yearLabel: integer("year_label").notNull(), // 1=FY, 2=SY, 3=TY etc derived from semesterNo
+}, (t) => [
+  uniqueIndex("es_exam_div_idx").on(t.examId, t.divisionId),
+  index("es_exam_idx").on(t.examId),
+]);
+
+// -- EXAM ELIGIBILITY RULES (Step 3: per-year attendance rules) --
+
+export const examEligibilityRules = pgTable("exam_eligibility_rules", {
+  id: serial("id").primaryKey(),
+  examId: integer("exam_id").notNull().references(() => internalExams.id, { onDelete: "cascade" }),
+  yearLabel: integer("year_label").notNull(), // 1, 2, 3…
+  minAttendancePercent: integer("min_attendance_percent").notNull().default(75),
+  allowApprovalOverride: boolean("allow_approval_override").notNull().default(false),
+  approvalDeadline: date("approval_deadline"),
+}, (t) => [
+  uniqueIndex("eer_exam_year_idx").on(t.examId, t.yearLabel),
+  index("eer_exam_idx").on(t.examId),
+]);
+
+// -- EXAM SUBJECTS (Step 4: selected subjects with durations) --
+
+export const examSubjects = pgTable("exam_subjects", {
+  id: serial("id").primaryKey(),
+  examId: integer("exam_id").notNull().references(() => internalExams.id, { onDelete: "cascade" }),
+  subjectId: integer("subject_id").notNull().references(() => subjects.id),
+  durationMinutes: integer("duration_minutes").notNull().default(60), // 60, 120, 180 or custom
+}, (t) => [
+  uniqueIndex("esub_exam_sub_idx").on(t.examId, t.subjectId),
+  index("esub_exam_idx").on(t.examId),
+]);
+
+// -- EXAM SCHEDULES (Step 5: date + time slot + subject assignments) --
+
+export const examSchedules = pgTable("exam_schedules", {
+  id: serial("id").primaryKey(),
+  examId: integer("exam_id").notNull().references(() => internalExams.id, { onDelete: "cascade" }),
+  examDate: date("exam_date").notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time").notNull(),
+  examSubjectId: integer("exam_subject_id").notNull().references(() => examSubjects.id, { onDelete: "cascade" }),
+}, (t) => [
+  index("esch_exam_idx").on(t.examId),
+  index("esch_exam_date_idx").on(t.examId, t.examDate),
+  uniqueIndex("esch_exam_sub_idx").on(t.examId, t.examSubjectId), // one schedule per subject
+]);
+
+// -- EXAM HALL ALLOCATIONS (Step 6: room ordering for seating) --
+
+export const examHallAllocations = pgTable("exam_hall_allocations", {
+  id: serial("id").primaryKey(),
+  examId: integer("exam_id").notNull().references(() => internalExams.id, { onDelete: "cascade" }),
+  classroomId: integer("classroom_id").notNull().references(() => classrooms.id),
+  sequenceOrder: integer("sequence_order").notNull(), // 1, 2, 3… filling order
+}, (t) => [
+  uniqueIndex("eha_exam_room_idx").on(t.examId, t.classroomId),
+  index("eha_exam_idx").on(t.examId),
 ]);
 
 export const internalExamMarks = pgTable("internal_exam_marks", {
